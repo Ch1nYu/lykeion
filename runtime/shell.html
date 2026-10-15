@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="generator" content="lykeion {{version}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=LXGW+WenKai+TC:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+{{palette_css}}
+{{base_css}}
+{{lab_css}}
+</style>
+</head>
+<body>
+<div class="readbar" aria-hidden="true"><span id="readbar"></span></div>
+<div class="topbar">
+  <button class="btn" id="menuBtn" aria-controls="side" aria-expanded="false">☰ <span data-str="menu"></span></button>
+  <b id="topTitle">{{title}}</b>
+  <span class="pct" id="topPct">0%</span>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="shell">
+<aside class="side" id="side" data-str-label="navLabel">
+  <div class="brand"><small>{{eyebrow}}</small><b>{{title}}</b></div>
+  <div class="meter">
+    <svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="track" cx="32" cy="32" r="27"/><circle class="val" id="ringVal" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="169.6"/><text x="32" y="33" id="ringTxt">0%</text></svg>
+    <div class="meter-txt" aria-live="polite"><b id="meterMain"></b><span id="meterSub"></span></div>
+  </div>
+  <nav class="nav" id="nav"></nav>
+  <div class="side-foot">
+    <button class="chipbtn" id="resetBtn" data-str="reset"></button>
+  </div>
+  <div class="confirm" id="resetConfirm" hidden>
+    <span data-str="resetAsk"></span>
+    <div><button class="chipbtn" id="resetYes" data-str="resetYes"></button><button class="chipbtn" id="resetNo" data-str="resetNo"></button></div>
+  </div>
+</aside>
+
+<main id="main">
+<div class="sheet">
+{{hero}}
+{{chapters}}
+</div>
+</main>
+</div>
+<div class="fab">
+  <button class="totop" id="toTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  <button id="themeBtn" type="button"></button>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="application/json" id="lykeion-data">{{data_json}}</script>
+<script>
+{{runtime_js}}
+</script>
+<script>
+{{lab_js}}
+</script>
+<script>Lykeion.start();</script>
+</body>
+</html>

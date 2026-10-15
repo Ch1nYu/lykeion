@@ -1,0 +1,76 @@
+{
+  "name": "冷紙石板 Cool Slate",
+  "description": "灰白冷調紙張配深藍主色，清爽、偏工程感。",
+  "light": {
+    "paper": "#EEF1F2",
+    "paper-deep": "#E1E6E9",
+    "card": "#F9FBFB",
+    "ink": "#1D252B",
+    "ink-2": "#45525B",
+    "muted": "#56636C",
+    "rule": "#CDD5DA",
+    "rule-strong": "#AEBAC2",
+    "accent": "#245C86",
+    "accent-ink": "#FFFFFF",
+    "accent-soft": "#D5E3EE",
+    "hl": "#F2DB8F",
+    "hl-soft": "rgba(242,219,143,.55)",
+    "good": "#24683C",
+    "good-soft": "#D8EADC",
+    "bad": "#A8352A",
+    "bad-soft": "#F4DCD8",
+    "s1": "#245C86",
+    "s2": "#C0621F",
+    "s3": "#856AC3",
+    "star": "#B8761A",
+    "shadow": "0 1px 0 rgba(30,45,60,.06), 0 8px 24px -12px rgba(30,45,60,.28)",
+    "shadow-sm": "0 1px 3px rgba(30,45,60,.2)",
+    "drawer-shadow": "12px 0 40px rgba(30,45,60,.25)",
+    "scrim": "rgba(10,20,30,.35)",
+    "grain": {
+      "tint": [
+        0.3,
+        0.36,
+        0.42
+      ],
+      "opacity": 0.3,
+      "blend": "multiply"
+    }
+  },
+  "dark": {
+    "paper": "#15191C",
+    "paper-deep": "#1B2024",
+    "card": "#20262B",
+    "ink": "#E4EAEE",
+    "ink-2": "#BCC7CE",
+    "muted": "#8F9CA5",
+    "rule": "#2F383F",
+    "rule-strong": "#45515A",
+    "accent": "#7DB5E0",
+    "accent-ink": "#0C1D2A",
+    "accent-soft": "#1D3344",
+    "hl": "#665526",
+    "hl-soft": "rgba(140,112,40,.45)",
+    "good": "#78C491",
+    "good-soft": "#1C3326",
+    "bad": "#F08A7C",
+    "bad-soft": "#43231F",
+    "s1": "#7DB5E0",
+    "s2": "#E89552",
+    "s3": "#8F74C5",
+    "star": "#E3A85A",
+    "shadow": "0 1px 0 rgba(0,0,0,.3), 0 10px 26px -12px rgba(0,0,0,.6)",
+    "shadow-sm": "0 1px 3px rgba(0,0,0,.5)",
+    "drawer-shadow": "12px 0 40px rgba(0,0,0,.5)",
+    "scrim": "rgba(0,0,0,.5)",
+    "grain": {
+      "tint": [
+        0.3,
+        0.36,
+        0.42
+      ],
+      "opacity": 0.18,
+      "blend": "screen"
+    }
+  }
+}

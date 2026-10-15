@@ -1,0 +1,30 @@
+{
+  "name": "書桌青綠 Desk Teal",
+  "description": "米色紙張配青綠主色；來自 2026-10 評比 82 分的期中講堂。",
+  "light": {
+    "paper": "#F4EEE1", "paper-deep": "#EAE1CD", "card": "#FBF8F1", "ink": "#2B261F", "ink-2": "#564D41", "muted": "#6A604E",
+    "rule": "#D8CCB4", "rule-strong": "#BFAF92",
+    "accent": "#0B6E65", "accent-ink": "#FFFFFF", "accent-soft": "#D3E5DE",
+    "hl": "#F2D88A", "hl-soft": "rgba(242,216,138,.55)",
+    "good": "#2A6E3F", "good-soft": "#DCEAD6", "bad": "#B03A2E", "bad-soft": "#F4DAD3",
+    "s1": "#008A7A", "s2": "#B7741A", "s3": "#8A4FA3", "star": "#B7741A",
+    "shadow": "0 1px 0 rgba(80,60,30,.06), 0 8px 24px -12px rgba(80,60,30,.28)",
+    "shadow-sm": "0 1px 3px rgba(80,60,30,.2)",
+    "drawer-shadow": "12px 0 40px rgba(40,30,15,.25)",
+    "scrim": "rgba(20,15,10,.35)",
+    "grain": { "tint": [0.45, 0.36, 0.22], "opacity": 0.42, "blend": "multiply" }
+  },
+  "dark": {
+    "paper": "#1C1A16", "paper-deep": "#24211B", "card": "#282420", "ink": "#ECE4D3", "ink-2": "#CBC0AC", "muted": "#9A8F7B",
+    "rule": "#3C362D", "rule-strong": "#564D40",
+    "accent": "#5FC0B0", "accent-ink": "#10201D", "accent-soft": "#1E3632",
+    "hl": "#6A5826", "hl-soft": "rgba(140,112,40,.45)",
+    "good": "#72C48D", "good-soft": "#1E3526", "bad": "#EC8577", "bad-soft": "#41231E",
+    "s1": "#1FA192", "s2": "#BD8226", "s3": "#A86FC8", "star": "#BD8226",
+    "shadow": "0 1px 0 rgba(0,0,0,.3), 0 10px 26px -12px rgba(0,0,0,.6)",
+    "shadow-sm": "0 1px 3px rgba(0,0,0,.5)",
+    "drawer-shadow": "12px 0 40px rgba(0,0,0,.5)",
+    "scrim": "rgba(0,0,0,.5)",
+    "grain": { "tint": [0.45, 0.36, 0.22], "opacity": 0.22, "blend": "screen" }
+  }
+}

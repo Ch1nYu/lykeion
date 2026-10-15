@@ -1,0 +1,76 @@
+{
+  "name": "典籍朱墨 Classic Cinnabar",
+  "description": "宣紙色配朱砂紅與墨黑，仿古籍批註。",
+  "light": {
+    "paper": "#F2EAD8",
+    "paper-deep": "#E7DCC4",
+    "card": "#FAF5EA",
+    "ink": "#1E1B18",
+    "ink-2": "#4A433B",
+    "muted": "#635A4E",
+    "rule": "#D6C8AC",
+    "rule-strong": "#BBA987",
+    "accent": "#A8321F",
+    "accent-ink": "#FFFFFF",
+    "accent-soft": "#F0D9CF",
+    "hl": "#EBCB7A",
+    "hl-soft": "rgba(235,203,122,.55)",
+    "good": "#2A6438",
+    "good-soft": "#DAE6D2",
+    "bad": "#8F2A1B",
+    "bad-soft": "#F1D6CC",
+    "s1": "#A8321F",
+    "s2": "#2E5E7A",
+    "s3": "#97872A",
+    "star": "#A8321F",
+    "shadow": "0 1px 0 rgba(80,55,25,.06), 0 8px 24px -12px rgba(80,55,25,.28)",
+    "shadow-sm": "0 1px 3px rgba(80,55,25,.2)",
+    "drawer-shadow": "12px 0 40px rgba(80,55,25,.25)",
+    "scrim": "rgba(25,15,5,.35)",
+    "grain": {
+      "tint": [
+        0.5,
+        0.4,
+        0.24
+      ],
+      "opacity": 0.48,
+      "blend": "multiply"
+    }
+  },
+  "dark": {
+    "paper": "#1B1814",
+    "paper-deep": "#23201A",
+    "card": "#28241E",
+    "ink": "#EEE5D3",
+    "ink-2": "#CCBFA8",
+    "muted": "#A3967F",
+    "rule": "#3D362B",
+    "rule-strong": "#574D3D",
+    "accent": "#EB8A72",
+    "accent-ink": "#2A0F08",
+    "accent-soft": "#45241B",
+    "hl": "#6A5626",
+    "hl-soft": "rgba(150,115,40,.45)",
+    "good": "#7BC38F",
+    "good-soft": "#1F3526",
+    "bad": "#F49582",
+    "bad-soft": "#47231C",
+    "s1": "#EB8A72",
+    "s2": "#78ADCB",
+    "s3": "#EADFB4",
+    "star": "#EB8A72",
+    "shadow": "0 1px 0 rgba(0,0,0,.3), 0 10px 26px -12px rgba(0,0,0,.6)",
+    "shadow-sm": "0 1px 3px rgba(0,0,0,.5)",
+    "drawer-shadow": "12px 0 40px rgba(0,0,0,.5)",
+    "scrim": "rgba(0,0,0,.5)",
+    "grain": {
+      "tint": [
+        0.5,
+        0.4,
+        0.24
+      ],
+      "opacity": 0.22,
+      "blend": "screen"
+    }
+  }
+}

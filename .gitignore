@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+/tmp/
+/fixtures/*/private/
+# build output of fixtures
+/fixtures/*/*.html
+/fixtures/*/checks.json
