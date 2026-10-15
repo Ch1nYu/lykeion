@@ -140,8 +140,12 @@ Labs break out of the reading column, so put them at the top level of a section 
 **`slider-calc`** — sliders in, computed readouts out.
 
 ```yaml
-inputs:  [{ id: c1, label: C1, min: 0, max: 6, step: 1, value: 2, unit: "" }]
-outputs: [{ label: Gini, expr: "gini(c1, 6 - c1)", digits: 3, best: min }]   # best: highlight min/max among outputs sharing it
+inputs:
+  - { id: c1, label: C1, min: 0, max: 6, step: 1, value: 2, unit: "" }                          # slider
+  - { id: emp, label: Employed, value: 1, options: [{ value: 1, label: "Yes" }, { value: 0, label: "No" }] }  # categorical buttons
+outputs:
+  - { label: Gini, expr: "gini(c1, 6 - c1)", digits: 3, best: min }   # best: highlight min/max among outputs sharing it
+  - { label: 預測, expr: "emp ? 1 : 0", labels: { "1": "Yes", "0": "No" } }   # labels: show text for exact values
 bars:    [{ label: Gini, expr: "gini(c1, 6 - c1)", max: 1 }]
 verdict: [{ when: "c1 == 3", text: "三個指標同時最大。" }]                  # first true wins
 ```
