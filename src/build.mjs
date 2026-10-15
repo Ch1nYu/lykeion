@@ -40,6 +40,7 @@ export async function build(dir, opts = {}) {
   const levels = []; // { t, s, qs }
   const levelIndex = new Map();
   const labSeq = { n: 0 };
+  const labUses = []; // { type, params, where } for schema checks
   const checks = [];
   const labsUsed = new Set();
   let sectionCount = 0, labCount = 0;
@@ -54,7 +55,7 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, project, S };
+      const ctx = { errors, where, sec, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const body = md.render(sec.body);
@@ -89,6 +90,7 @@ export async function build(dir, opts = {}) {
   for (const type of labsUsed) {
     const found = await findLab(type, dir);
     if (!found) { errors.push(`Lab type "${type}" not found in labs/ or ${join(dir, 'labs')}`); continue; }
+    if (found.schema) for (const u of labUses.filter((x) => x.type === type)) errors.push(...checkLabParams(found.schema, u));
     labJs.push(`/* Lab: ${type} */\n${found.js}`);
     if (found.css) labCss.push(`/* Lab: ${type} */\n${found.css}`);
   }
@@ -246,6 +248,7 @@ function renderLab(type, p, ctx) {
     return v;
   };
   p = walk(p);
+  ctx.labUses.push({ type, params: p, where: ctx.where });
   ctx.labSeq.n++;
   const id = p.id || `lab-${ctx.labSeq.n}`;
   const params = JSON.stringify(p).replace(/</g, '\\u003c');
@@ -259,8 +262,22 @@ async function findLab(type, dir) {
       await access(join(base, 'lab.js'));
       const js = await readFile(join(base, 'lab.js'), 'utf8');
       const css = await readFile(join(base, 'lab.css'), 'utf8').catch(() => '');
-      return { js, css };
+      const schema = await readFile(join(base, 'schema.json'), 'utf8').then(JSON.parse, () => null);
+      return { js, css, schema };
     } catch { /* try next */ }
   }
   return null;
+}
+
+// Unknown Lab parameters are errors: a misspelt or unsupported key would otherwise be ignored silently.
+export function checkLabParams(schema, { type, params, where }) {
+  const errs = [];
+  for (const k of Object.keys(params)) if (!schema.keys.includes(k)) errs.push(`${where}: Lab "${type}" has no parameter "${k}" (allowed: ${schema.keys.join(', ')})`);
+  for (const [k, allowed] of Object.entries(schema.items || {})) {
+    for (const [i, item] of (Array.isArray(params[k]) ? params[k] : []).entries()) {
+      if (!item || typeof item !== 'object') continue;
+      for (const key of Object.keys(item)) if (!allowed.includes(key)) errs.push(`${where}: Lab "${type}" ${k}[${i}] has no key "${key}" (allowed: ${allowed.join(', ')})`);
+    }
+  }
+  return errs;
 }

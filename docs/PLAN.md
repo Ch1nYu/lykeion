@@ -81,6 +81,19 @@ lykeion/                       # public repo
 
 Order: M0 → M1 → (M2 ∥ M3) → M4 → M5 → M6 → M7.
 
+## M7 result (2026-10-15)
+
+Independent reviewer scored the generated Data Mining site and the hand-made baseline side by side with `docs/rubric.md`:
+**generated 81.7 vs baseline 74.5** (the same baseline scored 82 under a different reviewer in the original review, so only the side-by-side comparison is calibrated).
+All four gates green, no high-severity findings; the 82-point absolute bar was missed by 0.3, mainly on Labs (6/10: half the Labs were steppers replaying slides, no tree / lattice / FP-tree visuals).
+
+## Next (v1.1, from the M7 review)
+1. Computational Lab types: `tree` (classify a record, grow with Hunt), `itemsets` (transactions + minsup → frequent/closed/maximal with a lattice), `fptree` (with node-links), `rule-lattice` (minconf). Brief: every Lab has at least one parameter that changes the result; steppers at most a third of a chapter's Labs.
+2. Neutral stepper chip states (current / visited / contains) with an automatic legend; keep freq / infreq / pruned for frequency only.
+3. `calc` datasets and helpers (`datasets: { basket: [...] }`, `sigma(basket, 'BCD')`) instead of copy-pasted IIFEs; one rounding policy so tables and derivations agree; full precision in verify-report.
+4. Disputed source-check items must be resolved on the page (rewrite, erratum or callout) or the source gate warns.
+5. Page-length budget per Depth; quiz answer-position balance check.
+
 ## TODO (not v1)
 - Public demo + CI on openly licensed material (e.g. OpenStax, CC BY).
 - `AGENTS.md` and workflow notes for Codex / Cursor.

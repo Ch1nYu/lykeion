@@ -1,0 +1,2 @@
+{ "keys": ["tag", "title", "hint", "id", "x", "y", "inputs", "curves", "marker"],
+  "items": { "inputs": ["id", "label", "min", "max", "step", "value", "unit"], "curves": ["label", "expr"] } }

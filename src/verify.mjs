@@ -124,10 +124,7 @@ async function renderGate(htmlPath) {
   const url = pathToFileURL(htmlPath).href;
   try {
     // Desktop, light.
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
-    const errors = watch(page);
-    await page.goto(url);
-    await page.waitForTimeout(400);
+    const { page, errors } = await openPage(browser, url, { viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
 
     const stats = await page.evaluate(() => {
       const unrendered = [];
@@ -199,10 +196,7 @@ async function renderGate(htmlPath) {
     await page.close();
 
     // Mobile, dark.
-    const m = await browser.newPage({ viewport: { width: 375, height: 760 }, colorScheme: 'dark' });
-    const mErrors = watch(m);
-    await m.goto(url);
-    await m.waitForTimeout(300);
+    const { page: m, errors: mErrors } = await openPage(browser, url, { viewport: { width: 375, height: 760 }, colorScheme: 'dark' });
     const mob = await m.evaluate(() => {
       const over = [...document.querySelectorAll('main *')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.right > innerWidth + 1 && !e.closest('.tablewrap,.vizwrap,.formula,pre,.calc,.trail'); }).slice(0, 5).map((e) => e.tagName.toLowerCase() + (e.className ? '.' + String(e.className).split(' ')[0] : ''));
       return { scrollW: document.documentElement.scrollWidth, over, paper: getComputedStyle(document.documentElement).getPropertyValue('--paper').trim(), bg: getComputedStyle(document.body).backgroundColor };
@@ -226,9 +220,20 @@ async function renderGate(htmlPath) {
   return { name: 'render', status: bad ? 'fail' : 'pass', headline: bad ? `${bad} problem(s)` : `${items.length} checks passed`, items };
 }
 
+// Verification must not depend on the network: external web fonts are blocked and pages are
+// checked once the DOM is ready (fonts only change how the page looks, not whether it works).
+async function openPage(browser, url, opts) {
+  const page = await browser.newPage(opts);
+  await page.route(/^https?:\/\//, (route) => route.abort());
+  const errors = watch(page);
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+  return { page, errors };
+}
+
 function watch(page) {
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)/.test(m.text())) errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)|net::ERR_FAILED|ERR_BLOCKED/.test(m.text())) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   return errors;
 }

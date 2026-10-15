@@ -1,5 +1,5 @@
 /* Lab type "table": editable contingency table / matrix with live outputs.
-   params: { names: [[..]], rows: [..], cols: [..], values: [[..]], margins?, outputs?: [{ label, expr, digits? }],
+   params: { names: [[..]], rows: [..], cols: [..], values: [[..]], margins?, outputs?: [{ label, expr, digits?, labels? }],
              actions?: [{ label, set?: { name: expr }, reset? }], verdict?: [{ when, text }] } */
 Lykeion.registerLab('table', function (root, p, api) {
   var H = api.H, esc = api.esc;
@@ -57,7 +57,7 @@ Lykeion.registerLab('table', function (root, p, api) {
       (names[0] || []).forEach(function (_, c) { tableWrap.querySelector('[data-col="' + c + '"]').textContent = names.reduce(function (a, row) { return a + state[row[c]]; }, 0); });
       tableWrap.querySelector('[data-all]').textContent = all;
     }
-    outs.forEach(function (o) { api.setVal(o.el.querySelector('b'), api.fmt(o.fn(state), o.digits == null ? 3 : o.digits)); });
+    outs.forEach(function (o) { var v = o.fn(state); api.setVal(o.el.querySelector('b'), o.labels && Object.prototype.hasOwnProperty.call(o.labels, String(v)) ? o.labels[String(v)] : api.fmt(v, o.digits == null ? 3 : o.digits)); });
     for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.innerHTML = verdicts[k].text; verdictEl.hidden = false; return; } }
     verdictEl.innerHTML = ''; verdictEl.hidden = true;
   }

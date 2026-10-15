@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { numericGate, coverageGate, parsePages, verify } from '../src/verify.mjs';
-import { build } from '../src/build.mjs';
+import { build, checkLabParams } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const M = { compile: (e) => () => Function(`"use strict"; return (${e});`)() };
@@ -61,4 +61,12 @@ test('render gate moves a slider that starts at its maximum the other way', asyn
   const r = await verify(dir);
   const render = r.gates.find((g) => g.name === 'render');
   assert.ok(render.items.some((i) => i.ok === true && /slider-calc\): slider → output changed/.test(i.msg) && /lab-5/.test(i.msg)), render.items.map((i) => i.msg).join('\n'));
+});
+
+test('build rejects Lab parameters the Lab type does not support', () => {
+  const schema = { keys: ['title', 'outputs'], items: { outputs: ['label', 'expr'] } };
+  const errs = checkLabParams(schema, { type: 'table', where: 'x.md §1.1', params: { title: 't', outputs: [{ label: 'a', expr: '1', labels: {} }], colour: 'red' } });
+  assert.equal(errs.length, 2);
+  assert.match(errs.join('\n'), /no parameter "colour"/);
+  assert.match(errs.join('\n'), /outputs\[0\] has no key "labels"/);
 });

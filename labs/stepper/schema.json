@@ -1,0 +1,2 @@
+{ "keys": ["tag", "title", "hint", "id", "steps", "start"],
+  "items": { "steps": ["label", "text", "table", "chips"] } }

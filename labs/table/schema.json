@@ -1,0 +1,2 @@
+{ "keys": ["tag", "title", "hint", "id", "names", "rows", "cols", "values", "margins", "outputs", "actions", "verdict"],
+  "items": { "outputs": ["label", "expr", "digits", "labels"], "actions": ["label", "set", "reset"], "verdict": ["when", "text"] } }
