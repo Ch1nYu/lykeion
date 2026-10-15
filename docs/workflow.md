@@ -36,6 +36,8 @@ Done when every Scope page has a `.txt` and a `.png`.
 
 Read every Scope page: the `.txt` for wording, the `.png` whenever the slide carries a figure, table, tree or formula (text extraction loses layout and maths). Then write `<project>/outline.md` following `references/outline.md`.
 
+For a Scope larger than about 40 pages with sub-agents available, dispatch one drafter per PDF (or page block) in parallel, each writing its chapter's part of the Outline from `references/outline.md`; then merge the parts into `outline.md` yourself and check that the parts together cover every Scope page.
+
 Done when every Scope page is assigned to a section in the Outline, each section has its planned Labs, quiz items and `calc` targets, and the Outline names one Palette from `lykeion palette list`.
 
 Show the Outline to the user and wait for approval — the cheapest moment to change direction. Skip the wait only when the user said to proceed without review. Record the approved Palette: `lykeion palette use <title> <id>`, and set it in `lykeion.json`.
