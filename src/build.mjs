@@ -238,6 +238,14 @@ function addQuiz(items, levelArg, ctx, md) {
 function renderLab(type, p, ctx) {
   if (!type) { ctx.errors.push(`${ctx.where}: lab block needs a type, e.g. \`\`\`lab slider-calc`); return ''; }
   ctx.labsUsed.add(type);
+  // `text` / `note` values are inline Markdown with maths, rendered here so Labs receive HTML.
+  const md = createMarkdown(ctx);
+  const walk = (v) => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, (k === 'text' || k === 'note') && typeof x === 'string' ? md.renderInline(x) : walk(x)]));
+    return v;
+  };
+  p = walk(p);
   ctx.labSeq.n++;
   const id = p.id || `lab-${ctx.labSeq.n}`;
   const params = JSON.stringify(p).replace(/</g, '\\u003c');

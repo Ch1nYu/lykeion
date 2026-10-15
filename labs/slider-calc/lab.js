@@ -54,7 +54,7 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
       b.el.querySelector('i').style.width = Math.max(0, Math.min(100, bv[i] / scale * 100)) + '%';
       b.el.querySelector('b').textContent = api.fmt(bv[i], b.digits == null ? 3 : b.digits);
     });
-    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.textContent = verdicts[k].text; verdictEl.hidden = false; return; } }
+    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.innerHTML = verdicts[k].text; verdictEl.hidden = false; return; } }
     verdictEl.textContent = ''; verdictEl.hidden = true;
   }
   update();
