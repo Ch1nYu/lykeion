@@ -9,12 +9,20 @@ const require = createRequire(import.meta.url);
 const PDFJS_DIR = dirname(require.resolve('pdfjs-dist/package.json'));
 
 export const help = `lykeion extract <pdf...> [--pages a-b] [--out dir] [--no-images] [--scale n]
+lykeion extract --project <project-dir>     (every Scope entry → <project>/pages)
 
 Writes <out>/<pdf-stem>/p-001.txt (+ p-001.png) per page and <out>/index.json.
 Default out: <first pdf dir>/lykeion/pages`;
 
 export async function run(args) {
   const opts = parseArgs(args);
+  if (opts.project) {
+    const proj = JSON.parse(await readFile(join(resolve(opts.project), 'lykeion.json'), 'utf8'));
+    for (const sc of proj.scope || []) {
+      await run([sc.path || join(resolve(opts.project), '..', sc.file), '--pages', sc.pages, '--out', join(resolve(opts.project), 'pages'), ...(opts.images ? [] : ['--no-images'])]);
+    }
+    return;
+  }
   if (!opts.pdfs.length) throw new Error('No PDF given.\n\n' + help);
   const outRoot = resolve(opts.out || join(dirname(resolve(opts.pdfs[0])), 'lykeion', 'pages'));
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -45,13 +53,14 @@ export async function run(args) {
 }
 
 function parseArgs(args) {
-  const o = { pdfs: [], pages: null, out: null, images: true, scale: 1.5 };
+  const o = { pdfs: [], pages: null, out: null, images: true, scale: 1.5, project: null };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--pages') o.pages = args[++i];
     else if (a === '--out') o.out = args[++i];
     else if (a === '--no-images') o.images = false;
     else if (a === '--scale') o.scale = Number(args[++i]);
+    else if (a === '--project') o.project = args[++i];
     else if (a.startsWith('--')) throw new Error(`Unknown option ${a}`);
     else o.pdfs.push(a);
   }
@@ -118,3 +127,12 @@ async function renderImages(index, scale) {
 }
 
 const pad = (n) => String(n).padStart(3, '0');
+
+export async function pdfjsPageCount(pdfPath) {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task = pdfjs.getDocument({ data: new Uint8Array(await readFile(pdfPath)), verbosity: 0 });
+  const doc = await task.promise;
+  const n = doc.numPages;
+  await task.destroy();
+  return n;
+}

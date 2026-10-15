@@ -1,0 +1,16 @@
+---
+name: lykeion
+description: Lecture slides → a verified, interactive single-file teaching site (Lecture Site) with Labs, quizzes and source-checked content. Use when the user wants course slides or lecture PDFs turned into a study / teaching web page (做成講堂、教學網頁、講義網站), or wants a chapter added to or rewritten in an existing Lecture Site (a folder with lykeion.json).
+---
+
+# lykeion
+
+This skill's directory is the lykeion repo. Run its CLI as `node <this skill's directory>/bin/lykeion.mjs <command>`.
+
+Follow `docs/workflow.md` from step 1, in order; it points to every other file you need (`references/`, `docs/content-format.md`). Use the vocabulary of `GLOSSARY.md` when talking to the user.
+
+Claude Code specifics:
+
+- Read PDFs' page images (`pages/<pdf>/p-NNN.png`) with the Read tool; it shows figures and formulas.
+- Step 4: dispatch one sub-agent per chapter in parallel. Step 7: dispatch a fresh sub-agent as the source checker.
+- Ask the Depth and the Outline approval as questions to the user, and wait for the answers.

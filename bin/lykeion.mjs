@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // lykeion CLI: every deterministic step of the workflow lives here (ADR 0004).
 const COMMANDS = {
+  init: () => import('../src/init.mjs'),
   extract: () => import('../src/extract.mjs'),
   build: () => import('../src/build.mjs'),
   verify: () => import('../src/verify.mjs'),
@@ -10,6 +11,7 @@ const COMMANDS = {
 const USAGE = `usage: lykeion <command> [options]
 
 commands:
+  init      create a Lecture Site project next to its PDFs
   extract   PDF → per-page text + images
   build     content Markdown → single-file Lecture Site
   verify    run the verification gates on a built Lecture Site

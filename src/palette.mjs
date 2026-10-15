@@ -1,5 +1,5 @@
 // `lykeion palette`: load, check and render Palettes (ADR 0002).
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configDir } from './config.mjs';
@@ -16,19 +16,22 @@ export const TOKENS = ['paper', 'paper-deep', 'card', 'ink', 'ink-2', 'muted', '
   'hl', 'hl-soft', 'good', 'good-soft', 'bad', 'bad-soft', 's1', 's2', 's3', 'star', 'shadow', 'shadow-sm', 'drawer-shadow', 'scrim'];
 const NON_COLOUR = new Set(['shadow', 'shadow-sm', 'drawer-shadow']);
 
-export const help = `lykeion palette <list|check|specimen> [ids...] [--candidates] [--out file]
+export const help = `lykeion palette <list|check|specimen|suggest|use> [ids...] [--candidates] [--out file]
 
   list                 list Palettes (bundled, personal; --candidates adds candidates)
   check [ids...]       contrast and colour-vision checks; exits 1 if any Palette fails
-  specimen [ids...]    write the Palette Specimen page (default: all candidates)`;
+  specimen [ids...]    write the Palette Specimen page (default: all candidates)
+  suggest              print a library Palette not yet used by any subject
+  use <subject> <id>   record that a subject uses a Palette (avoids repeats)`;
 
 export async function run(args) {
   const [sub, ...rest] = args;
   const outIdx = rest.indexOf('--out');
   const out = outIdx >= 0 ? rest[outIdx + 1] : null;
   const ids = rest.filter((a, i) => !a.startsWith('--') && !(outIdx >= 0 && i === outIdx + 1));
-  const all = await loadAll({ candidates: rest.includes('--candidates') || sub === 'specimen' || ids.length > 0 });
-  const pick = ids.length ? ids.map((id) => all.find((p) => p.id === id) || fail(`no Palette "${id}"`)) : all;
+  const listing = ['list', 'check', 'specimen'].includes(sub);
+  const all = await loadAll({ candidates: rest.includes('--candidates') || sub === 'specimen' || (listing && ids.length > 0) });
+  const pick = listing && ids.length ? ids.map((id) => all.find((p) => p.id === id) || fail(`no Palette "${id}"`)) : all;
   if (sub === 'list') {
     for (const p of all) console.log(`${p.id.padEnd(18)} ${p.source.padEnd(10)} ${p.name}`);
   } else if (sub === 'check') {
@@ -39,6 +42,14 @@ export async function run(args) {
       if (!r.ok) bad++;
     }
     if (bad) { process.exitCode = 1; console.log(`\n${bad} Palette(s) failed.`); }
+  } else if (sub === 'suggest') {
+    console.log(await suggestPalette());
+  } else if (sub === 'use') {
+    const [subject, id] = rest;
+    if (!subject || !id) throw new Error('usage: lykeion palette use <subject> <id>');
+    await loadPalette(id);
+    const reg = await loadRegistry(); reg[subject] = id; await saveRegistry(reg);
+    console.log(`${subject} → ${id}`);
   } else if (sub === 'specimen') {
     const { writeSpecimen } = await import('./specimen.mjs');
     const file = await writeSpecimen(ids.length ? pick : all.filter((p) => p.source === 'candidates'), out);
@@ -157,4 +168,22 @@ export function formatReport(p, r) {
     lines.push(`   ✗ [${x.theme}] ${x.name}: ${x.value.toFixed(2)} < ${x.min} (${x.what})`);
   }
   return lines.join('\n');
+}
+
+// ---------- registry: which subject uses which Palette (personal, ADR 0003) ----------
+const registryPath = () => join(configDir(), 'registry.json');
+export async function loadRegistry() {
+  try { return JSON.parse(await readFile(registryPath(), 'utf8')); } catch { return {}; }
+}
+async function saveRegistry(reg) {
+  await mkdir(configDir(), { recursive: true });
+  await writeFile(registryPath(), JSON.stringify(reg, null, 2) + '\n');
+}
+// The least-used library Palette, ties broken by library order.
+export async function suggestPalette() {
+  const lib = await loadAll();
+  if (!lib.length) throw new Error('the Palette Library is empty');
+  const used = Object.values(await loadRegistry());
+  const count = (id) => used.filter((x) => x === id).length;
+  return lib.map((p, i) => ({ id: p.id, n: count(p.id), i })).sort((a, b) => a.n - b.n || a.i - b.i)[0].id;
 }
