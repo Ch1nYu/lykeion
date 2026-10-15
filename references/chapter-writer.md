@@ -39,6 +39,10 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 - `ex` explains why the answer is right **and** why the tempting wrong option is wrong, in 1–3 sentences.
 - Every item's answer is consistent with what the chapter itself says (the same classification, the same numbers).
 
+## Layout
+
+- Inline maths cannot wrap: keep `$…$` short (about 25 characters of output); put a longer expression on its own line with `$$…$$`, which scrolls on narrow screens.
+
 ## Language
 
 Traditional Chinese (Taiwan) prose; keep technical terms in English on first use, e.g. 節點不純度（Node Impurity）, then use one form consistently. TeX exactly as in a `.tex` file.
