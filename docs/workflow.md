@@ -64,7 +64,7 @@ Done when numeric, coverage and render all show ✓. A render gate marked "skipp
 
 ## 7. Source check
 
-Dispatch an independent reviewer with fresh context (a sub-agent; without one, do it yourself after re-reading `references/source-checker.md` from the top) to compare the built content with the cited pages and the References. It writes `<project>/source-check.md`.
+Dispatch an independent reviewer with fresh context (a sub-agent; without one, do it yourself after re-reading `references/source-checker.md` from the top) to compare the built content with the cited pages and the References. It writes `<project>/source-check.md`. For a site with several chapters and sub-agents available, dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format; then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
 
 Fix every finding marked **certain**, rebuild, and re-run steps 6–7. Leave **disputed** findings unchanged for the user.
 

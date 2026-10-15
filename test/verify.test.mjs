@@ -53,3 +53,12 @@ test('render gate catches a Lab that throws', async () => {
   assert.equal(render.status, 'fail');
   assert.ok(render.items.some((i) => i.ok === false && /kaboom/.test(i.msg)));
 });
+
+test('render gate moves a slider that starts at its maximum the other way', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-max.md'), '---\nchapter: 3\ntitle: Max\nsource: sample.pdf\n---\n\n## 3.1 Max {pages=1}\n\n```lab slider-calc\ntitle: x\ninputs: [{ id: k, label: k, min: 2, max: 20, step: 1, value: 20 }]\noutputs: [{ label: r, expr: "1/log2(k)" }]\n```\n');
+  await build(dir);
+  const r = await verify(dir);
+  const render = r.gates.find((g) => g.name === 'render');
+  assert.ok(render.items.some((i) => i.ok === true && /slider-calc\): slider → output changed/.test(i.msg) && /lab-5/.test(i.msg)), render.items.map((i) => i.msg).join('\n'));
+});

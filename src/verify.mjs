@@ -163,7 +163,7 @@ async function renderGate(htmlPath) {
         const num = body.querySelector('input[type=number]');
         const btn = [...body.querySelectorAll('button')].find((b) => !b.disabled && b.getAttribute('aria-pressed') !== 'true');
         let how;
-        if (range) { range.value = range.max; range.dispatchEvent(new Event('input', { bubbles: true })); how = 'slider'; }
+        if (range) { range.value = Number(range.value) === Number(range.max) ? range.min : range.max; range.dispatchEvent(new Event('input', { bubbles: true })); how = 'slider'; }
         else if (num) { num.value = String(Number(num.value || 0) + 7); num.dispatchEvent(new Event('input', { bubbles: true })); how = 'number input'; }
         else if (btn) { btn.click(); how = 'button'; }
         else return { how: 'none', changed: false };
