@@ -90,7 +90,9 @@ export async function build(dir, opts = {}) {
   for (const type of labsUsed) {
     const found = await findLab(type, dir);
     if (!found) { errors.push(`Lab type "${type}" not found in labs/ or ${join(dir, 'labs')}`); continue; }
-    if (found.schema) for (const u of labUses.filter((x) => x.type === type)) errors.push(...checkLabParams(found.schema, u));
+    const uses = labUses.filter((x) => x.type === type);
+    if (found.schema) for (const u of uses) errors.push(...checkLabParams(found.schema, u));
+    for (const u of uses) errors.push(...checkItemsetParams(u));
     labJs.push(`/* Lab: ${type} */\n${found.js}`);
     if (found.css) labCss.push(`/* Lab: ${type} */\n${found.css}`);
   }
@@ -278,6 +280,32 @@ export function checkLabParams(schema, { type, params, where }) {
       if (!item || typeof item !== 'object') continue;
       for (const key of Object.keys(item)) if (!allowed.includes(key)) errs.push(`${where}: Lab "${type}" ${k}[${i}] has no key "${key}" (allowed: ${allowed.join(', ')})`);
     }
+  }
+  // Single-object parameters (e.g. itemsets' `minsup`) get the same key check, so a typo like
+  // `minimum:` fails the build instead of being silently ignored.
+  for (const [k, allowed] of Object.entries(schema.objects || {})) {
+    const obj = params[k];
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue;
+    for (const key of Object.keys(obj)) if (!allowed.includes(key)) errs.push(`${where}: Lab "${type}" ${k} has no key "${key}" (allowed: ${allowed.join(', ')})`);
+  }
+  return errs;
+}
+
+// itemsets-only limits. The Lab enumerates every non-empty subset of the item universe, so an
+// oversized universe or a nonsensical minsup is rejected at build time instead of shipped to the
+// page. Deliberately not a generic range system: this is the only type with combinatorial params.
+export function checkItemsetParams({ type, params, where }) {
+  if (type !== 'itemsets') return [];
+  const errs = [];
+  const tx = Array.isArray(params.transactions) ? params.transactions : [];
+  if (tx.length < 1 || tx.length > 20) errs.push(`${where}: Lab "itemsets" has ${tx.length} transaction(s); 1–20 are supported`);
+  const items = new Set();
+  for (const t of tx) for (const it of (t && t.items) || []) items.add(String(it));
+  if (items.size > 6) errs.push(`${where}: Lab "itemsets" has ${items.size} distinct items; at most 6 are supported (the lattice enumerates every subset)`);
+  const ms = params.minsup;
+  if (tx.length && ms && typeof ms === 'object' && !Array.isArray(ms)) {
+    const v = Number(ms.value);
+    if (!Number.isInteger(v) || v < 1 || v > tx.length) errs.push(`${where}: Lab "itemsets" minsup.value must be an integer between 1 and ${tx.length} (the transaction count); got ${JSON.stringify(ms.value)}`);
   }
   return errs;
 }

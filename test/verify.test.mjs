@@ -60,7 +60,12 @@ test('render gate moves a slider that starts at its maximum the other way', asyn
   await build(dir);
   const r = await verify(dir);
   const render = r.gates.find((g) => g.name === 'render');
-  assert.ok(render.items.some((i) => i.ok === true && /slider-calc\): slider → output changed/.test(i.msg) && /lab-5/.test(i.msg)), render.items.map((i) => i.msg).join('\n'));
+  // The appended chapter's Lab is the last one mounted, so identify it by the gate's own Lab count
+  // instead of a hardcoded index (the sample fixture gains Labs as content grows).
+  const mounted = render.items.find((i) => /Labs mounted/.test(i.msg));
+  assert.ok(mounted, render.items.map((i) => i.msg).join('\n'));
+  const last = Number(mounted.msg.match(/(\d+) Labs mounted/)[1]);
+  assert.ok(render.items.some((i) => i.ok === true && new RegExp(`Lab lab-${last} \\(slider-calc\\): slider → output changed`).test(i.msg)), render.items.map((i) => i.msg).join('\n'));
 });
 
 test('build rejects Lab parameters the Lab type does not support', () => {

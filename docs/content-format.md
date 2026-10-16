@@ -183,8 +183,26 @@ y: { label: impurity, min: 0, max: 1 }    # optional; default fits the curves
 marker: { label: p, value: 0.3 }   # optional x marker (slider) with live readouts per curve
 ```
 
+**`itemsets`** — transactions + `minsup` → which itemsets are frequent, closed and maximal, drawn as an itemset lattice (level = itemset size, edge = subset → superset). The reader moves the `minsup` slider and sees the verdicts change; the counts come from `LykeionMath.itemsets`, which `lykeion verify` recomputes from the same parameters.
+
+```yaml
+transactions:                       # 1–20 baskets, 1–6 distinct items overall
+  - { tid: t1, items: [A, B, C, D] }
+  - { tid: t2, items: [A, B, C] }
+  - { tid: t3, items: [A, B] }
+  - { tid: t4, items: [A, C, D] }
+  - { tid: t5, items: [B, C] }
+minsup: { value: 2 }                # absolute support count; min defaults to 1, max to the basket count
+show: [frequent, closed, maximal]   # optional: which readouts and legend states to show (default: all three)
+verdict: [{ when: "nMaximal == 2", text: "minsup = 2：{A,B,C} 與 {A,C,D} 都是最大項目集。" }]
+```
+
+Node states: infrequent (dashed, struck through), frequent, closed, maximal (a maximal itemset is also closed, so it is drawn filled with a heavier ring). Emphasis grows frequent < closed < maximal. The empty set ∅ sits above level 1, is styled neutrally and is not part of the taxonomy, so it is not counted in the readouts. The legend swatches are the node markup at legend size, so they always show the same paint as the lattice. The lattice never renders narrower than its viewBox, so on a narrow screen it keeps its text size and `.vizwrap` scrolls horizontally instead of the page overflowing. `verdict.when` is an expression over `minsup`, `nFrequent`, `nClosed`, `nMaximal`.
+
 **Custom Labs** — `<project>/labs/<type>/lab.js` calling `Lykeion.registerLab('<type>', (root, params, api) => { … })`. `api` provides `H`, `S` (DOM/SVG builders), `esc`, `fmt`, `setVal`, `setSeg`, `onSeg`, `fillRange`, `toast`, `reduceMotion`; `LykeionMath.compile(expr, names)` evaluates expressions. A custom Lab must pass `lykeion verify` like any other.
 
 ## Maths library (Lab expressions and `calc`)
 
-`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, gini(...counts), entropy(...counts), error(...counts), C(n,k), fact(n), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, gini(...counts), entropy(...counts), error(...counts), C(n,k), fact(n), itemsets(transactions, minsup), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+
+`LykeionMath.itemsets(transactions, minsup)` returns `{ minsup, n, universe, sets, frequent, closed, maximal, counts }`: every non-empty itemset of the item universe with its absolute support `sigma`, plus `frequent` / `closed` / `maximal` flags. It is available to Lab code and to `calc` expressions.

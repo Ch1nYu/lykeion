@@ -170,6 +170,75 @@ async function renderGate(htmlPath) {
       add(res.changed && !res.nan, `Lab ${lab.id} (${lab.type}): ${res.how === 'none' ? 'has no control' : `${res.how} → ${res.changed ? 'output changed' : 'NO visible change'}`}${res.nan ? ', shows NaN/undefined' : ''}`);
     }
 
+    // Itemset Labs: the page computes its counts, the gate recomputes them from the same params
+    // (LykeionMath.itemsets, the module inlined into the page) at several minsup values. A Lab
+    // counts as an itemset Lab when its params carry transactions and its body shows [data-count]
+    // readouts, so a project-local custom variant is held to the same standard as the built-in one.
+    const math = await loadMath();
+    for (const lab of stats.labs) {
+      const probe = await page.evaluate(async (id) => {
+        const el = document.getElementById(id);
+        const params = JSON.parse(el.querySelector('script.lab-params').textContent);
+        const body = el.querySelector('.lab-body');
+        if (!Array.isArray(params.transactions) || !params.transactions.length) return null;
+        if (!body.querySelector('[data-count]')) return null;
+        // Legend contract: a swatch must be painted exactly like the node state it names, or the
+        // legend teaches the wrong thing. The reference is a REAL lattice node of that state (never
+        // a synthetic one built from the swatch's own class — that would compare the swatch to
+        // itself and miss a swatch naming a state the lattice does not use).
+        const svg = body.querySelector('svg.lattice');
+        const styleOf = (g) => {
+          const cs = getComputedStyle(g.querySelector('rect'));
+          const ts = getComputedStyle(g.querySelector('.lat-txt'));
+          return [cs.fill, cs.stroke, cs.strokeWidth, cs.strokeDasharray, ts.fill, ts.textDecorationLine].join('|');
+        };
+        const stateOf = (g) => [...g.classList].filter((c) => c !== 'lat-node' && c !== 'lg' && c !== 'muted').join(' ');
+        // Swatches are `svg.lat-node`; real lattice nodes are `g.lat-node`, so this only ever
+        // matches legend swatches and works even for a custom Lab that has no lattice at all.
+        const swatches = [...body.querySelectorAll('svg.lat-node')].map((g) => ({ state: stateOf(g), paint: styleOf(g) }));
+        // The states a swatch may name: the ones the lattice can render. A swatch naming anything
+        // else is class drift (the bug this check exists for) and is reported as such.
+        const valid = ['infrequent', 'empty'].concat(params.show && params.show.length ? params.show : ['frequent', 'closed', 'maximal']);
+        const range = body.querySelector('input[type=range]');
+        if (!range) return { params, readings: [], swatches, nodes: {}, valid };
+        const readings = [], nodes = {};
+        for (const v of [...new Set([range.min, range.max, range.max === range.min ? range.min : String(Number(range.max) - 1)])]) {
+          range.value = v; range.dispatchEvent(new Event('input', { bubbles: true }));
+          await new Promise((r) => setTimeout(r, 30));
+          const counts = {};
+          for (const cell of body.querySelectorAll('[data-count]')) counts[cell.dataset.count] = Number(cell.querySelector('b').textContent);
+          readings.push({ minsup: Number(range.value), counts });
+          // Muted nodes are the states the reader asked not to see, so they are not a style reference.
+          for (const g of (svg ? svg.querySelectorAll('g.lat-node') : [])) {
+            if (g.classList.contains('muted')) continue;
+            const st = stateOf(g);
+            if (!(st in nodes)) nodes[st] = styleOf(g);
+          }
+        }
+        return { params, readings, swatches, nodes, valid };
+      }, lab.id);
+      if (!probe) continue;
+      const drift = probe.swatches.map((s) => ({ s, real: probe.nodes[s.state] }));
+      // An unknown state name is class drift; a known state with no rendered node is fine (that state
+      // simply does not occur at the probed minsup values), so only the paint comparison applies then.
+      const unknown = drift.filter((d) => probe.valid.indexOf(d.s.state) < 0);
+      const wrongPaint = drift.filter((d) => d.real && d.s.paint !== d.real);
+      if (drift.length) add(!unknown.length && !wrongPaint.length, unknown.length
+        ? `Lab ${lab.id} (${lab.type}): legend swatch "${unknown[0].s.state}" names a state the lattice does not use (states: ${probe.valid.join(', ')})`
+        : wrongPaint.length
+          ? `Lab ${lab.id} (${lab.type}): legend swatch "${wrongPaint[0].s.state}" is not painted like its node — swatch ${wrongPaint[0].s.paint}, node ${wrongPaint[0].real}`
+          : `Lab ${lab.id} (${lab.type}): ${drift.length} legend swatches are painted exactly like the lattice node states they name`);
+      if (!probe.readings.length) { add(false, `Lab ${lab.id} (${lab.type}): has no minsup slider to probe`); continue; }
+      const wrong = (r) => Object.entries(r.counts)
+        .map(([k, shown]) => ({ k, shown, want: math.itemsets(probe.params.transactions, r.minsup).counts[k] }))
+        .filter((d) => d.want === undefined ? true : !Number.isFinite(d.shown) || d.shown !== d.want);
+      const bad = probe.readings.map((r) => ({ r, d: wrong(r) })).filter((x) => x.d.length);
+      const show = (r) => Object.keys(r.counts).map((k) => `${k} ${r.counts[k]}`).join('/');
+      add(bad.length === 0, bad.length
+        ? `Lab ${lab.id} (${lab.type}): displayed counts disagree with the params — minsup ${bad[0].r.minsup}: ${bad[0].d.map((d) => `${d.k} shows ${d.shown}, params give ${d.want}`).join('; ')}`
+        : `Lab ${lab.id} (${lab.type}): displayed counts match LykeionMath.itemsets at ${probe.readings.length} minsup values (minsup ${probe.readings[0].minsup} → ${show(probe.readings[0])}, minsup ${probe.readings[probe.readings.length - 1].minsup} → ${show(probe.readings[probe.readings.length - 1])})`);
+    }
+
     // Quiz: answer every Quiz Level correctly, in order; each must pass and unlock the next.
     const levels = await page.evaluate(() => JSON.parse(document.getElementById('lykeion-data').textContent).levels || []);
     for (const [li, L] of levels.entries()) {

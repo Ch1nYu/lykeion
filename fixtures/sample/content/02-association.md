@@ -30,6 +30,22 @@ steps:
 - { expr: "C(6,1) + C(6,2) + C(6,3)", expect: 41, tol: 0, note: "candidates with Apriori pruning, d = 6" }
 ```
 
+```lab itemsets
+tag: LAB B2
+title: 拉動 minsup，看哪些項目集留下來
+transactions:
+  - { tid: t1, items: [A, B, C, D] }
+  - { tid: t2, items: [A, B, C] }
+  - { tid: t3, items: [A, B] }
+  - { tid: t4, items: [A, C, D] }
+  - { tid: t5, items: [B, C] }
+minsup: { value: 2 }
+show: [frequent, closed, maximal]
+verdict:
+  - { when: "nMaximal == 2", text: "minsup = 2：{A,B,C} 與 {A,C,D} 都是最大項目集，{A} 只是封閉而非最大。" }
+  - { when: "true", text: "minsup 提高後，只剩沒有頻繁超集的項目集是最大項目集。" }
+```
+
 ## 2.2 Lift 與空值增加 {pages=4}
 
 ```lab table
