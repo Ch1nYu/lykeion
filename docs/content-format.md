@@ -199,10 +199,35 @@ verdict: [{ when: "nMaximal == 2", text: "minsup = 2：{A,B,C} 與 {A,C,D} 都�
 
 Node states: infrequent (dashed, struck through), frequent, closed, maximal (a maximal itemset is also closed, so it is drawn filled with a heavier ring). Emphasis grows frequent < closed < maximal. The empty set ∅ sits above level 1, is styled neutrally and is not part of the taxonomy, so it is not counted in the readouts. The legend swatches are the node markup at legend size, so they always show the same paint as the lattice. The lattice never renders narrower than its viewBox, so on a narrow screen it keeps its text size and `.vizwrap` scrolls horizontally instead of the page overflowing. `verdict.when` is an expression over `minsup`, `nFrequent`, `nClosed`, `nMaximal`.
 
+**`tree`** — grow a decision tree by Hunt's algorithm on a small categorical data set: the reader picks the split at each node (or lets the Lab pick the best one), then classifies a record with the grown tree. Candidate gains come from `LykeionMath.treeSplits`, the grown tree from `LykeionMath.treeGrow`; `lykeion verify` recomputes both from the same parameters.
+
+```yaml
+attributes: [{ name: Weather, values: [Sunny, Rainy] }, { name: Wind, values: [Weak, Strong] }, { name: Temp, values: [Hot, Mild, Cool] }]
+class: { name: Play, values: [Yes, No] }
+records:                            # 1–16 records; every value must be declared above
+  - { Weather: Sunny, Wind: Weak,  Temp: Hot,  Play: No }
+  - { Weather: Sunny, Wind: Strong,Temp: Hot,  Play: No }
+  - { Weather: Rainy, Wind: Weak,  Temp: Hot,  Play: Yes }
+  - { Weather: Rainy, Wind: Weak,  Temp: Mild, Play: Yes }
+  - { Weather: Rainy, Wind: Weak,  Temp: Cool, Play: Yes }
+  - { Weather: Rainy, Wind: Strong,Temp: Cool, Play: No }
+  - { Weather: Sunny, Wind: Weak,  Temp: Mild, Play: Yes }
+  - { Weather: Sunny, Wind: Strong,Temp: Cool, Play: Yes }
+  - { Weather: Rainy, Wind: Strong,Temp: Mild, Play: Yes }
+  - { Weather: Rainy, Wind: Weak,  Temp: Hot,  Play: No }
+measure: gini                       # gini | entropy | error (default gini); the reader can switch it in the Lab
+split: multiway                     # multiway | binary (default multiway); binary = one value vs the rest
+verdict: [{ when: "trainingError == 0 && depth <= 3", text: "這棵樹已經完全分開訓練資料。" }]
+```
+
+1–4 attributes with 2–4 values each, 2–3 classes. A leaf is **pure** (one class left), **impure** (kept with its majority class, and the node to click when you want to split further) or **empty** (no record reached it, so it inherits the parent's majority class — Hunt's rule). An attribute is used at most once on any path. The classify panel picks one value per attribute, highlights the path that record takes through the current tree and shows the predicted class. Node states: a plain box is a **test** node, a green box is a **pure** leaf, an accent-ringed box is an **impure** leaf (the one you can split), a dashed muted box is an **inherited** empty node; the reader's selection and the classified record's path are drawn as a ring *outside* the box so a ring can never hide the state. The legend swatches are the node markup at legend size, so the legend cannot drift from the tree. The tree always renders 1:1 (never scaled down to unreadable text, never blown up to fill the column) and `.vizwrap` scrolls horizontally when it does not fit, so a wide tree never overflows the page. `verdict.when` is an expression over `depth`, `leaves`, `trainingError` (a fraction) and `measureIndex` (0 gini, 1 entropy, 2 error).
+
 **Custom Labs** — `<project>/labs/<type>/lab.js` calling `Lykeion.registerLab('<type>', (root, params, api) => { … })`. `api` provides `H`, `S` (DOM/SVG builders), `esc`, `fmt`, `setVal`, `setSeg`, `onSeg`, `fillRange`, `toast`, `reduceMotion`; `LykeionMath.compile(expr, names)` evaluates expressions. A custom Lab must pass `lykeion verify` like any other.
 
 ## Maths library (Lab expressions and `calc`)
 
-`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, gini(...counts), entropy(...counts), error(...counts), C(n,k), fact(n), itemsets(transactions, minsup), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, gini(...counts), entropy(...counts), error(...counts), C(n,k), fact(n), itemsets(transactions, minsup), treeSplits(records, attributes, classDef, measure, split), treeGrow(records, attributes, classDef, measure, split), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
 
 `LykeionMath.itemsets(transactions, minsup)` returns `{ minsup, n, universe, sets, frequent, closed, maximal, counts }`: every non-empty itemset of the item universe with its absolute support `sigma`, plus `frequent` / `closed` / `maximal` flags. It is available to Lab code and to `calc` expressions.
+
+`LykeionMath.treeSplits(records, attributes, classDef, measure, split)` returns `{ n, counts, impurity, measure, split, candidates, best }` for the records at one node; each candidate is `{ attr, groups, weighted, gain }`, where a group is `{ label, values, records, n, counts, impurity, weight }` and `gain` is the parent impurity minus the weighted child impurity. `LykeionMath.treeGrow(...)` returns the fully grown Hunt tree (best split at every step, until a node is pure or no attribute is left); a node is `{ n, counts, majority, impurity, pure, records, attr, children, label, values }` with `attr` null on a leaf. `treePredict(node, record)`, `treeError(node, records, classDef)` and `treeStats(node)` classify a record, compute the resubstitution error and count `{ depth, leaves }`.

@@ -114,14 +114,14 @@ test('render gate recomputes the sample itemsets Lab counts and passes', async (
   const checked = render.items.find((i) => /itemsets\): displayed counts match/.test(i.msg));
   assert.ok(checked, render.items.map((i) => i.msg).join('\n'));
   assert.equal(checked.ok, true);
-  assert.match(checked.msg, /Lab lab-3 \(itemsets\): displayed counts match LykeionMath\.itemsets at 3 minsup values/);
+  assert.match(checked.msg, /Lab lab-\d+ \(itemsets\): displayed counts match LykeionMath\.itemsets at 3 minsup values/);
   assert.match(checked.msg, /minsup 1 → frequent 15\/closed 9\/maximal 1/);
   // The legend swatches are painted by the same classes as the nodes they name, so the legend
   // cannot drift from the lattice (the bug that made all three swatches render as empty circles).
   const legend = render.items.find((i) => /legend swatches/.test(i.msg));
   assert.ok(legend, render.items.map((i) => i.msg).join('\n'));
   assert.equal(legend.ok, true);
-  assert.match(legend.msg, /Lab lab-3 \(itemsets\): 5 legend swatches are painted exactly like the lattice node states they name/);
+  assert.match(legend.msg, /Lab lab-\d+ \(itemsets\): 5 legend swatches are painted exactly like the lattice node states they name/);
 });
 
 test('render gate catches a legend swatch that names a state the lattice does not use', async () => {

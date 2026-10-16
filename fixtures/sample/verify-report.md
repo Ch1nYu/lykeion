@@ -1,14 +1,14 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-16T15:52:48.312Z
-- Verified: 2026-10-16T15:52:51.792Z
+- Built: 2026-10-16T17:37:22.109Z
+- Verified: 2026-10-16T17:37:26.954Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
 |---|---|---|
 | numeric | ✓ pass | 7/7 numbers match |
 | coverage | ✓ pass | every scope page is cited |
-| render | ✓ pass | 20 checks passed |
+| render | ✓ pass | 27 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 
 ## numeric
@@ -31,19 +31,26 @@
 - ✓ no unrendered TeX in body text
 - ✓ all in-page links resolve
 - ✓ sidebar lists 6 links for 5 sections
-- ✓ 5 Labs mounted
+- ✓ 6 Labs mounted
 - ✓ Lab lab-1 (slider-calc): slider → output changed
-- ✓ Lab lab-2 (stepper): button → output changed
-- ✓ Lab lab-3 (itemsets): slider → output changed
-- ✓ Lab lab-4 (table): number input → output changed
-- ✓ Lab lab-5 (curve): slider → output changed
-- ✓ Lab lab-3 (itemsets): 5 legend swatches are painted exactly like the lattice node states they name
-- ✓ Lab lab-3 (itemsets): displayed counts match LykeionMath.itemsets at 3 minsup values (minsup 1 → frequent 15/closed 9/maximal 1, minsup 4 → frequent 3/closed 3/maximal 3)
+- ✓ Lab lab-2 (tree): button → output changed
+- ✓ Lab lab-3 (stepper): button → output changed
+- ✓ Lab lab-4 (itemsets): slider → output changed
+- ✓ Lab lab-5 (table): number input → output changed
+- ✓ Lab lab-6 (curve): slider → output changed
+- ✓ Lab lab-4 (itemsets): 5 legend swatches are painted exactly like the lattice node states they name
+- ✓ Lab lab-4 (itemsets): displayed counts match LykeionMath.itemsets at 3 minsup values (minsup 1 → frequent 15/closed 9/maximal 1, minsup 4 → frequent 3/closed 3/maximal 3)
+- ✓ Lab lab-2 (tree): root gains match LykeionMath.treeSplits for 3 measure(s)
+- ✓ Lab lab-2 (tree): auto-grow with error gives the Hunt tree (depth 3, 8 leaves, training error 0.000)
+- ✓ Lab lab-2 (tree): 4 legend swatches are painted exactly like the node states they name
+- ✓ Lab lab-2 (tree): the classified record lights all 2 edges and 3 nodes on its path
+- ✓ Lab lab-2 (tree): classify panel moves the path or prediction for 2 of 3 attribute flips
 - ✓ Quiz Level 1 “不純度”: 3 questions answered with the key → all accepted
 - ✓ Quiz Level 2 “關聯分析”: 2 questions answered with the key → all accepted
 - ✓ theme button cycles light → dark → system
 - ✓ no console or page errors (desktop)
 - ✓ no horizontal overflow at 375px
+- ✓ tree at 375px: node text 12.0px, scrolls with the root in view
 - ✓ mobile drawer opens and closes with Esc
 - ✓ dark theme applies (body background rgb(28, 26, 22))
 - ✓ no console or page errors (mobile, dark)

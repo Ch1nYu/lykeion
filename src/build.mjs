@@ -93,6 +93,7 @@ export async function build(dir, opts = {}) {
     const uses = labUses.filter((x) => x.type === type);
     if (found.schema) for (const u of uses) errors.push(...checkLabParams(found.schema, u));
     for (const u of uses) errors.push(...checkItemsetParams(u));
+    for (const u of uses) errors.push(...checkTreeParams(u));
     labJs.push(`/* Lab: ${type} */\n${found.js}`);
     if (found.css) labCss.push(`/* Lab: ${type} */\n${found.css}`);
   }
@@ -307,5 +308,47 @@ export function checkItemsetParams({ type, params, where }) {
     const v = Number(ms.value);
     if (!Number.isInteger(v) || v < 1 || v > tx.length) errs.push(`${where}: Lab "itemsets" minsup.value must be an integer between 1 and ${tx.length} (the transaction count); got ${JSON.stringify(ms.value)}`);
   }
+  return errs;
+}
+
+// tree-only limits. Hunt's algorithm here is a teaching Lab, not a learner: the data set stays
+// small enough to draw whole, and every value in a record must be declared so the Lab never has to
+// invent a branch for a value the reader never mentioned. Not a generic range system — this is the
+// only type whose parameters describe a data set.
+export function checkTreeParams({ type, params, where }) {
+  if (type !== 'tree') return [];
+  const errs = [], name = 'Lab "tree"';
+  const attrs = Array.isArray(params.attributes) ? params.attributes : [];
+  const cls = params.class && typeof params.class === 'object' && !Array.isArray(params.class) ? params.class : null;
+  const records = Array.isArray(params.records) ? params.records : [];
+  if (attrs.length < 1 || attrs.length > 4) errs.push(`${where}: ${name} has ${attrs.length} attributes; 1–4 are supported`);
+  const attrNames = [];
+  for (const a of attrs) {
+    const an = a && typeof a === 'object' ? a.name : undefined;
+    if (typeof an === 'string' && attrNames.includes(an)) errs.push(`${where}: ${name} has two attributes named "${an}"`);
+    else attrNames.push(an);
+    const vals = Array.isArray(a && a.values) ? a.values : [];
+    if (vals.length < 2 || vals.length > 4) errs.push(`${where}: ${name} attribute "${an}" has ${vals.length} value(s); 2–4 are supported`);
+  }
+  const classVals = cls && Array.isArray(cls.values) ? cls.values : [];
+  if (!cls || classVals.length < 2 || classVals.length > 3) errs.push(`${where}: ${name} has ${classVals.length} class value(s); 2–3 are supported`);
+  else if (attrNames.includes(cls.name)) errs.push(`${where}: ${name} class "${cls.name}" has the same name as an attribute`);
+  if (records.length < 1 || records.length > 16) errs.push(`${where}: ${name} has ${records.length} records; 1–16 are supported`);
+  const allowed = attrNames.concat(cls ? cls.name : []);
+  records.forEach((r, i) => {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) { errs.push(`${where}: ${name} record ${i + 1} is not a mapping`); return; }
+    for (const key of Object.keys(r)) if (!allowed.includes(key)) errs.push(`${where}: ${name} record ${i + 1} has unknown column "${key}" (allowed: ${allowed.join(', ')})`);
+    for (const a of attrs) {
+      if (!a || typeof a !== 'object') continue;
+      const vals = Array.isArray(a.values) ? a.values.map(String) : [];
+      if (!(a.name in r)) errs.push(`${where}: ${name} record ${i + 1} has no value for attribute "${a.name}"`);
+      else if (!vals.includes(String(r[a.name]))) errs.push(`${where}: ${name} record ${i + 1} has undeclared value ${JSON.stringify(r[a.name])} for attribute "${a.name}" (allowed: ${vals.join(', ')})`);
+    }
+    if (!cls) return;
+    if (!(cls.name in r)) errs.push(`${where}: ${name} record ${i + 1} has no value for the class "${cls.name}"`);
+    else if (!classVals.map(String).includes(String(r[cls.name]))) errs.push(`${where}: ${name} record ${i + 1} has undeclared class ${JSON.stringify(r[cls.name])} (allowed: ${classVals.join(', ')})`);
+  });
+  if (params.measure !== undefined && !['gini', 'entropy', 'error'].includes(params.measure)) errs.push(`${where}: ${name} measure ${JSON.stringify(params.measure)} must be one of gini, entropy, error`);
+  if (params.split !== undefined && !['multiway', 'binary'].includes(params.split)) errs.push(`${where}: ${name} split ${JSON.stringify(params.split)} must be one of multiway, binary`);
   return errs;
 }

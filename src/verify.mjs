@@ -239,6 +239,157 @@ async function renderGate(htmlPath) {
         : `Lab ${lab.id} (${lab.type}): displayed counts match LykeionMath.itemsets at ${probe.readings.length} minsup values (minsup ${probe.readings[0].minsup} → ${show(probe.readings[0])}, minsup ${probe.readings[probe.readings.length - 1].minsup} → ${show(probe.readings[probe.readings.length - 1])})`);
     }
 
+    // Tree Labs: the page shows candidate gains and grows a Hunt tree; the gate recomputes both
+    // from the same params with the module inlined into the page. A Lab counts as a tree Lab when
+    // its params carry attributes/class/records and its body shows [data-gain] cells, so a
+    // project-local custom variant is held to the same standard as the built-in one.
+    for (const lab of stats.labs) {
+      const probe = await page.evaluate(async (id) => {
+        const el = document.getElementById(id);
+        const params = JSON.parse(el.querySelector('script.lab-params').textContent);
+        const body = el.querySelector('.lab-body');
+        if (!Array.isArray(params.attributes) || !params.attributes.length) return null;
+        if (!params.class || !Array.isArray(params.records) || !params.records.length) return null;
+        const gainCells = [...body.querySelectorAll('[data-gain]')];
+        if (!gainCells.length) return null;
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        // Re-query on every read: draw() rebuilds the candidate table, so a captured node list
+        // would go stale and silently keep reporting the first measure's numbers.
+        const read = () => Object.fromEntries([...body.querySelectorAll('[data-gain]')].map((c) => [c.dataset.gain, Number(c.textContent)]));
+        const seg = body.querySelector('.seg');
+        const buttons = seg ? [...seg.querySelectorAll('button')] : [];
+        const measureOf = () => {
+          const on = buttons.find((b) => b.getAttribute('aria-pressed') === 'true');
+          return on ? on.dataset.v : (params.measure || 'gini');
+        };
+        // Reference paint per node state, gathered across every tree the probe builds, so the legend
+        // is compared against the real nodes rather than against a copy of its own classes.
+        const nodeStyles = {};
+        const collect = () => {
+          for (const g of body.querySelectorAll('.t-nodes .tnode')) {
+            const state = [...g.classList].filter((c) => c !== 'tnode' && c !== 'sel' && c !== 'hit').join(' ');
+            if (!state || nodeStyles[state]) continue;
+            const r = getComputedStyle(g.querySelector('rect.t-box')), t = getComputedStyle(g.querySelector('.t-lbl'));
+            nodeStyles[state] = [r.fill, r.stroke, r.strokeWidth, r.strokeDasharray, t.fill].join('|');
+          }
+        };
+        const readings = [];
+        for (const b of buttons.length ? buttons : [null]) {
+          if (b) { b.click(); await wait(40); }
+          readings.push({ measure: measureOf(), gains: read() });
+        }
+        collect();
+        // Legend: a swatch is the node markup at legend size, so it must be painted by the same
+        // classes as the state it names and its label must stay inside its box.
+        const legend = [...body.querySelectorAll('.tree-legend svg.lg')].map((s) => {
+          const t = s.querySelector('.t-lbl');
+          const tb = t.getBoundingClientRect(), sb = s.getBoundingClientRect();
+          const r = getComputedStyle(s.querySelector('rect.t-box')), ts = getComputedStyle(t);
+          return { state: [...s.classList].filter((c) => c !== 'lg' && c !== 'tnode').join(' '),
+            paint: [r.fill, r.stroke, r.strokeWidth, r.strokeDasharray, ts.fill].join('|'),
+            clipped: tb.left < sb.left - 0.5 || tb.right > sb.right + 0.5 };
+        });
+        // Auto-grow: the fully grown Hunt tree must give the error the gate computes for itself.
+        const auto = [...body.querySelectorAll('button')].find((x) => /自動|auto/i.test(x.textContent));
+        if (!auto) return { params, readings, grown: null, legend, nodeStyles, classify: null, lit: null, pick: null };
+        // The probe has left the measure on the last button, so remember which measure actually
+        // grew this tree — recomputing with the param default would compare two different trees.
+        const grownMeasure = measureOf();
+        auto.click();
+        await wait(60);
+        const out = {};
+        for (const cell of body.querySelectorAll('[data-out]')) out[cell.dataset.out] = cell.querySelector('b').textContent;
+        collect();
+        // Classify panel: with splits in the tree, flipping an attribute value has to move the
+        // highlighted path or the predicted class — otherwise the panel only looks interactive.
+        const sig = () => {
+          const hit = body.querySelector('.t-nodes .tnode.hit'), pred = body.querySelector('.classify-out .pred b');
+          return (pred ? pred.textContent : '') + '@' + (hit ? hit.getAttribute('transform') : 'none') + '|' + (body.querySelector('.classify-out .path') || {}).textContent;
+        };
+        const classify = { flips: 0, changes: 0 };
+        for (const s of [...body.querySelectorAll('.seg')].slice(1)) {
+          const bs = [...s.querySelectorAll('button')];
+          if (bs.length < 2) continue;
+          const before = sig();
+          bs[bs.length - 1].click(); await wait(30);
+          classify.flips++;
+          if (sig() !== before) classify.changes++;
+          bs[0].click(); await wait(30);
+        }
+        // The classified record's path has to light every edge from the root down to its leaf, not
+        // just the last one, so count the lit edges/nodes together with the record being shown.
+        const lit = { edges: body.querySelectorAll('.t-edges .t-edge.on').length, nodes: body.querySelectorAll('.t-nodes .tnode.hit').length };
+        const pick = {};
+        for (const s of [...body.querySelectorAll('.seg')].slice(1)) {
+          const ctl = s.closest('.ctl'), on = [...s.querySelectorAll('button')].find((x) => x.getAttribute('aria-pressed') === 'true');
+          if (ctl && ctl.querySelector('.lbl') && on) pick[ctl.querySelector('.lbl').textContent.trim()] = on.dataset.v;
+        }
+        return { params, readings, grown: out, grownMeasure, legend, nodeStyles, classify, lit, pick };
+      }, lab.id);
+      if (!probe) continue;
+      const split = probe.params.split === 'binary' ? 'binary' : 'multiway';
+      // A Lab may show a subset of the measures (or none of the buttons, falling back to `measure`).
+      const bad = [];
+      for (const r of probe.readings) {
+        const want = math.treeSplits(probe.params.records, probe.params.attributes, probe.params.class, r.measure, split);
+        for (const c of want.candidates) {
+          const shown = r.gains[c.attr];
+          if (shown === undefined) continue;
+          if (!Number.isFinite(shown) || Math.abs(shown - c.gain) > 0.0015) bad.push(`${r.measure}/${c.attr} shows ${shown}, params give ${c.gain.toFixed(4)}`);
+        }
+      }
+      add(bad.length === 0, bad.length
+        ? `Lab ${lab.id} (${lab.type}): root gains disagree with the params — ${bad.slice(0, 4).join('; ')}`
+        : `Lab ${lab.id} (${lab.type}): root gains match LykeionMath.treeSplits for ${probe.readings.length} measure(s)`);
+      if (!probe.grown) continue;
+      const grown = math.treeGrow(probe.params.records, probe.params.attributes, probe.params.class, probe.grownMeasure, split);
+      const stats2 = math.treeStats(grown);
+      const err = math.treeError(grown, probe.params.records, probe.params.class);
+      const want = { depth: String(stats2.depth), leaves: String(stats2.leaves), error: err.toFixed(3) };
+      const off = Object.entries(want).filter(([k, v]) => probe.grown[k] !== undefined && probe.grown[k] !== v)
+        .map(([k, v]) => `${k} shows ${probe.grown[k]}, params give ${v}`);
+      add(off.length === 0, off.length
+        ? `Lab ${lab.id} (${lab.type}): auto-grow disagrees with the params — ${off.join('; ')}`
+        : `Lab ${lab.id} (${lab.type}): auto-grow with ${probe.grownMeasure} gives the Hunt tree (depth ${want.depth}, ${want.leaves} leaves, training error ${want.error})`);
+      // Legend swatches must be the nodes' own markup: a class-name drift once made every swatch in
+      // another Lab render as an empty circle, and an off-centre label clipped its own text. A
+      // swatch naming a state the tree does not use is drift too — it is compared against the node
+      // states this Lab's contract defines, not against whatever the swatch happens to carry.
+      if (probe.legend.length) {
+        const STATES = ['test', 'pure', 'impure', 'inherited'];
+        const unknown = probe.legend.filter((s) => !STATES.includes(s.state));
+        const clipped = probe.legend.filter((s) => s.clipped);
+        const drifted = probe.legend.filter((s) => probe.nodeStyles[s.state] && s.paint !== probe.nodeStyles[s.state]);
+        const compared = probe.legend.filter((s) => probe.nodeStyles[s.state]).length;
+        add(!unknown.length && !clipped.length && !drifted.length, unknown.length
+          ? `Lab ${lab.id} (${lab.type}): legend swatch "${unknown[0].state}" names a state the tree does not use (states: ${STATES.join(', ')})`
+          : clipped.length
+            ? `Lab ${lab.id} (${lab.type}): legend swatch "${clipped[0].state}" clips its own label`
+            : drifted.length
+              ? `Lab ${lab.id} (${lab.type}): legend swatch "${drifted[0].state}" is not painted like its node — swatch ${drifted[0].paint}, node ${probe.nodeStyles[drifted[0].state]}`
+              : `Lab ${lab.id} (${lab.type}): ${compared} legend swatches are painted exactly like the node states they name`);
+      }
+      // Walk the grown tree with the record the classify panel is showing and require the page to
+      // light exactly that many edges, plus one more node for the root.
+      if (probe.lit && probe.pick && Object.keys(probe.pick).length) {
+        let n = grown, depth = 0;
+        while (n && n.attr && n.children.length) {
+          const v = String(probe.pick[n.attr]);
+          const next = n.children.find((c) => (c.values || []).map(String).includes(v));
+          if (!next) break;
+          n = next; depth++;
+        }
+        const litOk = probe.lit.edges === depth && probe.lit.nodes === depth + 1;
+        add(litOk, litOk
+          ? `Lab ${lab.id} (${lab.type}): the classified record lights all ${depth} edges and ${depth + 1} nodes on its path`
+          : `Lab ${lab.id} (${lab.type}): the classified record lights ${probe.lit.edges} of ${depth} edges and ${probe.lit.nodes} of ${depth + 1} nodes on its path`);
+      }
+      if (!probe.classify || !probe.classify.flips) continue;
+      add(probe.classify.changes > 0, probe.classify.changes
+        ? `Lab ${lab.id} (${lab.type}): classify panel moves the path or prediction for ${probe.classify.changes} of ${probe.classify.flips} attribute flips`
+        : `Lab ${lab.id} (${lab.type}): classify panel changes nothing — ${probe.classify.flips} attribute flips left the path and prediction identical`);
+    }
+
     // Quiz: answer every Quiz Level correctly, in order; each must pass and unlock the next.
     const levels = await page.evaluate(() => JSON.parse(document.getElementById('lykeion-data').textContent).levels || []);
     for (const [li, L] of levels.entries()) {
@@ -271,6 +422,25 @@ async function renderGate(htmlPath) {
       return { scrollW: document.documentElement.scrollWidth, over, paper: getComputedStyle(document.documentElement).getPropertyValue('--paper').trim(), bg: getComputedStyle(document.body).backgroundColor };
     });
     add(mob.scrollW <= 376 && mob.over.length === 0, mob.scrollW <= 376 && !mob.over.length ? 'no horizontal overflow at 375px' : `overflow at 375px: page width ${mob.scrollW}px${mob.over.length ? `; overflowing: ${mob.over.join(', ')}` : ''}`);
+    // A tree that scrolls at 375px has to open with its root in view and keep its node text
+    // readable; a tree scaled down to fit the column instead has to stay within it.
+    const mobTree = await m.evaluate(async () => {
+      const lab = [...document.querySelectorAll('.lab[data-lab]')].find((l) => l.querySelector('.t-nodes .tnode'));
+      if (!lab) return null;
+      const wrap = lab.querySelector('.vizwrap'), svg = lab.querySelector('svg.tree');
+      const auto = [...lab.querySelectorAll('button')].find((b) => /自動|auto/i.test(b.textContent));
+      if (auto) { auto.click(); await new Promise((r) => setTimeout(r, 60)); }
+      const root = svg.querySelector('.t-nodes .tnode'), t = root.querySelector('.t-lbl');
+      const tb = t.getBoundingClientRect(), wb = wrap.getBoundingClientRect();
+      // The whole drawing is scaled by one factor, so the node font follows the SVG's own width.
+      const scale = svg.getBoundingClientRect().width / Number(svg.getAttribute('viewBox').split(' ')[2]);
+      return { scale: scale, fontSize: parseFloat(getComputedStyle(t).fontSize) * scale,
+        rootVisible: tb.left >= wb.left - 1 && tb.right <= wb.right + 1, scrollable: wrap.scrollWidth > wrap.clientWidth + 1 };
+    });
+    if (mobTree) {
+      const fits = mobTree.scrollable || (mobTree.rootVisible && mobTree.fontSize >= 11.5);
+      add(mobTree.fontSize >= 11.5 && fits, `tree at 375px: node text ${mobTree.fontSize.toFixed(1)}px, ${mobTree.scrollable ? 'scrolls with the root in view' : 'fits the column'}`);
+    }
     await m.click('#menuBtn');
     const opened = await m.evaluate(() => document.getElementById('side').classList.contains('open'));
     await m.keyboard.press('Escape');

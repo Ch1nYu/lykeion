@@ -73,6 +73,35 @@ text: 投影片寫「Error 永遠不會改變」；實際上只有在多數類�
 ref: Tan et al., *Introduction to Data Mining*, 2nd ed., §3.3.3
 ```
 
+```lab tree
+tag: LAB A2
+title: 自己長一棵樹，再拿它分類一筆紀錄
+hint: 先看根節點的候選分割
+attributes:
+  - { name: Weather, values: [Sunny, Rainy] }
+  - { name: Wind, values: [Weak, Strong] }
+  - { name: Temp, values: [Hot, Mild, Cool] }
+class: { name: Play, values: [Yes, No] }
+records:
+  - { Weather: Sunny, Wind: Weak,   Temp: Hot,  Play: No }
+  - { Weather: Sunny, Wind: Weak,   Temp: Mild, Play: Yes }
+  - { Weather: Sunny, Wind: Strong, Temp: Hot,  Play: No }
+  - { Weather: Sunny, Wind: Strong, Temp: Cool, Play: Yes }
+  - { Weather: Rainy, Wind: Weak,   Temp: Mild, Play: Yes }
+  - { Weather: Rainy, Wind: Weak,   Temp: Cool, Play: Yes }
+  - { Weather: Rainy, Wind: Strong, Temp: Mild, Play: No }
+  - { Weather: Rainy, Wind: Strong, Temp: Cool, Play: Yes }
+  - { Weather: Sunny, Wind: Weak,   Temp: Cool, Play: No }
+  - { Weather: Rainy, Wind: Weak,   Temp: Hot,  Play: Yes }
+measure: gini
+split: multiway
+verdict:
+  - { when: "trainingError == 0", text: "樹長滿了：訓練資料全部落在正確的類別，訓練錯誤率是 0。" }
+  - { when: "depth >= 2", text: "還有節點不純，挑一個屬性繼續分割。" }
+```
+
+把 `measure` 切到<mark>錯誤率</mark>，再點根節點 Rainy 那條子節點：Wind 的增益會顯示 0，而 Gini 給它 0.120。
+
 ```quiz 不純度
 - q: 下列哪一個指標對節點比例變化最不敏感？
   o: [Gini, Entropy, Classification error]
