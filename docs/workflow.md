@@ -64,7 +64,7 @@ Done when the build prints `built …` with no errors.
 
 Done when numeric, coverage and render all show ✓. A render gate marked "skipped — NOT render-verified" is reported to the user as unverified, never as passed.
 
-The **quiz review** gate is advisory: it passes but names any Quiz Level where the right option is the longest in more than half of its choice items (four or more items), because a student can then guess by length. Rewrite those options so the key is not the longest.
+The **quiz review** gate fails any choice item whose options give the key away — the key clearly longest, absolute words only in the distractors, a hedge only in the key, or the key alone echoing the stem — and any Quiz Level whose key is the longest option in more than half of its items. Rewrite the options (see `references/chapter-writer.md`, Quiz) until it passes. The gate catches mechanical tells only; still read each item and ask whether a student who has not studied could pick the key.
 
 ## 7. Source check
 

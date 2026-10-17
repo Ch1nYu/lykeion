@@ -128,8 +128,8 @@ export async function build(dir, opts = {}) {
 
   const out = resolve(dir, opts.out || project.output || `${project.title}.html`);
   await writeFile(out, html);
-  // `levels` is written for the quiz-review gate: it needs the option lengths, which only exist here.
-  const levelDump = levels.map((l) => ({ t: l.t, qs: l.qs.map((q) => ({ type: q.type, a: q.a, o: q.o || [], sec: q.sec })) }));
+  // `levels` is written for the quiz-review gate: it reads the stem and the options, which only exist here.
+  const levelDump = levels.map((l) => ({ t: l.t, qs: l.qs.map((q) => ({ type: q.type, q: q.q, a: q.a, o: q.o || [], sec: q.sec })) }));
   if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks }, null, 2) + '\n');
   return { out, sections: sectionCount, questions: levels.reduce((s, l) => s + l.qs.length, 0), labs: labCount };
 }

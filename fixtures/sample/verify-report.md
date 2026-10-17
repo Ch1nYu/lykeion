@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T16:04:51.890Z
-- Verified: 2026-10-17T16:04:55.487Z
+- Built: 2026-10-17T16:42:11.411Z
+- Verified: 2026-10-17T16:42:14.997Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -34,8 +34,8 @@
 
 ## quiz review
 
-- ✓ Quiz Level “條件機率”: only 2 choice items, not judged
-- ✓ Quiz Level “二項分布”: only 2 choice items, not judged
+- ✓ Quiz Level “條件機率”: 2 choice items, no option gives the key away
+- ✓ Quiz Level “二項分布”: 2 choice items, no option gives the key away
 
 ## render
 

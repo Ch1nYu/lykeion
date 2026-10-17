@@ -114,23 +114,64 @@ async function sourceGate(dir) {
 
 // ---------- gate: quiz review ----------
 // Options are shuffled for the reader, so the source position of `a` says nothing about the answer.
-// Length is the real tell: when the right option is reliably the longest, a student can guess without
-// understanding. This is a WARNING, never a failure — a site must not go red over a writing habit.
+// What does give it away is the options themselves: a student who has not studied can still pick the
+// key when it is the one long, careful, hedged option among short absolute ones, or the one that
+// repeats the stem's wording. Any such tell fails the gate — a guessable quiz does not test anything.
+const plain = (s) => String(s ?? '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/gi, ' ');
+const optLen = (s) => [...plain(s).replace(/\s+/g, '')].length;
+// Absolute words make a distractor easy to rule out; hedges make the key easy to spot.
+const ABSOLUTE = /一定|必定|必然|絕對|完全|永遠|從不|從來|總是|所有|任何|全部|都能|都會|都不|只要|不可能|always|never|every|all\b|only\b|none\b|completely/i;
+const HEDGE = /通常|多半|大多|可能|不一定|未必|並非|往往|一般而言|相對|較|usually|often|may\b|might\b|typically|generally/i;
+// Terms of the stem: CJK bigrams and Latin words, so wording echoed from the question can be counted.
+function terms(s) {
+  const t = plain(s).toLowerCase(), out = new Set();
+  const cjk = t.replace(/[^㐀-鿿]+/g, ' ').split(' ').filter(Boolean);
+  for (const run of cjk) for (let i = 0; i + 1 < run.length; i++) out.add(run.slice(i, i + 2));
+  for (const w of t.match(/[a-z][a-z0-9_-]{2,}/g) || []) out.add(w);
+  return out;
+}
+const isNumeric = (s) => /^[\s$\\\d.,+\-−×*/^()%{}a-z]*$/i.test(plain(s)) && /\d/.test(plain(s));
+
+// The tells of one choice item, as short reasons (empty when the options give nothing away).
+export function optionTells(q) {
+  const o = q.o || [], a = q.a, tells = [];
+  if (o.length < 2 || a == null || !o[a]) return tells;
+  if (o.every(isNumeric)) return tells; // numbers: length and wording carry no hint
+  const others = o.filter((_, i) => i !== a);
+  const L = optLen(o[a]), maxOther = Math.max(...others.map(optLen));
+  if (L > maxOther && L - maxOther >= 3 && L >= 1.25 * maxOther) tells.push(`right option is clearly the longest (${L} vs ≤ ${maxOther} chars)`);
+  const absOthers = others.filter((s) => ABSOLUTE.test(plain(s))).length;
+  if (!ABSOLUTE.test(plain(o[a])) && absOthers >= 2) tells.push(`${absOthers} distractors use absolute words, the right option none`);
+  if (HEDGE.test(plain(o[a])) && !others.some((s) => HEDGE.test(plain(s)))) tells.push('only the right option is hedged');
+  const stem = terms(q.q);
+  if (stem.size) {
+    const echo = (s) => [...terms(s)].filter((t) => stem.has(t)).length;
+    const er = echo(o[a]), eo = Math.max(...others.map(echo));
+    if (er >= 3 && er > 2 * eo) tells.push(`only the right option repeats the stem's wording (${er} vs ≤ ${eo} terms)`);
+  }
+  return tells;
+}
+
 export function quizReviewGate(levels) {
   const items = [];
-  let warned = 0;
+  let bad = 0;
   for (const L of levels || []) {
     const choice = (L.qs || []).filter((q) => q.type !== 'num' && Array.isArray(q.o) && q.o.length >= 2);
-    if (choice.length < 4) { items.push({ ok: true, msg: `Quiz Level “${L.t}”: only ${choice.length} choice items, not judged` }); continue; }
-    const longest = choice.filter((q) => {
-      const len = (s) => [...String(s).replace(/<[^>]+>/g, '')].length;
-      const right = len(q.o[q.a]);
-      return q.o.every((o, i) => i === q.a || len(o) < right);
-    }).length;
-    if (longest * 2 > choice.length) { warned++; items.push({ ok: true, warn: true, msg: `Quiz Level “${L.t}”: right option is the longest in ${longest}/${choice.length} items` }); }
-    else items.push({ ok: true, msg: `Quiz Level “${L.t}”: right option length is balanced across ${choice.length} items` });
+    let flagged = 0;
+    choice.forEach((q, k) => {
+      const tells = optionTells(q);
+      if (!tells.length) return;
+      flagged++;
+      items.push({ ok: false, msg: `Quiz Level “${L.t}” #${k + 1}${q.sec ? ` (§${q.sec.replace(/^s/, '').replace(/-/g, '.')})` : ''} 「${plain(q.q).slice(0, 28)}…」: ${tells.join('; ')}` });
+    });
+    // A habit across the level is a tell even when no single item crosses a threshold.
+    const longest = choice.filter((q) => q.o[q.a] && q.o.every((o, i) => i === q.a || optLen(o) < optLen(q.o[q.a]))).length;
+    const levelBad = choice.length >= 4 && longest * 2 > choice.length;
+    if (levelBad) items.push({ ok: false, msg: `Quiz Level “${L.t}”: right option is the longest in ${longest}/${choice.length} items` });
+    if (flagged || levelBad) bad++;
+    else items.push({ ok: true, msg: `Quiz Level “${L.t}”: ${choice.length} choice items, no option gives the key away` });
   }
-  return { name: 'quiz review', status: 'pass', headline: warned ? `${warned} level(s) with a guessable key` : 'no level has a guessable key', items };
+  return { name: 'quiz review', status: bad ? 'fail' : 'pass', headline: bad ? `${bad} level(s) with a guessable key` : 'no level has a guessable key', items };
 }
 // ---------- gate: render ----------
 async function renderGate(htmlPath) {

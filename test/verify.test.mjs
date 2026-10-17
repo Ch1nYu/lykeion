@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { numericGate, coverageGate, parsePages, verify, quizReviewGate } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -164,18 +164,34 @@ test('build rejects a quiz sec that names no section or a section of another cha
 
 // Options are shuffled for the reader, so the source position of `a` says nothing — but a right
 // option that is always the longest is a tell a student can exploit without understanding (spec item 3).
-test('quiz review warns when the right option is the longest in most items', () => {
-  const opts = (n, right) => Array.from({ length: n }, (_, i) => (i === right ? '這個選項寫得又長又完整，因為它是正確答案，還帶了限定條件' : '短'));
-  const items = Array.from({ length: 6 }, (_, i) => ({ type: 'choice', q: `q${i}`, o: opts(4, i % 4), a: i % 4, ex: 'x' }));
-  const g = quizReviewGate([{ t: 'RAG 原理', s: '', qs: items }]);
-  assert.equal(g.status, 'pass', 'a review warning must never fail the gate');
-  assert.match(g.items[0].msg, /Quiz Level “RAG 原理”: right option is the longest in 6\/6 items/);
-  const g2 = quizReviewGate([{ t: '公平', s: '', qs: items.map((it) => ({ ...it, o: ['短的', '一樣長的', '也一樣長', '仍然相同'], a: 0 })) }]);
-  assert.equal(g2.status, 'pass');
-  assert.match(g2.items[0].msg, /Quiz Level “公平”: right option length is balanced across 6 items/);
-  // A level with fewer than four choice items is too small to judge.
-  const g3 = quizReviewGate([{ t: '小', s: '', qs: items.slice(0, 3) }]);
-  assert.match(g3.items[0].msg, /Quiz Level “小”: only 3 choice items, not judged/);
+test('quiz review fails an item whose right option is clearly the longest', () => {
+  const q = { type: 'choice', q: '哪一個是對的？', o: ['更新知識庫即可更新知識，不必重新訓練大型模型', '消除幻覺', '預測股價', '不需向量'], a: 0, sec: 's2-4' };
+  const g = quizReviewGate([{ t: 'RAG 原理', qs: [q] }]);
+  assert.equal(g.status, 'fail');
+  assert.match(g.items[0].msg, /Quiz Level “RAG 原理” #1 \(§2\.4\) .*right option is clearly the longest/);
+});
+
+test('quiz review fails absolute-word distractors, a lone hedge and a stem echo', () => {
+  const abs = { q: '關於 RAG 的敘述何者正確？', o: ['能降低幻覺的機率', '一定能消除所有幻覺', '從不需要更新資料', '能夠預測未來股價'], a: 0 };
+  assert.match(optionTells(abs).join(), /2 distractors use absolute words/);
+  const hedge = { q: '下列何者正確？', o: ['通常能提高準確度', '能讓模型變小', '能取代資料庫', '能加速訓練'], a: 0 };
+  assert.match(optionTells(hedge).join(), /only the right option is hedged/);
+  const echo = { q: '向量資料庫在檢索階段負責什麼？', o: ['在檢索階段比對向量資料庫', '把答案寫成文字', '計算訓練損失', '產生使用者問題'], a: 0 };
+  assert.match(optionTells(echo).join(), /repeats the stem's wording/);
+});
+
+test('quiz review passes balanced items, numeric options and the level-wide habit check', () => {
+  const fair = { q: '下列哪個元件負責檢索相似向量？', o: ['向量資料庫', '文字嵌入器', '語言生成器', '提示詞模板'], a: 0 };
+  assert.deepEqual(optionTells(fair), []);
+  assert.deepEqual(optionTells({ q: 'Gini 是多少？', o: ['0.444', '0.5', '1', '0.25'], a: 0 }), []);
+  const ok = quizReviewGate([{ t: '公平', qs: Array.from({ length: 4 }, () => fair) }]);
+  assert.equal(ok.status, 'pass');
+  assert.match(ok.items[0].msg, /Quiz Level “公平”: 4 choice items, no option gives the key away/);
+  // Each item only slightly longer, but the key is the longest every time: a habit the student learns.
+  const slight = { q: '選哪個？', o: ['甲乙丙丁戊', '甲乙丙丁', '甲乙丙丁', '甲乙丙丁'], a: 0 };
+  const habit = quizReviewGate([{ t: '習慣', qs: Array.from({ length: 4 }, () => slight) }]);
+  assert.equal(habit.status, 'fail');
+  assert.match(habit.items.at(-1).msg, /right option is the longest in 4\/4 items/);
 });
 
 // The sidebar is a long list of links before the content, so a keyboard reader has to Tab through

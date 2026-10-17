@@ -44,7 +44,13 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 ## Quiz
 
 - Write the Depth's number of items per Quiz Level; mix concept, calculation and "which is wrong" items, and spread right answers across positions (options are shuffled, but write them in a natural order).
-- Keep the right option about as long as the distractors. A right option that is consistently the longest and most qualified is a tell: a student can pick it by length without understanding, and `verify` warns when more than half of a level's items have the longest option right.
+- **The options alone must not give the key away.** A student who has not studied should face four equally plausible options. Write all options in the same shape:
+  - about the same length (the key is never the one long, careful option among short ones);
+  - the same grammatical form and level of detail (all noun phrases, or all full clauses with a reason);
+  - no absolute words (一定、完全、永遠、所有、只要) only in the distractors, and no hedge (通常、可能、不一定) only in the key;
+  - the key does not repeat the stem's wording more than the distractors do;
+  - each distractor is a statement a student who half-learned the topic would believe — a swapped term, a reversed direction, the right idea in the wrong step — never an obviously silly one.
+  `verify`'s quiz review gate fails an item with any of these tells, and a level whose key is the longest option in more than half of its items.
 - Give every item `sec: "<number>"` when the quiz block is not inside the section it tests — a block at the end of a chapter otherwise sends every "回到 §X" link to the chapter's last section. `pages` on the item infers the section when its page range falls inside one section.
 - Distractors are real misconceptions (the independent/mutually-exclusive swap, prior vs. posterior), each plausible to a student who skimmed.
 - `ex` explains why the answer is right **and** why the tempting wrong option is wrong, in 1–3 sentences.
