@@ -6,6 +6,7 @@ You write one chapter of a Lecture Site: `content/NN-<slug>.md` in the format of
 
 - The slides are the baseline. Teach what they teach, in their order, with their examples, numbers and notation. Every planned section exists with its `pages`.
 - Read the `.png` of every slide with a figure, table, tree or formula; the `.txt` loses layout and maths.
+- For pages listed as `suspect` in `pages/index.json` (or in the Outline), the `.txt` has wrong characters: write from the `.png` and quote nothing from the `.txt`.
 - A claim that goes beyond the slides needs a Reference; put it in an `erratum` (when it corrects the slide) or say in the prose where it comes from.
 - Name a concept, theorem or paradox only when a Reference uses that name for this exact situation. When unsure, describe it plainly.
 - Attribute algorithms and methods precisely (which method uses which pruning, which library uses which split search); leave out an attribution you cannot confirm.

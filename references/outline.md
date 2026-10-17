@@ -29,4 +29,5 @@ Rules:
 - Lab plans name the Lab type and what the reader changes and sees. Choose a Lab where moving a parameter shows the concept (conditional probability vs. prior, a Bayes update step by step, the shape of a distribution as n grows); a static table is not a Lab.
 - Listings name the sections that get runnable code listings (`1 python (…)`); any section whose slides teach code gets at least one, so the writer reproduces the program instead of folding it into prose.
 - calc targets list every number a worked example on those slides produces.
+- If extract flagged `suspect` pages (`pages/index.json`), list them under a **Text-layer warning** line so every writer reads those pages from the `.png`.
 - Palette: suggest the result of `lykeion palette suggest`, with one line on why it suits the subject; the user may pick another from `lykeion palette list`.

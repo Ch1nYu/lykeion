@@ -36,12 +36,18 @@ export async function run(args) {
     const task = pdfjs.getDocument({ data, standardFontDataUrl: join(PDFJS_DIR, 'standard_fonts') + '/', useSystemFonts: true, verbosity: 0 });
     const doc = await task.promise;
     const pages = pageList(opts.pages, doc.numPages);
+    const glyphs = [];
     for (const n of pages) {
       const page = await doc.getPage(n);
       const text = await pageText(page);
       await writeFile(join(dir, `p-${pad(n)}.txt`), text);
+      glyphs.push({ n, glyphs: await pageGlyphs(page, pdfjs.OPS) });
     }
-    index.push({ pdf: pdfPath, stem, numPages: doc.numPages, pages, dir });
+    const broken = brokenMapPages(glyphs);
+    index.push({ pdf: pdfPath, stem, numPages: doc.numPages, pages, dir, suspect: broken.pages, brokenChars: broken.chars });
+    if (broken.pages.length) {
+      console.log(`⚠ ${stem}: the PDF's text layer maps different glyphs to the same character (${broken.chars}), so the .txt is wrong on pages ${broken.pages.join(', ')}. Read the .png for those pages.`);
+    }
     await task.destroy();
   }
 
@@ -91,6 +97,48 @@ async function pageText(page) {
     if (y !== undefined) lastY = y;
   }
   return out.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim() + '\n';
+}
+
+// The CJK glyphs a page draws, as [font, unicode, glyph code]. A PDF whose font maps two different
+// glyph codes to one character (a broken ToUnicode table) produces text that reads plausibly but is
+// wrong — 「耶穌的第一個」 comes out as 「穌的的一一個」 — while the rendered page is fine.
+async function pageGlyphs(page, OPS) {
+  const ops = await page.getOperatorList();
+  const out = [];
+  let font = '';
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    const fn = ops.fnArray[i], args = ops.argsArray[i];
+    if (fn === OPS.setFont) font = args[0];
+    if (fn !== OPS.showText && fn !== OPS.showSpacedText) continue;
+    for (const g of args[0]) {
+      if (g && typeof g === 'object' && g.unicode && CJK.test(g.unicode)) out.push([font, g.unicode, g.originalCharCode]);
+    }
+  }
+  return out;
+}
+const CJK = /[㐀-鿿豈-﫿]/;
+
+// Pages whose text is unreliable. Within one font, a character reached from more than one glyph code
+// is a collision; the most frequent code is taken as the genuine glyph and every other code as a
+// mis-mapped one, so only pages that draw a mis-mapped glyph are flagged.
+export function brokenMapPages(pages) {
+  const counts = new Map(); // font\0char -> Map(code -> count)
+  for (const p of pages) {
+    for (const [font, ch, code] of p.glyphs) {
+      const k = font + '\u0000' + ch;
+      if (!counts.has(k)) counts.set(k, new Map());
+      counts.get(k).set(code, (counts.get(k).get(code) || 0) + 1);
+    }
+  }
+  const wrong = new Set(), chars = new Set();
+  for (const [k, codes] of counts) {
+    if (codes.size < 2) continue;
+    const top = [...codes].sort((a, b) => b[1] - a[1])[0][0];
+    for (const code of codes.keys()) if (code !== top) wrong.add(k + '\u0000' + code);
+    chars.add(k.split('\u0000')[1]);
+  }
+  const flagged = pages.filter((p) => p.glyphs.some(([f, ch, code]) => wrong.has(f + '\u0000' + ch + '\u0000' + code))).map((p) => p.n);
+  return { pages: flagged, chars: [...chars].join('') };
 }
 
 async function renderImages(index, scale) {

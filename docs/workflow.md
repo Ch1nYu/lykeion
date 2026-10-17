@@ -30,6 +30,8 @@ Done when `lykeion.json` exists with the Scope and Depth the user confirmed.
 
 `lykeion extract --project <project>` writes `pages/<pdf>/p-NNN.txt` and `p-NNN.png` for every Scope page.
 
+Some PDFs carry a broken character map: the page renders correctly but its text layer reads 「穌的的一一個」 for 「耶穌的第一個」. Extract detects this from the fonts, prints a ⚠ line naming the affected pages, and records them as `suspect` in `pages/index.json`. For those pages the `.png` is the source of truth; never quote their `.txt`.
+
 Done when every Scope page has a `.txt` and a `.png`.
 
 ## 3. Outline
