@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, cp } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { numericGate, coverageGate, parsePages, verify } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -125,4 +125,55 @@ test('stepper legend swatches reuse the chip class, so they cannot drift from th
   assert.ok(legend, render.items.map((i) => i.msg).join('\n'));
   assert.equal(legend.ok, true);
   assert.match(legend.msg, /stepper legend: 2 swatches match the chip states they name/);
+});
+
+// A quiz block usually sits at the end of a chapter, so without `sec` every item links back to the
+// chapter's last section (a §1.2 question linking to §1.4). `sec` names the section; `pages` infers it.
+test('quiz items are attributed to the section they test, by sec or by pages', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-attr.md'), '---\nchapter: 3\ntitle: Attr\nshort: attr\nsource: sample.pdf\n---\n\n'
+    + '## 3.1 First {pages=1-2}\n\nintro\n\n'
+    + '## 3.2 Second {pages=3}\n\nintro\n\n'
+    + '## 3.3 Third {pages=4}\n\nintro\n\n'
+    + '```quiz attr\n'
+    + '- q: explicit sec\n  o: [a, b]\n  a: 0\n  ex: x\n  sec: "3.2"\n'
+    + '- q: inferred from pages\n  o: [a, b]\n  a: 0\n  ex: x\n  pages: 1\n'
+    + '- q: falls back to the block\'s section\n  o: [a, b]\n  a: 0\n  ex: x\n'
+    + '```\n');
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const data = JSON.parse((await readFile(join(dir, 'checks.json'), 'utf8')));
+  assert.ok(data.checks.length >= 0);
+  // The built page carries the section id each item links back to.
+  const html = await readFile(join(dir, 'sample.html'), 'utf8');
+  const levels = JSON.parse(/<script type="application\/json" id="lykeion-data">([\s\S]*?)<\/script>/.exec(html)[1]).levels;
+  const lv = levels.find((l) => l.t === 'attr');
+  assert.deepEqual(lv.qs.map((q) => q.sec), ['s3-2', 's3-1', 's3-3']);
+  assert.equal(checks.built !== undefined, true);
+});
+
+test('build rejects a quiz sec that names no section or a section of another chapter', async () => {
+  const dir = await sampleCopy();
+  const withQuiz = (sec) => '---\nchapter: 3\ntitle: Bad\nshort: bad\nsource: sample.pdf\n---\n\n'
+    + '## 3.1 Only {pages=1}\n\n```quiz bad\n- q: x\n  o: [a, b]\n  a: 0\n  ex: x\n  sec: "' + sec + '"\n```\n';
+  await writeFile(join(dir, 'content', '03-bad.md'), withQuiz('9.9'));
+  await assert.rejects(build(dir), /03-bad\.md §3\.1 quiz #1: sec "9\.9" names no section in this chapter/);
+  await writeFile(join(dir, 'content', '03-bad.md'), withQuiz('1.1'));
+  await assert.rejects(build(dir), /03-bad\.md §3\.1 quiz #1: sec "1\.1" is in another chapter/);
+});
+
+// Options are shuffled for the reader, so the source position of `a` says nothing — but a right
+// option that is always the longest is a tell a student can exploit without understanding (spec item 3).
+test('quiz review warns when the right option is the longest in most items', () => {
+  const opts = (n, right) => Array.from({ length: n }, (_, i) => (i === right ? '這個選項寫得又長又完整，因為它是正確答案，還帶了限定條件' : '短'));
+  const items = Array.from({ length: 6 }, (_, i) => ({ type: 'choice', q: `q${i}`, o: opts(4, i % 4), a: i % 4, ex: 'x' }));
+  const g = quizReviewGate([{ t: 'RAG 原理', s: '', qs: items }]);
+  assert.equal(g.status, 'pass', 'a review warning must never fail the gate');
+  assert.match(g.items[0].msg, /Quiz Level “RAG 原理”: right option is the longest in 6\/6 items/);
+  const g2 = quizReviewGate([{ t: '公平', s: '', qs: items.map((it) => ({ ...it, o: ['短的', '一樣長的', '也一樣長', '仍然相同'], a: 0 })) }]);
+  assert.equal(g2.status, 'pass');
+  assert.match(g2.items[0].msg, /Quiz Level “公平”: right option length is balanced across 6 items/);
+  // A level with fewer than four choice items is too small to judge.
+  const g3 = quizReviewGate([{ t: '小', s: '', qs: items.slice(0, 3) }]);
+  assert.match(g3.items[0].msg, /Quiz Level “小”: only 3 choice items, not judged/);
 });

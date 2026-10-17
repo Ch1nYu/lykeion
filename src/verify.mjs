@@ -32,6 +32,7 @@ export async function verify(dir, { render = true } = {}) {
   const gates = [];
   gates.push(numericGate(checksFile.checks, await loadMath(dir)));
   gates.push(coverageGate(project.scope || [], checksFile.sections));
+  gates.push(quizReviewGate(checksFile.levels || []));
   gates.push(render ? await renderGate(htmlPath) : { name: 'render', status: 'skipped', items: [{ ok: null, msg: 'skipped by --no-render — NOT render-verified' }] });
   gates.push(await sourceGate(dir));
 
@@ -111,6 +112,26 @@ async function sourceGate(dir) {
   return { name: 'source', status, headline: `${status}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from source-check.md)`, items: [{ ok: status === 'pass', msg: 'see source-check.md' }] };
 }
 
+// ---------- gate: quiz review ----------
+// Options are shuffled for the reader, so the source position of `a` says nothing about the answer.
+// Length is the real tell: when the right option is reliably the longest, a student can guess without
+// understanding. This is a WARNING, never a failure — a site must not go red over a writing habit.
+export function quizReviewGate(levels) {
+  const items = [];
+  let warned = 0;
+  for (const L of levels || []) {
+    const choice = (L.qs || []).filter((q) => q.type !== 'num' && Array.isArray(q.o) && q.o.length >= 2);
+    if (choice.length < 4) { items.push({ ok: true, msg: `Quiz Level “${L.t}”: only ${choice.length} choice items, not judged` }); continue; }
+    const longest = choice.filter((q) => {
+      const len = (s) => [...String(s).replace(/<[^>]+>/g, '')].length;
+      const right = len(q.o[q.a]);
+      return q.o.every((o, i) => i === q.a || len(o) < right);
+    }).length;
+    if (longest * 2 > choice.length) { warned++; items.push({ ok: true, warn: true, msg: `Quiz Level “${L.t}”: right option is the longest in ${longest}/${choice.length} items` }); }
+    else items.push({ ok: true, msg: `Quiz Level “${L.t}”: right option length is balanced across ${choice.length} items` });
+  }
+  return { name: 'quiz review', status: 'pass', headline: warned ? `${warned} level(s) with a guessable key` : 'no level has a guessable key', items };
+}
 // ---------- gate: render ----------
 async function renderGate(htmlPath) {
   const browser = await launchBrowser();
@@ -306,7 +327,7 @@ function formatReport(project, checksFile, gates, ok) {
   for (const g of gates) {
     lines.push(`## ${g.name}`, '');
     const sorted = [...g.items].sort((a, b) => (a.ok === false ? -1 : 0) - (b.ok === false ? -1 : 0));
-    for (const i of sorted) lines.push(`- ${i.ok === true ? '✓' : i.ok === false ? '✗' : '–'} ${i.msg}`);
+    for (const i of sorted) lines.push(`- ${i.ok === false ? '✗' : i.warn ? '⚠' : i.ok === true ? '✓' : '–'} ${i.msg}`);
     lines.push('');
   }
   return lines.join('\n');

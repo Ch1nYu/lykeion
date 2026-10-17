@@ -62,6 +62,8 @@ Done when the build prints `built …` with no errors.
 
 Done when numeric, coverage and render all show ✓. A render gate marked "skipped — NOT render-verified" is reported to the user as unverified, never as passed.
 
+The **quiz review** gate is advisory: it passes but names any Quiz Level where the right option is the longest in more than half of its choice items (four or more items), because a student can then guess by length. Rewrite those options so the key is not the longest.
+
 ## 7. Source check
 
 Dispatch an independent reviewer with fresh context (a sub-agent; without one, do it yourself after re-reading `references/source-checker.md` from the top) to compare the built content with the cited pages and the References. It writes `<project>/source-check.md`. For a site with several chapters and sub-agents available, dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format; then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).

@@ -59,6 +59,7 @@ Section body in Markdown.
 - Section ids are `s<number>` with dots as dashes (`s3-1`); override with `{id=my-id}`.
 - Use `###`/`####` freely inside a section; only `##` starts a section.
 - Raw HTML is allowed for things Markdown lacks: `<mark>` (highlight), `<span class="en">` (English gloss), `<div class="grid2">`.
+- `**bold**` and `*italic*` close correctly against Chinese punctuation and letters (`**向量嵌入（Vector Embeddings）**是…`), which standard Markdown would leave literal. A `**` or `__` that still survives rendering is a build error, so a typo cannot ship as visible asterisks.
 
 ## Maths
 
@@ -124,13 +125,18 @@ Every number a worked example states must have a `calc` entry, so `verify` can r
   a: 0
   ex: 獨立時 $P(A \cap B) = P(A)P(B) = 0.12$。
   pages: 2
+- q: 二項分布 $B(10, 0.5)$ 的期望值為何？
+  o: [5, 2.5, 10, 0.5]
+  a: 0
+  ex: $E[X] = np = 10 \times 0.5 = 5$。
+  sec: "2.1"
 ```
 ````
 
 - Questions join the Quiz Level named after `quiz` (default: the chapter's `short` title). Levels appear in order of first use; a chapter gets a "challenge" button for each level it contributes to.
 - Choice items: `o` (2–8 options) and `a` = index of the right option. Options are shuffled for the reader, so never write "以上皆是" / "all of the above".
 - Number items: `type: num`, numeric `a`, `tol`, and a `calc` expression (required in practice: `verify` flags number items without one).
-- `ex` explains why; `pages` overrides the section's pages; each item links back to its section.
+- `ex` explains why; `pages` overrides the section's pages.- Each item links back to a section. A quiz block usually sits at the end of a chapter, so the block's own section is rarely the one the item tests: write `sec: "1.2"` to name it, or let `pages` infer the section whose page range contains that page. Without either, the item links to the block's section. A `sec` that names no section of this chapter fails the build (`sec "1.2" is in another chapter` when the number exists elsewhere), which catches a copy-pasted question.
 - `q`, `o`, `ex` accept inline Markdown and `$…$`.
 
 ### `lab <type>` — an interactive Lab (YAML parameters)

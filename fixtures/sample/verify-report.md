@@ -1,13 +1,14 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T03:37:30.288Z
-- Verified: 2026-10-17T03:37:33.739Z
+- Built: 2026-10-17T10:54:53.185Z
+- Verified: 2026-10-17T10:54:56.724Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
 |---|---|---|
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
+| quiz review | ✓ pass | no level has a guessable key |
 | render | ✓ pass | 20 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 
@@ -30,6 +31,11 @@
 ## coverage
 
 - ✓ sample.pdf p.1-4: 4/4 pages cited
+
+## quiz review
+
+- ✓ Quiz Level “條件機率”: only 2 choice items, not judged
+- ✓ Quiz Level “二項分布”: only 2 choice items, not judged
 
 ## render
 

@@ -12,6 +12,38 @@ export function tex(src, display, errors, where) {
   }
 }
 
+// CommonMark's flanking rules assume spaces around punctuation. Chinese writes ）」。（ directly
+// against the emphasised run, so `**向量嵌入（Vector Embeddings）**是` is not right-flanking and the
+// markers stay literal. Next to CJK text a marker only needs "not whitespace" on that side, which is
+// what a Chinese author expects; everywhere else markdown-it's own rules apply unchanged.
+const CJK = /[\u2E80-\u9FFF\u3000-\u303F\uFF00-\uFFEF\u3040-\u30FF\uAC00-\uD7AF\uF900-\uFAFF]/;
+
+function cjkEmphasisPlugin(md) {
+  // Same shape as markdown-it's own emphasis tokenizer (it splits a run into one token per marker so
+  // `***x***` can pair up); only the flanking decision is relaxed, and only beside CJK characters.
+  md.inline.ruler.at('emphasis', (state, silent) => {
+    const start = state.pos;
+    const marker = state.src.charCodeAt(start);
+    if (silent) return false;
+    if (marker !== 95 && marker !== 42) return false;
+    const scanned = state.scanDelims(start, marker === 42);
+    const prev = start > 0 ? state.src[start - 1] : '';
+    const next = state.src[start + scanned.length] || '';
+    let open = scanned.can_open, close = scanned.can_close;
+    if (CJK.test(prev) || CJK.test(next)) {
+      if (next && !/\s/.test(next)) open = true;
+      if (prev && !/\s/.test(prev)) close = true;
+    }
+    for (let i = 0; i < scanned.length; i++) {
+      const token = state.push('text', '', 0);
+      token.content = String.fromCharCode(marker);
+      state.delimiters.push({ marker, length: scanned.length, token: state.tokens.length - 1, end: -1, open, close });
+    }
+    state.pos += scanned.length;
+    return true;
+  });
+}
+
 function mathPlugin(md, ctx) {
   // inline $…$ (not $$), no space just inside the delimiters, closing $ not followed by a digit
   md.inline.ruler.after('escape', 'math_inline', (state, silent) => {
@@ -58,6 +90,7 @@ function mathPlugin(md, ctx) {
 
 export function createMarkdown(ctx) {
   const md = new MarkdownIt({ html: true, linkify: false, typographer: false });
+  cjkEmphasisPlugin(md);
   mathPlugin(md, ctx);
   // tables get a scroll wrapper and the house style
   md.renderer.rules.table_open = () => '<div class="tablewrap"><table class="data">\n';

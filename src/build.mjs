@@ -6,6 +6,7 @@ import * as yaml from 'js-yaml';
 import { createMarkdown, tex } from './markdown.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
 import { projectMathSource, applyProjectMath } from './mathlib.mjs';
+import { parsePages } from './verify.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -47,6 +48,8 @@ export async function build(dir, opts = {}) {
   let sectionCount = 0, labCount = 0;
 
   const chapterHtml = [];
+  // Every section number in the site, so a quiz `sec` pointing at another chapter's section is caught.
+  const allSectionNums = chapters.flatMap((ch) => splitSections(ch).filter((s) => s.num).map((s) => s.num));
   for (const ch of chapters) {
     const sections = splitSections(ch);
     const chNum = ch.meta.chapter ?? '';
@@ -56,10 +59,11 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S };
+      const ctx = { errors, where, sec, secs: sections, allSectionNums, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const body = md.render(sec.body);
+      for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
@@ -124,7 +128,9 @@ export async function build(dir, opts = {}) {
 
   const out = resolve(dir, opts.out || project.output || `${project.title}.html`);
   await writeFile(out, html);
-  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), checks }, null, 2) + '\n');
+  // `levels` is written for the quiz-review gate: it needs the option lengths, which only exist here.
+  const levelDump = levels.map((l) => ({ t: l.t, qs: l.qs.map((q) => ({ type: q.type, a: q.a, o: q.o || [], sec: q.sec })) }));
+  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks }, null, 2) + '\n');
   return { out, sections: sectionCount, questions: levels.reduce((s, l) => s + l.qs.length, 0), labs: labCount };
 }
 
@@ -162,6 +168,19 @@ function splitSections(ch) {
 
 function collectSections(chapters) {
   return chapters.flatMap((ch) => splitSections(ch).filter((s) => s.num).map((s) => ({ file: ch.file, source: ch.meta.source || null, num: s.num, id: s.id, title: s.title, pages: s.pages })));
+}
+
+// A literal `**` / `__` that survived rendering means an author wrote emphasis the renderer could not
+// pair. It ships as visible asterisks, so treat it as a build error (same stance as unrendered TeX).
+// Only prose counts: code, fences, maths and Lab parameters may legitimately contain `**` (Python `2 ** 8`).
+function literalMarkers(html) {
+  const prose = html
+    .replace(/<pre[\s\S]*?<\/pre>/g, ' ')
+    .replace(/<code[\s\S]*?<\/code>/g, ' ')
+    .replace(/<math[\s\S]*?<\/math>/g, ' ')
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  return ['**', '__'].filter((m) => prose.includes(m));
 }
 
 function inlineTitle(t, errors, where) {
@@ -235,13 +254,36 @@ function addQuiz(items, levelArg, ctx, md) {
     if (!num && (!Array.isArray(q.o) || q.o.length < 2 || !Number.isInteger(q.a) || q.a < 0 || q.a >= q.o.length)) { ctx.errors.push(`${w}: choice items need o[] and a valid index a`); continue; }
     if (num && typeof q.a !== 'number') { ctx.errors.push(`${w}: num items need a numeric a`); continue; }
     const inl = (s) => { const c = { ...ctx, where: w }; return createMarkdown(c).renderInline(String(s)); };
-    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: ctx.sec.id, pages: q.pages || ctx.sec.pages || '' };
+    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: quizSection(q, ctx, w), pages: q.pages || ctx.sec.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);
     ctx.levels[li].qs.push(item);
     if (num && q.calc !== undefined) ctx.checks.push({ where: w, kind: 'quiz', expr: String(q.calc), expect: q.a, tol: Math.max(Number(q.tol ?? 0), 1e-9) });
     if (num && q.calc === undefined) ctx.checks.push({ where: w, kind: 'quiz-missing-calc', expect: q.a });
   }
+}
+
+// Which section a quiz item links back to. A quiz block usually sits at the end of a chapter, so the
+// block's own section is rarely the one the item tests: an explicit `sec` wins, then the first section
+// of this chapter whose `pages` contain the item's page, then the block's section (the old behaviour).
+function quizSection(q, ctx, where) {
+  const secs = ctx.secs || [];
+  if (q.sec !== undefined) {
+    const want = String(q.sec);
+    const hit = secs.find((s) => s.num === want);
+    if (hit) return hit.id;
+    // A section number that exists in another chapter is a copy-paste slip, not a typo.
+    const elsewhere = (ctx.allSectionNums || []).includes(want);
+    ctx.errors.push(`${where}: sec "${want}" ${elsewhere ? 'is in another chapter' : 'names no section in this chapter'}`);
+    return ctx.sec.id;
+  }
+  if (q.pages) {
+    let want;
+    try { want = parsePages(q.pages); } catch { return ctx.sec.id; }
+    const hit = secs.find((s) => s.pages && [...parsePages(s.pages)].some((p) => want.has(p)));
+    if (hit) return hit.id;
+  }
+  return ctx.sec.id;
 }
 
 function renderLab(type, p, ctx) {

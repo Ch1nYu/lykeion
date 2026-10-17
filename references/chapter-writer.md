@@ -35,6 +35,8 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 ## Quiz
 
 - Write the Depth's number of items per Quiz Level; mix concept, calculation and "which is wrong" items, and spread right answers across positions (options are shuffled, but write them in a natural order).
+- Keep the right option about as long as the distractors. A right option that is consistently the longest and most qualified is a tell: a student can pick it by length without understanding, and `verify` warns when more than half of a level's items have the longest option right.
+- Give every item `sec: "<number>"` when the quiz block is not inside the section it tests — a block at the end of a chapter otherwise sends every "回到 §X" link to the chapter's last section. `pages` on the item infers the section when its page range falls inside one section.
 - Distractors are real misconceptions (the independent/mutually-exclusive swap, prior vs. posterior), each plausible to a student who skimmed.
 - `ex` explains why the answer is right **and** why the tempting wrong option is wrong, in 1–3 sentences.
 - Every item's answer is consistent with what the chapter itself says (the same classification, the same numbers).
