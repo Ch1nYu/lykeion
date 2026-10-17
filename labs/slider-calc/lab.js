@@ -4,9 +4,23 @@
                | { id, label, value, options: [{ value, label }] }], segmented buttons (categorical)
      outputs: [{ label, expr, digits?, best?: "min"|"max", labels?: { "1": "Yes", "0": "No" } }],
               expr uses input ids + LykeionMath; labels show text for exact values
-     bars?:   [{ label, expr, max? }],                             optional horizontal bars (0..max)
+     bars?:   [{ label, expr, min?, max? }],                       optional horizontal bars (0..max);
+              min < 0 draws a centre-zero bar, so a signed value never needs abs()
      verdict?: [{ when, text }]                                    first true "when" expr shows its text
    } */
+
+// Bar geometry as fractions of the track: the fill runs from the zero line to the clamped value.
+// With min = 0 the zero line is the left edge, which is the classic one-sided bar.
+function sliderBarGeom(v, min, max) {
+  if (!(max > min)) return { left: 0, width: 0, zero: 0 };
+  var span = max - min;
+  var z = Math.min(Math.max(0, min), max);
+  var zero = (z - min) / span;
+  if (!Number.isFinite(v)) return { left: zero, width: 0, zero: zero };
+  var c = Math.min(Math.max(v, min), max);
+  return { left: (Math.min(c, z) - min) / span, width: Math.abs(c - z) / span, zero: zero };
+}
+
 Lykeion.registerLab('slider-calc', function (root, p, api) {
   var H = api.H, esc = api.esc;
   var ids = (p.inputs || []).map(function (i) { return i.id; });
@@ -45,7 +59,9 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
 
   var barWrap = H('div', { class: 'bars2' });
   bars.forEach(function (b) {
-    b.el = H('div', { class: 'hbar' }, '<span>' + esc(b.label) + '</span><span class="track"><i></i></span><b>—</b>');
+    b.signed = b.min != null && Number(b.min) < 0;
+    b.el = H('div', { class: b.signed ? 'hbar signed' : 'hbar' },
+      '<span>' + esc(b.label) + '</span><span class="track">' + (b.signed ? '<u></u>' : '') + '<i></i></span><b>—</b>');
     barWrap.appendChild(b.el);
   });
   if (bars.length) root.appendChild(barWrap);
@@ -65,7 +81,17 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
     var bv = bars.map(function (b) { return b.fn(state); });
     var scale = Math.max.apply(null, bars.map(function (b, i) { return b.max != null ? b.max : bv[i]; }).concat([1e-9]));
     bars.forEach(function (b, i) {
-      b.el.querySelector('i').style.width = Math.max(0, Math.min(100, bv[i] / scale * 100)) + '%';
+      var fill = b.el.querySelector('i');
+      if (b.signed) {
+        var g = sliderBarGeom(bv[i], Number(b.min), b.max != null ? Number(b.max) : 0);
+        b.el.querySelector('u').style.left = g.zero * 100 + '%';
+        fill.style.left = g.left * 100 + '%';
+        fill.style.width = g.width * 100 + '%';
+        fill.classList.toggle('neg', bv[i] < 0);
+        fill.classList.toggle('pos', bv[i] > 0);
+      } else {
+        fill.style.width = sliderBarGeom(bv[i], 0, scale).width * 100 + '%';
+      }
       b.el.querySelector('b').textContent = api.fmt(bv[i], b.digits == null ? 3 : b.digits);
     });
     for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.innerHTML = verdicts[k].text; verdictEl.hidden = false; return; } }

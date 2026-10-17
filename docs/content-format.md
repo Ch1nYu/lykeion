@@ -173,9 +173,13 @@ inputs:
 outputs:
   - { label: "P(A∩B)", expr: "pa * 0.4", digits: 3, best: max }   # best: highlight min/max among outputs sharing it
   - { label: 預測, expr: "emp ? 1 : 0", labels: { "1": "Yes", "0": "No" } }   # labels: show text for exact values
-bars:    [{ label: "P(A∩B)", expr: "pa * 0.4", max: 0.4 }]
+bars:
+  - { label: "P(A∩B)", expr: "pa * 0.4", max: 0.4 }                      # one-sided: 0..max
+  - { label: "偏離獨立", expr: "pa * 0.4 - 0.12", min: -0.12, max: 0.28 }  # signed: centre-zero bar
 verdict: [{ when: "pa == 0.3", text: "P(A|B) = P(A)，此時 A 與 B 獨立。" }]   # first true wins
 ```
+
+A bar with `min < 0` is drawn from a zero line: negative values grow left in the second series colour, positive values grow right, and the number beside it keeps its sign. Use it for any quantity that can be negative (a difference, a dot product, a correlation) instead of wrapping the expression in `abs()`, which makes the bar disagree with the readout.
 
 **`stepper`** — walk through an algorithm one state at a time.
 
