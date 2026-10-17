@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T14:17:49.103Z
-- Verified: 2026-10-17T14:17:52.658Z
+- Built: 2026-10-17T15:05:06.250Z
+- Verified: 2026-10-17T15:05:09.771Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,7 +9,7 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| render | ✓ pass | 23 checks passed |
+| render | ✓ pass | 24 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 
 ## numeric
@@ -39,6 +39,7 @@
 
 ## render
 
+- ✓ skip link “跳到內容” is the first Tab stop, visible when focused, and Enter moves focus into main
 - ✓ 32 formulas rendered as MathML; 0 TeX errors
 - ✓ no unrendered TeX in body text
 - ✓ all in-page links resolve

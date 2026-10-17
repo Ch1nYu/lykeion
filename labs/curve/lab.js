@@ -45,12 +45,29 @@ Lykeion.registerLab('curve', function (root, p, api) {
     var sy = function (y) { return Hh - pad.b - (y - ymin) / (ymax - ymin) * (Hh - pad.t - pad.b); };
     svg.innerHTML = '';
     var g = S('g', { class: 'grid' }, svg), ax = S('g', { class: 'axis' }, svg);
-    for (var k = 0; k <= 4; k++) {
-      var yv = ymin + (ymax - ymin) * k / 4, xv = X.min + (X.max - X.min) * k / 4;
+    // Shared "nice numbers" ticks (LykeionMath.ticks) on both axes. The ends are drawn as
+    // ticks but only labelled when already round (ends[i]); otherwise the label is skipped
+    // so it can never sit on top of the axis end.
+    var xt = LykeionMath.ticks(X.min, X.max), yt = LykeionMath.ticks(ymin, ymax);
+    var showX = function (v, i) {
+      if (v === X.min) return xt.ends[0];
+      if (v === X.max) return xt.ends[1];
+      return true;
+    };
+    var showY = function (v, i) {
+      if (v === ymin) return yt.ends[0];
+      if (v === ymax) return yt.ends[1];
+      return true;
+    };
+    xt.ticks.forEach(function (xv, i) {
+      if (showX(xv, i)) S('text', { x: sx(xv), y: Hh - pad.b + 16, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = LykeionMath.tickLabel(xv, xt.step);
+      else S('line', { x1: sx(xv), x2: sx(xv), y1: Hh - pad.b, y2: Hh - pad.b + 5 }, ax);
+    });
+    yt.ticks.forEach(function (yv, i) {
       S('line', { x1: pad.l, x2: W - pad.r, y1: sy(yv), y2: sy(yv) }, g);
-      S('text', { x: pad.l - 6, y: sy(yv) + 4, class: 'tick', 'text-anchor': 'end' }, svg).textContent = +yv.toFixed(2);
-      S('text', { x: sx(xv), y: Hh - pad.b + 16, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = +xv.toFixed(2);
-    }
+      if (showY(yv, i)) S('text', { x: pad.l - 6, y: sy(yv) + 4, class: 'tick', 'text-anchor': 'end' }, svg).textContent = LykeionMath.tickLabel(yv, yt.step);
+      else S('line', { x1: pad.l - 5, x2: pad.l, y1: sy(yv), y2: sy(yv) }, ax);
+    });
     S('line', { x1: pad.l, x2: W - pad.r, y1: Hh - pad.b, y2: Hh - pad.b }, ax);
     S('line', { x1: pad.l, x2: pad.l, y1: pad.t, y2: Hh - pad.b }, ax);
     S('text', { x: (W + pad.l) / 2, y: Hh - 6, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = X.label || 'x';
