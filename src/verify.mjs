@@ -121,7 +121,8 @@ const plain = (s) => String(s ?? '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]
 const optLen = (s) => [...plain(s).replace(/\s+/g, '')].length;
 // Absolute words make a distractor easy to rule out; hedges make the key easy to spot.
 const ABSOLUTE = /一定|必定|必然|絕對|完全|永遠|從不|從來|總是|所有|任何|全部|都能|都會|都不|只要|不可能|always|never|every|all\b|only\b|none\b|completely/i;
-const HEDGE = /通常|多半|大多|可能|不一定|未必|並非|往往|一般而言|相對|較|usually|often|may\b|might\b|typically|generally/i;
+// Bare 較 and 相對 are left out: they also occur in plain words such as 比較 and 相對於.
+const HEDGE = /通常|多半|大多|可能|不一定|未必|並非|往往|一般而言|usually|often|may\b|might\b|typically|generally/i;
 // Terms of the stem: CJK bigrams and Latin words, so wording echoed from the question can be counted.
 function terms(s) {
   const t = plain(s).toLowerCase(), out = new Set();
