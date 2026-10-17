@@ -5,5 +5,5 @@
   Point to them from `~/.config/lykeion/config.json`:
 
 ```json
-{ "fixtures": { "data-mining": "/path/to/private/fixture-dir" } }
+{ "fixtures": { "my-course": "/path/to/private/fixture-dir" } }
 ```

@@ -7,12 +7,12 @@
 
 Depth: Standard · Palette: desk-teal · Scope: chap3.pdf p.1-60, chap4.pdf p.1-80
 
-## Chapter 3 — 分類：基本概念與決策樹 (chap3.pdf)
+## Chapter 3 — 條件機率與貝氏定理 (chap3.pdf)
 
 | § | Section | Pages | Labs | Quiz (level) | calc targets |
 |---|---|---|---|---|---|
-| 3.1 | 分類的定義與流程 | 1-6 | — | 1 choice (決策樹) | — |
-| 3.5 | 節點不純度：Gini、Entropy、Error | 23-31 | slider-calc: impurity of a 2-class node; curve: three impurity curves | 2 num + 1 choice (決策樹) | Gini (7,5) = 0.486; gain 0.125 |
+| 3.1 | 條件機率與獨立性 | 1-6 | — | 1 choice (條件機率) | — |
+| 3.5 | 貝氏定理與全機率公式 | 23-31 | slider-calc: posterior P(A|B) as a function of the prior; stepper: one Bayes update step by step | 2 num + 1 choice (條件機率) | P(D|+) = 0.083; P(A∩B) = 0.12 |
 
 Errata candidates:
 - p.29 states … ; Reference … says … (to confirm while writing)
@@ -26,6 +26,6 @@ Rules:
 - Sections follow the slides' order; one section per coherent topic, usually 3–12 slides.
 - Section numbers follow the textbook chapter numbers (`3.1`, `3.2`, …) so they match the course.
 - Quiz Levels: one per chapter, or split a long chapter into two levels by topic; name each level with a short noun phrase.
-- Lab plans name the Lab type and what the reader changes and sees. Choose a Lab where moving a parameter shows the concept (impurity vs. class balance, Apriori pruning by level, lift under null addition); a static table is not a Lab.
+- Lab plans name the Lab type and what the reader changes and sees. Choose a Lab where moving a parameter shows the concept (conditional probability vs. prior, a Bayes update step by step, the shape of a distribution as n grows); a static table is not a Lab.
 - calc targets list every number a worked example on those slides produces.
 - Palette: suggest the result of `lykeion palette suggest`, with one line on why it suits the subject; the user may pick another from `lykeion palette list`.

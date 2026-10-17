@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { createMarkdown, tex } from './markdown.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
+import { projectMathSource, applyProjectMath } from './mathlib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -92,8 +93,6 @@ export async function build(dir, opts = {}) {
     if (!found) { errors.push(`Lab type "${type}" not found in labs/ or ${join(dir, 'labs')}`); continue; }
     const uses = labUses.filter((x) => x.type === type);
     if (found.schema) for (const u of uses) errors.push(...checkLabParams(found.schema, u));
-    for (const u of uses) errors.push(...checkItemsetParams(u));
-    for (const u of uses) errors.push(...checkTreeParams(u));
     labJs.push(`/* Lab: ${type} */\n${found.js}`);
     if (found.css) labCss.push(`/* Lab: ${type} */\n${found.css}`);
   }
@@ -103,13 +102,18 @@ export async function build(dir, opts = {}) {
   const palette = opts.paletteObj || await loadPalette(opts.palette || project.palette || 'desk-teal');
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   const [shell, baseCss, mathJs, runtimeJs] = await Promise.all(['shell.html', 'base.css', 'mathlib.js', 'runtime.js'].map((f) => readFile(join(ROOT, 'runtime', f), 'utf8')));
+  const projectMath = await projectMathSource(dir);
+  if (projectMath.trim()) {
+    // Fail here, at build time, naming math.js — not later inside the reader's browser.
+    applyProjectMath(new Function(`${mathJs}\nreturn LykeionMath;`)(), projectMath);
+  }
   const data = { key: project.key || `lykeion:${project.title}`, strings: project.strings || {}, levels };
   const hero = project.hero ? renderHero(project, chapters, errors) : '';
   const slots = {
     lang: esc(project.lang || 'zh-Hant-TW'), title: esc(project.title), description: esc(project.description || ''), version: pkg.version,
     eyebrow: esc(project.eyebrow || ''), palette_css: paletteCss(palette), base_css: baseCss, lab_css: labCss.join('\n'),
     hero, chapters: chapterHtml.join('\n'), data_json: JSON.stringify(data).replace(/</g, '\\u003c'),
-    runtime_js: `${mathJs}\n${runtimeJs}`, lab_js: labJs.join('\n'),
+    runtime_js: `${mathJs}\n${projectMath}\n${runtimeJs}`, lab_js: labJs.join('\n'),
   };
   // Single pass over {{slot}} markers, so slot values are never re-scanned.
   const html = shell.replace(/\{\{(\w+)\}\}/g, (_, k) => {
@@ -273,6 +277,9 @@ async function findLab(type, dir) {
 }
 
 // Unknown Lab parameters are errors: a misspelt or unsupported key would otherwise be ignored silently.
+// `enums` constrains a value nested inside a list item: `{ enums: { steps: { 'chips.state': [...] } } }`
+// means every `steps[i].chips[j].state` must be one of the listed values. An absent value is allowed
+// (the Lab then falls back to its neutral look); only a value the author did write is checked.
 export function checkLabParams(schema, { type, params, where }) {
   const errs = [];
   for (const k of Object.keys(params)) if (!schema.keys.includes(k)) errs.push(`${where}: Lab "${type}" has no parameter "${k}" (allowed: ${schema.keys.join(', ')})`);
@@ -280,10 +287,24 @@ export function checkLabParams(schema, { type, params, where }) {
     for (const [i, item] of (Array.isArray(params[k]) ? params[k] : []).entries()) {
       if (!item || typeof item !== 'object') continue;
       for (const key of Object.keys(item)) if (!allowed.includes(key)) errs.push(`${where}: Lab "${type}" ${k}[${i}] has no key "${key}" (allowed: ${allowed.join(', ')})`);
+      for (const [path, values] of Object.entries((schema.enums || {})[k] || {})) {
+        // Walk the dotted path, fanning out over any array met on the way.
+        let at = [{ v: item, at: `${k}[${i}]` }];
+        for (const seg of path.split('.')) {
+          at = at.flatMap((n) => {
+            const v = n.v == null ? undefined : n.v[seg];
+            if (Array.isArray(v)) return v.map((x, j) => ({ v: x, at: `${n.at}.${seg}[${j}]` }));
+            return [{ v, at: `${n.at}.${seg}` }];
+          });
+        }
+        for (const found of at) {
+          if (found.v != null && !values.includes(found.v)) errs.push(`${where}: Lab "${type}" ${found.at} "${found.v}" must be one of ${values.join(', ')}`);
+        }
+      }
     }
   }
-  // Single-object parameters (e.g. itemsets' `minsup`) get the same key check, so a typo like
-  // `minimum:` fails the build instead of being silently ignored.
+  // Single-object parameters (e.g. a `range: { value, min, max }` control) get the same key check,
+  // so a typo like `minimum:` fails the build instead of being silently ignored.
   for (const [k, allowed] of Object.entries(schema.objects || {})) {
     const obj = params[k];
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) continue;
@@ -292,63 +313,3 @@ export function checkLabParams(schema, { type, params, where }) {
   return errs;
 }
 
-// itemsets-only limits. The Lab enumerates every non-empty subset of the item universe, so an
-// oversized universe or a nonsensical minsup is rejected at build time instead of shipped to the
-// page. Deliberately not a generic range system: this is the only type with combinatorial params.
-export function checkItemsetParams({ type, params, where }) {
-  if (type !== 'itemsets') return [];
-  const errs = [];
-  const tx = Array.isArray(params.transactions) ? params.transactions : [];
-  if (tx.length < 1 || tx.length > 20) errs.push(`${where}: Lab "itemsets" has ${tx.length} transaction(s); 1–20 are supported`);
-  const items = new Set();
-  for (const t of tx) for (const it of (t && t.items) || []) items.add(String(it));
-  if (items.size > 6) errs.push(`${where}: Lab "itemsets" has ${items.size} distinct items; at most 6 are supported (the lattice enumerates every subset)`);
-  const ms = params.minsup;
-  if (tx.length && ms && typeof ms === 'object' && !Array.isArray(ms)) {
-    const v = Number(ms.value);
-    if (!Number.isInteger(v) || v < 1 || v > tx.length) errs.push(`${where}: Lab "itemsets" minsup.value must be an integer between 1 and ${tx.length} (the transaction count); got ${JSON.stringify(ms.value)}`);
-  }
-  return errs;
-}
-
-// tree-only limits. Hunt's algorithm here is a teaching Lab, not a learner: the data set stays
-// small enough to draw whole, and every value in a record must be declared so the Lab never has to
-// invent a branch for a value the reader never mentioned. Not a generic range system — this is the
-// only type whose parameters describe a data set.
-export function checkTreeParams({ type, params, where }) {
-  if (type !== 'tree') return [];
-  const errs = [], name = 'Lab "tree"';
-  const attrs = Array.isArray(params.attributes) ? params.attributes : [];
-  const cls = params.class && typeof params.class === 'object' && !Array.isArray(params.class) ? params.class : null;
-  const records = Array.isArray(params.records) ? params.records : [];
-  if (attrs.length < 1 || attrs.length > 4) errs.push(`${where}: ${name} has ${attrs.length} attributes; 1–4 are supported`);
-  const attrNames = [];
-  for (const a of attrs) {
-    const an = a && typeof a === 'object' ? a.name : undefined;
-    if (typeof an === 'string' && attrNames.includes(an)) errs.push(`${where}: ${name} has two attributes named "${an}"`);
-    else attrNames.push(an);
-    const vals = Array.isArray(a && a.values) ? a.values : [];
-    if (vals.length < 2 || vals.length > 4) errs.push(`${where}: ${name} attribute "${an}" has ${vals.length} value(s); 2–4 are supported`);
-  }
-  const classVals = cls && Array.isArray(cls.values) ? cls.values : [];
-  if (!cls || classVals.length < 2 || classVals.length > 3) errs.push(`${where}: ${name} has ${classVals.length} class value(s); 2–3 are supported`);
-  else if (attrNames.includes(cls.name)) errs.push(`${where}: ${name} class "${cls.name}" has the same name as an attribute`);
-  if (records.length < 1 || records.length > 16) errs.push(`${where}: ${name} has ${records.length} records; 1–16 are supported`);
-  const allowed = attrNames.concat(cls ? cls.name : []);
-  records.forEach((r, i) => {
-    if (!r || typeof r !== 'object' || Array.isArray(r)) { errs.push(`${where}: ${name} record ${i + 1} is not a mapping`); return; }
-    for (const key of Object.keys(r)) if (!allowed.includes(key)) errs.push(`${where}: ${name} record ${i + 1} has unknown column "${key}" (allowed: ${allowed.join(', ')})`);
-    for (const a of attrs) {
-      if (!a || typeof a !== 'object') continue;
-      const vals = Array.isArray(a.values) ? a.values.map(String) : [];
-      if (!(a.name in r)) errs.push(`${where}: ${name} record ${i + 1} has no value for attribute "${a.name}"`);
-      else if (!vals.includes(String(r[a.name]))) errs.push(`${where}: ${name} record ${i + 1} has undeclared value ${JSON.stringify(r[a.name])} for attribute "${a.name}" (allowed: ${vals.join(', ')})`);
-    }
-    if (!cls) return;
-    if (!(cls.name in r)) errs.push(`${where}: ${name} record ${i + 1} has no value for the class "${cls.name}"`);
-    else if (!classVals.map(String).includes(String(r[cls.name]))) errs.push(`${where}: ${name} record ${i + 1} has undeclared class ${JSON.stringify(r[cls.name])} (allowed: ${classVals.join(', ')})`);
-  });
-  if (params.measure !== undefined && !['gini', 'entropy', 'error'].includes(params.measure)) errs.push(`${where}: ${name} measure ${JSON.stringify(params.measure)} must be one of gini, entropy, error`);
-  if (params.split !== undefined && !['multiway', 'binary'].includes(params.split)) errs.push(`${where}: ${name} split ${JSON.stringify(params.split)} must be one of multiway, binary`);
-  return errs;
-}

@@ -199,10 +199,10 @@ input[type=number]{font-family:var(--f-mono); font-size:1rem; width:5.2em; paddi
 .calc{font-family:var(--f-mono); font-size:.92rem; line-height:1.9; background:var(--paper); border:1px dashed var(--rule-strong); border-radius:10px; padding:10px 14px; overflow-x:auto}
 .calc .c{color:var(--muted)}
 .verdict{font-family:var(--f-hand); font-size:1.15rem; line-height:1.6; padding:10px 14px; border-radius:10px; background:var(--hl-soft)}
-.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:.85rem; padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); transition:all .3s}
-.chip.freq{border-color:var(--good); background:var(--good-soft)}
-.chip.infreq{border-color:var(--bad); background:var(--bad-soft); text-decoration:line-through; text-decoration-color:var(--bad)}
-.chip.pruned{border-style:dashed; color:var(--muted); background:transparent; text-decoration:line-through}
+.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:.85rem; padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); transition:all .3s}
+.chip.good{border-color:var(--good); background:var(--good-soft)}
+.chip.bad{border-color:var(--bad); background:var(--bad-soft); text-decoration:line-through; text-decoration-color:var(--bad)}
+.chip.muted{border-style:dashed; color:var(--muted); background:transparent; text-decoration:line-through}
 .chips{display:flex; flex-wrap:wrap; gap:8px}
 .state{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:500; padding:3px 10px; border-radius:999px}
 .state.ok{background:var(--good-soft); color:var(--good)}

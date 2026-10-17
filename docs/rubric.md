@@ -1,6 +1,6 @@
 # Rubric
 
-The ten metrics used in the 2026-10 review of four hand-made Data Mining pages, and the acceptance score for lykeion (M7). Each metric is scored 1–10, then weighted to a total out of 100.
+The ten metrics used in the first acceptance review of four hand-made Lecture Sites, and the acceptance score for lykeion (M7). Each metric is scored 1–10, then weighted to a total out of 100.
 
 | # | Metric | Weight | What earns a high score |
 |---|---|---|---|
@@ -17,4 +17,4 @@ The ten metrics used in the 2026-10 review of four hand-made Data Mining pages, 
 
 Severity of findings: **high** — breaks a feature or misteaches a core concept; **medium** — wrong but local; **low** — polish.
 
-Acceptance (M7): the regenerated Data Mining Lecture Site scores **≥ 82**, has **no high-severity findings**, and passes all four `verify` gates. Score it with a reviewer that did not write it, reading the whole file and recomputing the worked numbers.
+Acceptance (M7): the regenerated Acceptance Fixture Lecture Site scores **≥ 82**, has **no high-severity findings**, and passes all four `verify` gates. Score it with a reviewer that did not write it, reading the whole file and recomputing the worked numbers.

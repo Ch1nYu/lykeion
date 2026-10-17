@@ -20,7 +20,7 @@ You write one chapter of a Lecture Site: `content/NN-<slug>.md` in the format of
 
 ## Numbers
 
-- Every number your prose states as a result gets a `calc` entry recomputing it from its inputs (`gini(7,5)`, not `0.486`).
+- Every number your prose states as a result gets a `calc` entry recomputing it from its inputs (`0.9*0.01/(0.9*0.01+0.1*0.99)`, not `0.083`).
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
 
@@ -35,7 +35,7 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 ## Quiz
 
 - Write the Depth's number of items per Quiz Level; mix concept, calculation and "which is wrong" items, and spread right answers across positions (options are shuffled, but write them in a natural order).
-- Distractors are real misconceptions (the overfitting/underfitting swap, confidence vs. lift), each plausible to a student who skimmed.
+- Distractors are real misconceptions (the independent/mutually-exclusive swap, prior vs. posterior), each plausible to a student who skimmed.
 - `ex` explains why the answer is right **and** why the tempting wrong option is wrong, in 1–3 sentences.
 - Every item's answer is consistent with what the chapter itself says (the same classification, the same numbers).
 
@@ -45,7 +45,7 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 
 ## Language
 
-Traditional Chinese (Taiwan) prose; keep technical terms in English on first use, e.g. 節點不純度（Node Impurity）, then use one form consistently. TeX exactly as in a `.tex` file.
+Traditional Chinese (Taiwan) prose; keep technical terms in English on first use, e.g. 條件機率（Conditional Probability）, then use one form consistently. TeX exactly as in a `.tex` file.
 
 ## Done
 

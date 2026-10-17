@@ -1,3 +1,0 @@
-{ "keys": ["tag", "title", "hint", "id", "transactions", "minsup", "show", "verdict"],
-  "items": { "transactions": ["tid", "items"], "verdict": ["when", "text"] },
-  "objects": { "minsup": ["value", "min", "max"] } }

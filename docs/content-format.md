@@ -5,6 +5,7 @@ A Lecture Site project is a directory:
 ```
 <project>/
 ├── lykeion.json        # project settings
+├── math.js             # optional project-local maths helpers (LykeionMath.extend)
 ├── content/*.md        # one file per chapter, built in file-name order
 └── labs/<type>/lab.js  # optional project-local custom Lab types (+ lab.css)
 ```
@@ -16,17 +17,17 @@ Any error below fails the build; nothing broken is silently rendered.
 
 ```json
 {
-  "title": "資料探勘期中講堂",
+  "title": "機率與統計講堂",
   "description": "One sentence for the page meta description.",
-  "eyebrow": "Data Mining · Midterm",
+  "eyebrow": "Probability · Statistics",
   "lang": "zh-Hant-TW",
   "palette": "desk-teal",
   "depth": "standard",
-  "output": "資料探勘期中講堂.html",
-  "hero": { "title": "從資料裡挖出<em>沒人告訴你的規律</em>", "intro": "One paragraph." },
-  "levels": { "決策樹": "不純度與最佳分割" },
-  "scope": [{ "file": "chap3_basic_classification_m.pdf", "pages": "1-60" }],
-  "references": ["Tan, Steinbach, Karpatne & Kumar, Introduction to Data Mining, 2nd ed."]
+  "output": "機率與統計講堂.html",
+  "hero": { "title": "把公式<em>算給你看</em>的一頁講堂", "intro": "One paragraph." },
+  "levels": { "條件機率": "條件機率、獨立性與貝氏定理" },
+  "scope": [{ "file": "sample.pdf", "pages": "1-4" }],
+  "references": ["Ross, *A First Course in Probability*, 10th ed."]
 }
 ```
 
@@ -40,16 +41,16 @@ Any error below fails the build; nothing broken is silently rendered.
 ```markdown
 ---
 chapter: 3                      # number shown as "03"
-title: 分類：基本概念與決策樹     # chapter heading
-short: 分類與決策樹               # sidebar and table-of-contents label (default: title)
-subtitle: Classification: Basic Concepts and Techniques
-summary: Hunt 演算法、Gini／Entropy、過擬合與剪枝   # table-of-contents blurb
-source: chap3_basic_classification_m.pdf           # Primary Source file of this chapter
+title: 條件機率與貝氏定理      # chapter heading
+short: 條件機率                 # sidebar and table-of-contents label (default: title)
+subtitle: Conditional Probability and Bayes' Theorem
+summary: 條件機率、獨立性與貝氏定理的三種寫法   # table-of-contents blurb
+source: sample.pdf                                 # Primary Source file of this chapter
 ---
 
 Optional chapter introduction (before the first section).
 
-## 3.1 分類的定義與流程 {pages=3-5}
+## 3.1 條件機率與獨立性 {pages=1-2}
 
 Section body in Markdown.
 ```
@@ -67,8 +68,8 @@ Section body in Markdown.
 - A display formula with a corner label:
 
   ````markdown
-  ```formula GINI
-  \mathrm{Gini}(t) = 1 - \sum_j p_j^2
+  ```formula BAYES
+  P(A \mid B) = \frac{P(A \cap B)}{P(B)}
   ```
   ````
 
@@ -80,7 +81,7 @@ All blocks are fenced code blocks whose info string names the block. YAML blocks
 
 ````markdown
 ```note
-考前提醒：**關聯規則與分群屬於描述型任務**。
+考前提醒：**獨立與互斥是兩件事**，只有 $P(A \cap B) = P(A)P(B)$ 才叫獨立。
 ```
 ````
 
@@ -90,8 +91,8 @@ All blocks are fenced code blocks whose info string names the block. YAML blocks
 
 ````markdown
 ```erratum
-text: 投影片稱 CART 使用悲觀誤差剪枝；CART 實際使用 cost-complexity pruning。
-ref: Breiman et al., *Classification and Regression Trees*, 1984, ch. 3
+text: 講義寫「事前機率與事後機率永遠不會相同」；只有當 $B$ 與 $A$ 獨立時兩者才會相等。
+ref: Ross, *A First Course in Probability*, 10th ed., §3.4
 ```
 ````
 
@@ -101,7 +102,7 @@ Every number a worked example states must have a `calc` entry, so `verify` can r
 
 ````markdown
 ```calc
-- { expr: "gini(7,5) - (6/12*gini(5,1) + 6/12*gini(2,4))", expect: 0.125, note: "Gini gain of the split" }
+- { expr: "0.9*0.01 / (0.9*0.01 + 0.1*0.99)", expect: 0.083, note: "posterior P(D|+) from prevalence 0.01" }
 - { expr: "C(6,2)", expect: 15, tol: 0 }
 ```
 ````
@@ -111,18 +112,18 @@ Every number a worked example states must have a `calc` entry, so `verify` can r
 ### `quiz [level]` — questions for the end-of-site quiz (not rendered inline)
 
 ````markdown
-```quiz 決策樹
+```quiz 條件機率
 - type: num
-  q: 節點內 C1 = 2、C2 = 4，Gini 是多少？（小數 3 位）
-  a: 0.444
+  q: 若 $P(A \cap B) = 0.2$、$P(B) = 0.4$，$P(A \mid B)$ 是多少？（小數 3 位）
+  a: 0.5
   tol: 0.002
-  calc: "gini(2,4)"
-  ex: $1 - (2/6)^2 - (4/6)^2 = 0.444$。
-- q: Customer ID 的資訊增益最高，C4.5 怎麼修正？
-  o: [改用 Misclassification error, 用 Gain Ratio 懲罰切成很多小份的分割, 只允許多路分割, 改用 Gini index]
-  a: 1
-  ex: SplitINFO 隨分割數變大，Gain Ratio 被壓低。
-  pages: 48
+  calc: "0.20/0.40"
+  ex: $P(A \mid B) = 0.2 / 0.4 = 0.5$。
+- q: 已知 $A$ 與 $B$ 獨立，$P(A) = 0.3$、$P(B) = 0.4$，$P(A \cap B)$ 為何？
+  o: [0.12, 0.70, 0.58, 無法判斷]
+  a: 0
+  ex: 獨立時 $P(A \cap B) = P(A)P(B) = 0.12$。
+  pages: 2
 ```
 ````
 
@@ -141,93 +142,74 @@ Labs break out of the reading column, so put them at the top level of a section 
 
 ```yaml
 inputs:
-  - { id: c1, label: C1, min: 0, max: 6, step: 1, value: 2, unit: "" }                          # slider
+  - { id: pa, label: "P(A|B)", min: 0, max: 1, step: 0.05, value: 0.3, unit: "" }              # slider
   - { id: emp, label: Employed, value: 1, options: [{ value: 1, label: "Yes" }, { value: 0, label: "No" }] }  # categorical buttons
 outputs:
-  - { label: Gini, expr: "gini(c1, 6 - c1)", digits: 3, best: min }   # best: highlight min/max among outputs sharing it
+  - { label: "P(A∩B)", expr: "pa * 0.4", digits: 3, best: max }   # best: highlight min/max among outputs sharing it
   - { label: 預測, expr: "emp ? 1 : 0", labels: { "1": "Yes", "0": "No" } }   # labels: show text for exact values
-bars:    [{ label: Gini, expr: "gini(c1, 6 - c1)", max: 1 }]
-verdict: [{ when: "c1 == 3", text: "三個指標同時最大。" }]                  # first true wins
+bars:    [{ label: "P(A∩B)", expr: "pa * 0.4", max: 0.4 }]
+verdict: [{ when: "pa == 0.3", text: "P(A|B) = P(A)，此時 A 與 B 獨立。" }]   # first true wins
 ```
 
 **`stepper`** — walk through an algorithm one state at a time.
 
 ```yaml
+legend: { good: 想算的那一項, bad: 算錯的地方, muted: 這一步先不看 }   # optional; each entry needs a chip
 steps:
   - label: "(a)"
-    text: 所有紀錄在根節點，計數 $(7,3)$。
+    text: 盛行率 $P(D) = 0.01$，敏感度 $P(+ \mid D) = 0.9$。
     table: { head: [Tid, Home, Class], rows: [[1, Yes, No], [2, No, No]], highlight: [0] }
-    chips: [{ text: "{A,B}", state: freq, note: "σ=3" }, { text: "{C,E}", state: infreq }]   # freq | infreq | pruned
+    chips: [{ text: "P(+|D)P(D) = 0.009", state: good, note: "真陽" }, { text: "P(+|¬D)P(¬D) = 0.099", state: bad }]   # good | bad | muted
 ```
+
+A chip `state` is one of `good`, `bad`, `muted` (or omitted for a plain chip); any other value fails the build. `legend` is optional and only renders the entries you name — its swatches are the chip markup itself, so a swatch cannot drift from the chips it explains.
 
 **`table`** — editable contingency table or matrix with live outputs.
 
 ```yaml
-names:  [[f11, f10], [f01, f00]]        # variable name of each cell
-rows:   [Tea, ¬Tea]
-cols:   [Coffee, ¬Coffee]
-values: [[15, 5], [75, 5]]
+names:  [[k, nk], [x, y]]              # variable name of each cell
+rows:   [成功, 失敗]
+cols:   [次數, 補數]
+values: [[2, 8], [0, 0]]
 margins: true                            # show row/column sums
-outputs: [{ label: Lift, expr: "(f11/(f11+f10)) / ((f11+f01)/(f11+f10+f01+f00))", digits: 3 }]
-actions: [{ label: "+ 10000 筆 f00", set: { f00: "f00 + 10000" } }, { label: 重設, reset: true }]
-verdict: [{ when: "...", text: "..." }]
+outputs: [{ label: "P(X=k)", expr: "binomPmf(k + nk, k, k/(k+nk))", digits: 3 }]
+actions: [{ label: 成功次數 +1, set: { k: "k + 1", nk: "nk - 1" } }, { label: 重設, reset: true }]
+verdict: [{ when: "k == nk", text: "成功與失敗各半，變異數最大。" }]
 ```
 
 **`curve`** — functions of x, optionally controlled by sliders.
 
 ```yaml
-x: { label: p, min: 0, max: 1 }
-inputs: [{ id: k, label: k, min: 1, max: 5, step: 1, value: 2 }]   # optional parameters
-curves: [{ label: Gini, expr: "2*x*(1-x)" }, { label: Entropy, expr: "x<=0||x>=1 ? 0 : -x*log2(x)-(1-x)*log2(1-x)" }]
-y: { label: impurity, min: 0, max: 1 }    # optional; default fits the curves
-marker: { label: p, value: 0.3 }   # optional x marker (slider) with live readouts per curve
+x: { label: k, min: 0, max: 20 }
+inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]   # optional parameters
+curves: [{ label: "p = 0.5", expr: "x > n ? 0 : binomPmf(n, x, 0.5)" }, { label: "p = 0.3", expr: "x > n ? 0 : binomPmf(n, x, 0.3)" }]
+y: { label: "P(X=k)", min: 0, max: 0.3 }    # optional; default fits the curves
+marker: { label: k, value: 3 }   # optional x marker (slider) with live readouts per curve
 ```
-
-**`itemsets`** — transactions + `minsup` → which itemsets are frequent, closed and maximal, drawn as an itemset lattice (level = itemset size, edge = subset → superset). The reader moves the `minsup` slider and sees the verdicts change; the counts come from `LykeionMath.itemsets`, which `lykeion verify` recomputes from the same parameters.
-
-```yaml
-transactions:                       # 1–20 baskets, 1–6 distinct items overall
-  - { tid: t1, items: [A, B, C, D] }
-  - { tid: t2, items: [A, B, C] }
-  - { tid: t3, items: [A, B] }
-  - { tid: t4, items: [A, C, D] }
-  - { tid: t5, items: [B, C] }
-minsup: { value: 2 }                # absolute support count; min defaults to 1, max to the basket count
-show: [frequent, closed, maximal]   # optional: which readouts and legend states to show (default: all three)
-verdict: [{ when: "nMaximal == 2", text: "minsup = 2：{A,B,C} 與 {A,C,D} 都是最大項目集。" }]
-```
-
-Node states: infrequent (dashed, struck through), frequent, closed, maximal (a maximal itemset is also closed, so it is drawn filled with a heavier ring). Emphasis grows frequent < closed < maximal. The empty set ∅ sits above level 1, is styled neutrally and is not part of the taxonomy, so it is not counted in the readouts. The legend swatches are the node markup at legend size, so they always show the same paint as the lattice. The lattice never renders narrower than its viewBox, so on a narrow screen it keeps its text size and `.vizwrap` scrolls horizontally instead of the page overflowing. `verdict.when` is an expression over `minsup`, `nFrequent`, `nClosed`, `nMaximal`.
-
-**`tree`** — grow a decision tree by Hunt's algorithm on a small categorical data set: the reader picks the split at each node (or lets the Lab pick the best one), then classifies a record with the grown tree. Candidate gains come from `LykeionMath.treeSplits`, the grown tree from `LykeionMath.treeGrow`; `lykeion verify` recomputes both from the same parameters.
-
-```yaml
-attributes: [{ name: Weather, values: [Sunny, Rainy] }, { name: Wind, values: [Weak, Strong] }, { name: Temp, values: [Hot, Mild, Cool] }]
-class: { name: Play, values: [Yes, No] }
-records:                            # 1–16 records; every value must be declared above
-  - { Weather: Sunny, Wind: Weak,  Temp: Hot,  Play: No }
-  - { Weather: Sunny, Wind: Strong,Temp: Hot,  Play: No }
-  - { Weather: Rainy, Wind: Weak,  Temp: Hot,  Play: Yes }
-  - { Weather: Rainy, Wind: Weak,  Temp: Mild, Play: Yes }
-  - { Weather: Rainy, Wind: Weak,  Temp: Cool, Play: Yes }
-  - { Weather: Rainy, Wind: Strong,Temp: Cool, Play: No }
-  - { Weather: Sunny, Wind: Weak,  Temp: Mild, Play: Yes }
-  - { Weather: Sunny, Wind: Strong,Temp: Cool, Play: Yes }
-  - { Weather: Rainy, Wind: Strong,Temp: Mild, Play: Yes }
-  - { Weather: Rainy, Wind: Weak,  Temp: Hot,  Play: No }
-measure: gini                       # gini | entropy | error (default gini); the reader can switch it in the Lab
-split: multiway                     # multiway | binary (default multiway); binary = one value vs the rest
-verdict: [{ when: "trainingError == 0 && depth <= 3", text: "這棵樹已經完全分開訓練資料。" }]
-```
-
-1–4 attributes with 2–4 values each, 2–3 classes. A leaf is **pure** (one class left), **impure** (kept with its majority class, and the node to click when you want to split further) or **empty** (no record reached it, so it inherits the parent's majority class — Hunt's rule). An attribute is used at most once on any path. The classify panel picks one value per attribute, highlights the path that record takes through the current tree and shows the predicted class. Node states: a plain box is a **test** node, a green box is a **pure** leaf, an accent-ringed box is an **impure** leaf (the one you can split), a dashed muted box is an **inherited** empty node; the reader's selection and the classified record's path are drawn as a ring *outside* the box so a ring can never hide the state. The legend swatches are the node markup at legend size, so the legend cannot drift from the tree. The tree always renders 1:1 (never scaled down to unreadable text, never blown up to fill the column) and `.vizwrap` scrolls horizontally when it does not fit, so a wide tree never overflows the page. `verdict.when` is an expression over `depth`, `leaves`, `trainingError` (a fraction) and `measureIndex` (0 gini, 1 entropy, 2 error).
 
 **Custom Labs** — `<project>/labs/<type>/lab.js` calling `Lykeion.registerLab('<type>', (root, params, api) => { … })`. `api` provides `H`, `S` (DOM/SVG builders), `esc`, `fmt`, `setVal`, `setSeg`, `onSeg`, `fillRange`, `toast`, `reduceMotion`; `LykeionMath.compile(expr, names)` evaluates expressions. A custom Lab must pass `lykeion verify` like any other.
 
 ## Maths library (Lab expressions and `calc`)
 
-`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, gini(...counts), entropy(...counts), error(...counts), C(n,k), fact(n), itemsets(transactions, minsup), treeSplits(records, attributes, classDef, measure, split), treeGrow(records, attributes, classDef, measure, split), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, entropy(...counts), C(n,k), fact(n), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
 
-`LykeionMath.itemsets(transactions, minsup)` returns `{ minsup, n, universe, sets, frequent, closed, maximal, counts }`: every non-empty itemset of the item universe with its absolute support `sigma`, plus `frequent` / `closed` / `maximal` flags. It is available to Lab code and to `calc` expressions.
+### Project maths helpers (`<project>/math.js`)
 
-`LykeionMath.treeSplits(records, attributes, classDef, measure, split)` returns `{ n, counts, impurity, measure, split, candidates, best }` for the records at one node; each candidate is `{ attr, groups, weighted, gain }`, where a group is `{ label, values, records, n, counts, impurity, weight }` and `gain` is the parent impurity minus the weighted child impurity. `LykeionMath.treeGrow(...)` returns the fully grown Hunt tree (best split at every step, until a node is pure or no attribute is left); a node is `{ n, counts, majority, impurity, pure, records, attr, children, label, values }` with `attr` null on a leaf. `treePredict(node, record)`, `treeError(node, records, classDef)` and `treeStats(node)` classify a record, compute the resubstitution error and count `{ depth, leaves }`.
+A Lecture Site can add its own functions on top of that library. Ship a `math.js` next to `lykeion.json`:
+
+```js
+// <project>/math.js — inlined into the page right after the maths library
+LykeionMath.extend({
+  binomPmf: function (n, k, p) {
+    return LykeionMath.lib.C(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+  }
+});
+```
+
+Every registered name then works in `calc` expressions, in Lab `expr` strings and in custom Lab code:
+
+```yaml
+curves: [{ label: "p = 0.5", expr: "x > n ? 0 : binomPmf(n, x, 0.5)" }]
+```
+
+`extend` rejects a name that is not a JavaScript identifier, a value that is not a function, and any name that would override a built-in — so the library stays trustworthy. A syntax error or a throw inside `math.js` is a build error naming the file, and the numeric gate evaluates `calc` with the same helpers, so a checked number cannot pass on the page and fail in `verify`.

@@ -30,7 +30,7 @@ STATUS: fail
 
 ## Findings
 - [certain] 03-classification.md §3.7 — states "CART uses pessimistic error pruning"; Breiman et al. 1984 ch.3: CART uses cost-complexity pruning. Fix: drop CART from the sentence.
-- [disputed] 04-association.md §4.6 — slide p.52 counts ∅ as frequent; Tan et al. 2nd ed. §5.4 excludes it. Keep the slide's count, add an erratum?
+- [disputed] 04-binomial.md §4.6 — slide p.52 rounds $np(1-p)$ to 2 decimals; the textbook keeps 3. Keep the slide's rounding, add a note?
 
 ## Checked
 - 03-classification.md: §3.1–3.11, 31 pages, 48 claims, 14 quiz items

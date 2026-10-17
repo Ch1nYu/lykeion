@@ -1,10 +1,14 @@
 /* Lab type "stepper": walk through an algorithm one state at a time.
-   params: { steps: [{ label, text?, table?: { head, rows, highlight? }, chips?: [{ text, state?, note? }] }], start? } */
+   params: { steps: [{ label, text?, table?: { head, rows, highlight? }, chips?: [{ text, state?, note? }] }],
+             start?, legend?: { good?, bad?, muted? } }
+   Chip `state` is one of good | bad | muted; `legend` names the states the reader needs labelled and
+   is drawn with the very same chip markup, so a swatch cannot drift from a chip. */
 Lykeion.registerLab('stepper', function (root, p, api) {
   var H = api.H, esc = api.esc;
   var steps = p.steps || [];
   if (!steps.length) throw new Error('stepper needs at least one step');
   var cur = Math.min(Math.max(0, p.start || 0), steps.length - 1);
+  var STATES = ['good', 'bad', 'muted'];
 
   var controls = H('div', { class: 'controls' });
   var seg = H('div', { class: 'seg', role: 'group', 'aria-label': p.title || 'steps' });
@@ -14,6 +18,14 @@ Lykeion.registerLab('stepper', function (root, p, api) {
   var next = H('button', { type: 'button', class: 'btn primary' }, '下一步');
   controls.appendChild(seg); controls.appendChild(prev); controls.appendChild(next);
   root.appendChild(controls);
+
+  // Only the states the author named get a legend entry: a label is content, not a default.
+  var legend = H('div', { class: 'legend stepper-legend' });
+  STATES.forEach(function (state) {
+    if (!p.legend || p.legend[state] == null) return;
+    legend.appendChild(H('span', {}, '<span class="chip ' + state + '">' + esc(String(p.legend[state])) + '</span>'));
+  });
+  if (legend.children.length) root.appendChild(legend);
 
   var view = H('div', { class: 'step-view', 'aria-live': 'polite' });
   root.appendChild(view);

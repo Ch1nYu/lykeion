@@ -1,2 +1,4 @@
-{ "keys": ["tag", "title", "hint", "id", "steps", "start"],
-  "items": { "steps": ["label", "text", "table", "chips"] } }
+{ "keys": ["tag", "title", "hint", "id", "steps", "start", "legend"],
+  "items": { "steps": ["label", "text", "table", "chips"] },
+  "enums": { "steps": { "chips.state": ["good", "bad", "muted"] } },
+  "objects": { "legend": ["good", "bad", "muted"] } }

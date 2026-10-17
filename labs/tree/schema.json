@@ -1,3 +1,0 @@
-{ "keys": ["tag", "title", "hint", "id", "attributes", "class", "records", "measure", "split", "verdict"],
-  "items": { "attributes": ["name", "values"], "verdict": ["when", "text"] },
-  "objects": { "class": ["name", "values"] } }

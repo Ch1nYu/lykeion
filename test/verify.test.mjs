@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { numericGate, coverageGate, parsePages, verify } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
@@ -74,4 +75,54 @@ test('build rejects Lab parameters the Lab type does not support', () => {
   assert.equal(errs.length, 2);
   assert.match(errs.join('\n'), /no parameter "colour"/);
   assert.match(errs.join('\n'), /outputs\[0\] has no key "labels"/);
+});
+
+test('build rejects an unknown key inside a single-object Lab parameter', () => {
+  const schema = { keys: ['title', 'range'], objects: { range: ['value', 'min', 'max'] } };
+  const ok = checkLabParams(schema, { type: 'slider-calc', where: 'x.md §1.1', params: { title: 't', range: { value: 2, min: 1, max: 5 } } });
+  assert.deepEqual(ok, []);
+  const errs = checkLabParams(schema, { type: 'slider-calc', where: 'x.md §1.1', params: { title: 't', range: { value: 2, minimum: 1 } } });
+  assert.equal(errs.length, 1);
+  assert.match(errs[0], /x\.md §1\.1: Lab "slider-calc" range has no key "minimum" \(allowed: value, min, max\)/);
+  // A non-object value is left to the Lab itself, which reports it when it mounts.
+  assert.deepEqual(checkLabParams(schema, { type: 'slider-calc', where: 'x.md §1.1', params: { range: 3 } }), []);
+});
+
+test('build wires a schema.objects check through for a custom Lab', async () => {
+  // checkLabParams is also exercised directly above; this one proves build() reads a Lab's
+  // schema.json and applies its `objects` entry, so a custom Lab author gets the error at build time.
+  const dir = await sampleCopy();
+  await mkdir(join(dir, 'labs', 'probe'), { recursive: true });
+  await writeFile(join(dir, 'labs', 'probe', 'lab.js'), "Lykeion.registerLab('probe', function (root, p, api) { api.setVal(root.appendChild(api.H('b')), String(p.range.value)); });");
+  await writeFile(join(dir, 'labs', 'probe', 'schema.json'), JSON.stringify({ keys: ['title', 'range'], objects: { range: ['value', 'min', 'max'] } }));
+  await writeFile(join(dir, 'content', '03-probe.md'), '---\nchapter: 3\ntitle: Probe\nsource: sample.pdf\n---\n\n## 3.1 Probe {pages=1}\n\n```lab probe\ntitle: x\nrange: { value: 2, minimum: 1 }\n```\n');
+  await assert.rejects(build(dir), /Lab "probe" range has no key "minimum" \(allowed: value, min, max\)/);
+});
+
+test('build rejects an unknown stepper chip state and lists the allowed ones', () => {
+  const schema = JSON.parse(readFileSync(join(ROOT, 'labs', 'stepper', 'schema.json'), 'utf8'));
+  const where = 'x.md §1.1';
+  const ok = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a', chips: [{ text: 'A', state: 'good' }, { text: 'B' }] }], legend: { good: '留下' } } });
+  assert.deepEqual(ok, []);
+  const errs = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a', chips: [{ text: 'A', state: 'freq' }, { text: 'B', state: 'pruned' }] }] } });
+  assert.equal(errs.length, 2);
+  assert.match(errs[0], /x\.md §1\.1: Lab "stepper" steps\[0\]\.chips\[0\]\.state "freq" must be one of good, bad, muted/);
+  assert.match(errs[1], /steps\[0\]\.chips\[1\]\.state "pruned"/);
+  // The legend is a single object parameter, so a key that is not a state is a build error too.
+  const legendErrs = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a' }], legend: { good: '留下', frequency: 'x' } } });
+  assert.equal(legendErrs.length, 1);
+  assert.match(legendErrs[0], /Lab "stepper" legend has no key "frequency" \(allowed: good, bad, muted\)/);
+});
+
+test('stepper legend swatches reuse the chip class, so they cannot drift from the chips', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-legend.md'), '---\nchapter: 3\ntitle: Legend\nsource: sample.pdf\n---\n\n## 3.1 Legend {pages=1}\n\n```lab stepper\ntitle: x\nlegend: { good: 留下, muted: 剪掉 }\nsteps:\n  - label: a\n    chips: [{ text: A, state: good }, { text: B, state: muted }]\n  - label: b\n    chips: [{ text: C, state: good }]\n```\n');
+  await build(dir);
+  const r = await verify(dir);
+  const render = r.gates.find((g) => g.name === 'render');
+  assert.equal(render.status, 'pass', render.items.filter((i) => i.ok === false).map((i) => i.msg).join('\n'));
+  const legend = render.items.find((i) => /stepper legend/.test(i.msg));
+  assert.ok(legend, render.items.map((i) => i.msg).join('\n'));
+  assert.equal(legend.ok, true);
+  assert.match(legend.msg, /stepper legend: 2 swatches match the chip states they name/);
 });

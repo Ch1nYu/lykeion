@@ -88,9 +88,9 @@ Independent reviewer scored the generated Data Mining site and the hand-made bas
 All four gates green, no high-severity findings; the 82-point absolute bar was missed by 0.3, mainly on Labs (6/10: half the Labs were steppers replaying slides, no tree / lattice / FP-tree visuals).
 
 ## Next (v1.1, from the M7 review)
-1. Computational Lab types: `tree` (classify a record, grow with Hunt), `itemsets` (transactions + minsup → frequent/closed/maximal with a lattice), `fptree` (with node-links), `rule-lattice` (minconf). Brief: every Lab has at least one parameter that changes the result; steppers at most a third of a chapter's Labs.
-2. Neutral stepper chip states (current / visited / contains) with an automatic legend; keep freq / infreq / pruned for frequency only.
-3. `calc` datasets and helpers (`datasets: { basket: [...] }`, `sigma(basket, 'BCD')`) instead of copy-pasted IIFEs; one rounding policy so tables and derivations agree; full precision in verify-report.
+1. Built-in Lab types stay subject-neutral. Subject-specific Labs (e.g. a decision-tree or FP-tree Lab for a data-mining course) belong in the Lecture Site's own `labs/` as custom Labs, not in the skill. The `itemsets` and `tree` Labs built for the Data Mining review were removed from the skill on 2026-10-17 (kept on the local branch `archive/dm-labs`). Brief for every Lab: at least one parameter that changes the result; steppers at most a third of a chapter's Labs.
+2. Neutral stepper chip states (current / visited / contains) with an automatic legend; subject-specific states (e.g. freq / infreq / pruned) only when the content declares them.
+3. `calc` datasets and helpers (`datasets: { name: [...] }`, generic helpers over a named dataset) instead of copy-pasted IIFEs; one rounding policy so tables and derivations agree; full precision in verify-report.
 4. Disputed source-check items must be resolved on the page (rewrite, erratum or callout) or the source gate warns.
 5. Page-length budget per Depth; quiz answer-position balance check.
 
