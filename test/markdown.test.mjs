@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createMarkdown } from '../src/markdown.mjs';
+import { createMarkdown, fenceInfo } from '../src/markdown.mjs';
 import { build } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,4 +56,74 @@ test('the literal ** guard ignores code spans, fences and maths', async () => {
   const dir = await sampleCopy();
   await writeFile(join(dir, 'content', '03-ok.md'), chapter(3, 'Ok', '用 `a ** b` 表示次方，$x ** 2$ 也可以。\n\n```python\nx = 2 ** 8\n```\n'));
   await build(dir);
+});
+
+// ---------- code listings ----------
+// A listing is a first-class part of the format: a plain fenced block with a language, an optional
+// caption from `title="…"`, and no syntax highlighting (Lecture Sites must work offline).
+const buildPage = async (body) => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-code.md'), chapter(3, 'Code', body));
+  await build(dir);
+  const html = await readFile(join(dir, 'sample.html'), 'utf8');
+  // The fixture itself carries listings (02-binomial.md), so scope listing assertions to the
+  // section this helper just added instead of matching the first listing on the whole page.
+  const sec = /<section class="sec" id="s3-1"[\s\S]*?<\/section>/.exec(html);
+  assert.ok(sec, 'the 03-code section rendered');
+  return { dir, html, sec: sec[0] };
+};
+
+test('fence info splits the language from the attributes and ignores the rest', () => {
+  const info = (s) => { const { lang, attrs } = fenceInfo(s); return { lang, attrs }; };
+  assert.deepEqual(info('python'), { lang: 'python', attrs: {} });
+  assert.deepEqual(info(''), { lang: '', attrs: {} });
+  assert.deepEqual(info('python title="Top-K 查詢"'), { lang: 'python', attrs: { title: 'Top-K 查詢' } });
+  assert.deepEqual(info('c++'), { lang: 'c++', attrs: {} });
+  // Unknown attributes are parsed (and then ignored) so a listing copied from another tool builds.
+  assert.deepEqual(info('python title="a b" start=3 linenos'), { lang: 'python', attrs: { title: 'a b', start: '3' } });
+  // No language word: the whole info string is attributes, not a language named `title="x"`.
+  assert.deepEqual(info('title="x"'), { lang: '', attrs: { title: 'x' } });
+  // Words after the first stay words, so a block name keeps its space (`quiz 條件機率`).
+  assert.deepEqual(fenceInfo('quiz 條件機率 title="x"').words, ['quiz', '條件機率']);
+});
+
+test('a fenced block keeps its language class, indentation and escaping', async () => {
+  const { sec } = await buildPage('```python\ndef pmf(n, k):\n    p = 0.5\n    return comb(n, k) * p ** k  # a < b and c > d & "q"\n```\n');
+  const listing = /<div class="code">[\s\S]*?<\/code><\/pre><\/div>/.exec(sec);
+  assert.ok(listing, 'the fence is wrapped as a code listing');
+  assert.match(listing[0], /<pre><code class="language-python">/);
+  // Indentation survives: four spaces, not a stripped or re-wrapped line.
+  assert.ok(listing[0].includes('\n    p = 0.5\n'), 'indentation must be preserved');
+  // Code is escaped, never injected as HTML.
+  assert.ok(listing[0].includes('a &lt; b and c &gt; d &amp;'), listing[0]);
+  assert.ok(!listing[0].includes('a < b'), 'raw < must not reach the page inside a listing');
+  // The block gets the wrapper the copy button mounts into, and no highlighting markup.
+  assert.match(listing[0], /^<div class="code"><div class="code-bar"><span class="code-lang">python<\/span><\/div><pre>/);
+  assert.ok(!/<span class="(hljs|token|k|kw)/.test(listing[0]), 'no syntax highlighter');
+});
+
+test('title="…" renders a caption above the block; unknown attributes are ignored', async () => {
+  const { sec, html } = await buildPage('```python title="Top-K 查詢" start=5 linenos\nranks = [1, 2, 3]\n```\n');
+  assert.match(sec, /<span class="code-cap">Top-K 查詢<\/span>/);
+  // The caption sits in the bar, which comes before the <pre>.
+  assert.ok(sec.indexOf('<span class="code-cap">Top-K 查詢</span>') < sec.indexOf('<pre><code class="language-python">'));
+  assert.ok(!/start=|linenos/.test(sec), 'unknown attributes leave no trace in the listing');
+});
+
+test('block names still win over the code path, even with a title attribute', async () => {
+  const { dir, html, sec } = await buildPage(
+    '```note title="x"\n這是手寫註記。\n```\n\n'
+    + '```calc title="x"\n- { expr: "0.3*0.4", expect: 0.12 }\n```\n\n'
+    + '```quiz 只在這裡 title="x"\n- q: 一題\n  o: [a, b]\n  a: 0\n  ex: 因為 a。\n```\n\n'
+    + '```python title="真的程式碼"\nx = 1\n```\n',
+  );
+  assert.match(sec, /<div class="note">這是手寫註記。<\/div>/);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  assert.deepEqual(checks.checks.filter((c) => c.where.startsWith('03-code.md')).map((c) => c.expr), ['0.3*0.4']);
+  const levels = JSON.parse(/<script type="application\/json" id="lykeion-data">([\s\S]*?)<\/script>/.exec(html)[1]).levels;
+  assert.deepEqual(levels.filter((l) => l.t === '只在這裡').map((l) => l.qs.length), [1], JSON.stringify(levels.map((l) => l.t)));
+  assert.ok(!levels.some((l) => /title=/.test(l.t)), 'the title attribute must not leak into a block name');
+  // Only the python fence became a listing; the three block names produced their own markup.
+  assert.equal((sec.match(/<div class="code">/g) || []).length, 1);
+  assert.match(sec, /<span class="code-cap">真的程式碼<\/span>/);
 });

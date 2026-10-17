@@ -88,6 +88,26 @@ function mathPlugin(md, ctx) {
   md.renderer.rules.math_block = (tokens, i) => `<div class="formula">${tex(tokens[i].content, true, ctx.errors, ctx.where)}</div>\n`;
 }
 
+// A fence info string carries a first word (a language for a listing, a block name for a custom block),
+// then optional attributes: `python title="Top-K 查詢"`. Only `title` means anything to the build (a
+// caption); other attributes are parsed so a listing copied from another tool still builds, then dropped.
+// A word containing `=` is an attribute, never a language, so a bare `title="x"` does not become
+// `language-title="x"`, and an attribute never leaks into a block name (`quiz 條件機率 title="x"`).
+export function fenceInfo(info) {
+  const src = String(info || '').trim();
+  // Tokenise on whitespace, but keep a quoted value whole so `title="a b"` stays one attribute.
+  const parts = [];
+  const re = /(?:^|\s+)(?:([\w-]+)=("([^"]*)"|'([^']*)'|(\S*))|(\S+))/g;
+  for (let m; (m = re.exec(src));) {
+    if (m[6] !== undefined) parts.push({ word: m[6] });
+    else parts.push({ key: m[1], value: m[3] ?? m[4] ?? m[5] ?? '' });
+  }
+  const words = parts.filter((p) => p.word !== undefined).map((p) => p.word);
+  const attrs = {};
+  for (const p of parts) if (p.key) attrs[p.key] = p.value;
+  return { lang: words[0] || '', attrs, words };
+}
+
 export function createMarkdown(ctx) {
   const md = new MarkdownIt({ html: true, linkify: false, typographer: false });
   cjkEmphasisPlugin(md);

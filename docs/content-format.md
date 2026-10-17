@@ -74,6 +74,26 @@ Section body in Markdown.
   ```
   ````
 
+## Code listings
+
+A plain fenced block (any info string that does not name a block below) is a runnable code listing.
+Name the language first, then an optional `title="…"` caption; anything else in the info string is ignored:
+
+````markdown
+```python title="二項 pmf：公平硬幣十次中兩次正面"
+from math import comb
+
+n, k, p = 10, 2, 0.5
+pmf = comb(n, k) * p ** k * (1 - p) ** (n - k)
+print(round(pmf, 3))  # 0.044
+```
+````
+
+- The block renders `<pre><code class="language-python">` with indentation kept and HTML escaped; a `title` renders as a caption above the block. Unknown attributes (`start=`, `linenos`, …) are ignored.
+- The block names below (`quiz`, `lab`, `calc`, `note`, `formula`, `erratum`, `callout`) always win: ```` ```note title="x" ```` is a note, not a listing.
+- There is no syntax highlighting (Lecture Sites work offline): listings use the mono font and Palette tokens in light and dark, scroll horizontally inside their own box on narrow screens, and each gets a keyboard-accessible copy button with a toast.
+- A program's printed output goes in a second block labelled as output (```` ```text title="輸出" ````), not inside the code block. Explain the code in the prose around it; do not fold code into prose.
+
 ## Blocks
 
 All blocks are fenced code blocks whose info string names the block. YAML blocks must be valid YAML; quote strings that contain `:` or start with special characters.

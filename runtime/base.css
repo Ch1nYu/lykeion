@@ -125,6 +125,25 @@ code,.mono{font-family:var(--f-mono); font-size:.86em}
 code{background:var(--paper-deep); padding:.1em .35em; border-radius:4px}
 pre{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; overflow-x:auto; line-height:1.6}
 pre code{background:none; padding:0; font-size:.88rem}
+
+/* ---------- code listings ----------
+   A plain fenced block is a runnable listing: language bar with an optional caption, the code
+   itself scrolling inside its own box. Colours come only from Palette tokens, so light and dark
+   both work; the box never pushes the page sideways (the <pre> scrolls instead). */
+.code{position:relative; max-width:100%; min-width:0; margin:1.2em 0; background:var(--card); border:1px solid var(--rule); border-radius:12px; overflow:hidden}
+.code-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--rule); background:var(--paper-deep)}
+.code-lang{font-family:var(--f-mono); font-size:.74rem; letter-spacing:.1em; color:var(--muted)}
+.code-cap{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; color:var(--ink-2)}
+.code-copy{flex:none; margin-left:auto; display:inline-flex; align-items:center; font:inherit; padding:6px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink-2); cursor:pointer}
+.code-copy:hover{border-color:var(--accent); color:var(--ink)}
+.code-copy svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+.code > .code-copy{position:absolute; top:8px; right:8px}
+.code.naked pre{padding-right:44px}
+.code pre{margin:0; border:0; border-radius:0; background:transparent; max-width:100%; font-family:var(--f-mono); font-size:.88rem; line-height:1.6}
+/* The <pre> strut must match the code text: without this the pre inherits the 19px body font while
+   the code shrinks to .88rem, so each line box is ruled by the taller strut and every code line
+   reads as followed by a blank line. */
+.code pre code{font-size:1em; font-family:inherit}
 .sec-end{height:1px}
 .nextch{display:flex; justify-content:flex-end; margin:24px 0 0}
 
