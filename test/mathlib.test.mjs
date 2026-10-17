@@ -54,6 +54,40 @@ test('the built-in library carries general maths only', async () => {
   assert.ok(Math.abs(M.compile('entropy(1, 1)', [])() - 1) < 1e-12);
 });
 
+test('the built-in library carries the trigonometric functions', async () => {
+  const M = await loadMath();
+  for (const name of ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2']) {
+    assert.ok(name in M.lib, `${name} should be built in`);
+  }
+  const near = (expr, want) => assert.ok(Math.abs(M.compile(expr, [])() - want) < 1e-12, `${expr} should be ${want}`);
+  // Angles are radians, so a cosine similarity of orthogonal vectors is 0 and of equal ones is 1.
+  near('cos(PI/3)', 0.5);
+  near('acos(0)', Math.PI / 2);
+  near('atan2(1,1)', Math.PI / 4);
+  near('sin(PI/2)', 1);
+  // A Lab expression takes them too, with variables in scope: cos(0) + sin(PI/2) = 2.
+  assert.ok(Math.abs(M.compile('cos(a) + sin(b)', ['a', 'b'])({ a: 0, b: Math.PI / 2 }) - 2) < 1e-12);
+});
+
+test('extend cannot shadow a trigonometric built-in', async () => {
+  const M = await loadMath();
+  for (const name of ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2']) {
+    assert.throws(() => M.extend({ [name]: () => 1 }), /would override a built-in/);
+  }
+});
+
+test('a calc that writes log() is told to use ln or log10', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-log.md'), '---\nchapter: 3\ntitle: Log\nsource: sample.pdf\n---\n\n## 3.1 Log {pages=1}\n\n```calc\n- { expr: "log(2)", expect: 0.693 }\n```\n');
+  await build(dir);
+  const r = await verify(dir, { render: false });
+  const numeric = r.gates.find((g) => g.name === 'numeric');
+  assert.equal(numeric.status, 'fail');
+  const msgs = numeric.items.map((i) => i.msg).join('\n');
+  assert.match(msgs, /log is not defined/);
+  assert.match(msgs, /use ln for the natural log or log10/);
+});
+
 test('a project math.js extends the library for calc and for the numeric gate', async () => {
   const dir = await sampleCopy();
   await writeFile(join(dir, 'math.js'), "LykeionMath.extend({ binomPmf: function (n, k, p) { return LykeionMath.lib.C(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k); } });\n");

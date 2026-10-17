@@ -12,8 +12,12 @@ var LykeionMath = (function () {
   var lib = {
     sum: sum, log2: log2, ln: Math.log, log10: Math.log10, exp: Math.exp, sqrt: Math.sqrt, abs: Math.abs, pow: Math.pow,
     min: Math.min, max: Math.max, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+    sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan, atan2: Math.atan2,
     entropy: entropy, C: C, fact: fact, PI: Math.PI, E: Math.E
   };
+  // `log` is deliberately absent: some subjects mean ln, others log10. A bare "log is not defined" leaves
+  // the author guessing, so name the two unambiguous spellings instead.
+  var HINTS = { log: ' (use ln for the natural log or log10)' };
   // A reserved word is a legal object key but not a legal parameter name, so compile() would fail
   // long after extend() accepted it. Keep the two in step.
   var RESERVED = ('break case catch class const continue debugger default delete do else enum export extends ' +
@@ -43,8 +47,20 @@ var LykeionMath = (function () {
     var fn = new Function(keys.concat(names).join(','), '"use strict"; return (' + expr + ');');
     return function (vars) {
       vars = vars || {};
-      return fn.apply(null, keys.map(function (k) { return lib[k]; }).concat(names.map(function (n) { return vars[n]; })));
+      try {
+        return fn.apply(null, keys.map(function (k) { return lib[k]; }).concat(names.map(function (n) { return vars[n]; })));
+      } catch (e) {
+        throw withHint(e);
+      }
     };
+  }
+  // Append the hint for a name the author probably expected, keeping the original message intact.
+  function withHint(e) {
+    var msg = String((e && e.message) || e), hit = Object.keys(HINTS).filter(function (name) {
+      return msg.indexOf(name + ' is not defined') >= 0;
+    })[0];
+    if (hit) e.message = msg + HINTS[hit];
+    return e;
   }
   return { lib: lib, compile: compile, extend: extend };
 })();

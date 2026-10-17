@@ -191,7 +191,9 @@ marker: { label: k, value: 3 }   # optional x marker (slider) with live readouts
 
 ## Maths library (Lab expressions and `calc`)
 
-`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, entropy(...counts), C(n,k), fact(n), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+`sum, log2, ln, log10, exp, sqrt, abs, pow, min, max, floor, ceil, round, sin, cos, tan, asin, acos, atan, atan2, entropy(...counts), C(n,k), fact(n), PI, E`, plus normal JavaScript operators (`**`, `?:`, `&&`).
+
+Angles are radians. There is no bare `log`: some subjects mean the natural log and others the base-10 one, so write `ln` or `log10` — a `calc` that says `log(2)` fails with a message saying exactly that.
 
 ### Project maths helpers (`<project>/math.js`)
 
