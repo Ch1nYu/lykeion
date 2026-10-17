@@ -24,6 +24,14 @@ You write one chapter of a Lecture Site: `content/NN-<slug>.md` in the format of
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
 
+## Code listings
+
+When the slides teach code, reproduce the slides' programs as runnable listings, not as prose:
+
+- Keep the slide's variable names and data, with complete imports, so the reader can run the listing as-is.
+- Put the slide's printed output in a separate block labelled as output (`text title="輸出"`).
+- Explain the code in the prose around it — what each step does and why — rather than folding the program into a paragraph.
+
 ## Labs
 
 Build the Labs the Outline planned, with the generic types first (`slider-calc`, `stepper`, `table`, `curve`). Each Lab:

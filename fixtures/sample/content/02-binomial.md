@@ -22,6 +22,22 @@ P(X = k) = \binom{n}{k} p^{k} (1-p)^{n-k}
 - { expr: "binomPmf(10, 3, 0.3)", expect: 0.267 }
 ```
 
+同樣的計算寫成 Python 只要三行，變數與數字都和上面同一題（$n = 10$、$k = 2$、$p = 0.5$）：
+
+```python title="二項 pmf：公平硬幣十次中兩次正面"
+from math import comb
+
+n, k, p = 10, 2, 0.5
+pmf = comb(n, k) * p ** k * (1 - p) ** (n - k)
+print(round(pmf, 3))  # 0.044
+```
+
+上面這段印出的結果是：
+
+```text title="輸出"
+0.044
+```
+
 ```lab table
 tag: LAB C
 title: 改一改格子，看二項機率怎麼重算

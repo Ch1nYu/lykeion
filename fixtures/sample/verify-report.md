@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T12:07:59.222Z
-- Verified: 2026-10-17T12:08:03.009Z
+- Built: 2026-10-17T14:17:49.103Z
+- Verified: 2026-10-17T14:17:52.658Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,7 +9,7 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| render | ✓ pass | 22 checks passed |
+| render | ✓ pass | 23 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 
 ## numeric
@@ -39,11 +39,12 @@
 
 ## render
 
-- ✓ 29 formulas rendered as MathML; 0 TeX errors
+- ✓ 32 formulas rendered as MathML; 0 TeX errors
 - ✓ no unrendered TeX in body text
 - ✓ all in-page links resolve
 - ✓ sidebar lists 6 links for 5 sections
 - ✓ 6 Labs mounted
+- ✓ 2 code listings, each with a focusable copy button (2 labelled with a language)
 - ✓ Lab lab-1 (slider-calc): slider → output changed
 - ✓ Lab lab-2 (stepper): button → output changed
 - ✓ Lab lab-3 (table): number input → output changed

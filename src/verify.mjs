@@ -169,6 +169,20 @@ async function renderGate(htmlPath) {
     add(stats.navLinks >= stats.sections - 1, `sidebar lists ${stats.navLinks} links for ${stats.sections} sections`);
     add(stats.labErrors.length === 0, stats.labErrors.length ? `Labs failed to mount: ${stats.labErrors.join('; ')}` : `${stats.labs.length} Labs mounted`);
 
+    // Code listings: every listing owns a focusable copy button with an aria-label. When the
+    // page has no listing at all the check still runs — it passes with "no listings" instead of
+    // going silent, so a code-heavy chapter that lost its listings is noticed in review.
+    const codeProbe = await page.evaluate(() => {
+      const boxes = [...document.querySelectorAll('.code')];
+      const badBtn = boxes.filter((b) => {
+        const btn = b.querySelector('.code-copy');
+        return !(btn && btn.tagName === 'BUTTON' && btn.getAttribute('aria-label') && btn.tabIndex >= 0);
+      });
+      const capped = boxes.filter((b) => b.querySelector('pre code[class*="language-"]')).length;
+      return { total: boxes.length, badBtn: badBtn.length, capped };
+    });
+    add(codeProbe.badBtn === 0, codeProbe.total ? `${codeProbe.total} code listings, each with a focusable copy button (${codeProbe.capped} labelled with a language)` : 'no code listings on this page');
+
     for (const lab of stats.labs) {
       const res = await page.evaluate(async (id) => {
         const el = document.getElementById(id), body = el.querySelector('.lab-body');

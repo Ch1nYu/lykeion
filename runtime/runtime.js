@@ -32,7 +32,8 @@ const STR = Object.assign({
   qOf: '第 {i} / {n} 題　答對 {c}', answer: '輸入答案', check: '確認', next: '下一題', result: '看結果', combo: '連續答對 {n} 題！',
   right: '答對了。', wrong: '再想想。', correctIs: '正確答案是 {a}。', backTo: '回到 §{n} {t}', pages: '講義 p.{p}',
   perfect: '滿分過關', pass: '過關', fail: '還差一點', score: '答對 {c} / {n}', unlockedNext: '第 {n} 關「{t}」已解鎖。', allLevels: '所有關卡都完成了。',
-  needPass: '正確率要 60% 以上才能解鎖下一關。', retry: '重新挑戰', review: '這次答錯的題目', passedToast: '第 {n} 關通過 {s}', labError: '這個 Lab 載入失敗：{e}'
+  needPass: '正確率要 60% 以上才能解鎖下一關。', retry: '重新挑戰', review: '這次答錯的題目', passedToast: '第 {n} 關通過 {s}', labError: '這個 Lab 載入失敗：{e}',
+  copy: '複製程式碼', copied: '已複製到剪貼簿', copyFail: '無法自動複製，請手動選取複製'
 }, DATA.strings || {});
 const T = (k, v = {}) => STR[k].replace(/\{(\w+)\}/g, (_, x) => (x in v ? v[x] : ''));
 const LEVELS = DATA.levels || [];
@@ -73,12 +74,51 @@ function mountLabs() {
   });
 }
 
+/* Each code listing gets a small copy button: a real <button> so it is keyboard-focusable
+   with an aria-label, answered by the existing toast. Graceful without the Clipboard API
+   (a non-secure context or an old reader): fall back to selecting the code, still with a toast. */
+function mountCodeCopy() {
+  $$('.code').forEach(box => {
+    if (box.querySelector('.code-copy')) return;
+    const pre = box.querySelector('pre');
+    if (!pre) return;
+    if (!box.querySelector('.code-bar')) box.classList.add('naked');
+    const bar = box.querySelector('.code-bar');
+    const btn = H('button', { type: 'button', class: 'code-copy', 'aria-label': STR.copy },
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>');
+    btn.title = STR.copy;
+    btn.addEventListener('click', async () => {
+      const code = box.querySelector('pre code') || pre;
+      const text = code.textContent;
+      let done = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          done = true;
+        }
+      } catch (e) { /* fall through to the selection fallback */ }
+      if (!done) {
+        const sel = getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      toast(done ? STR.copied : STR.copyFail);
+    });
+    // Inside the bar the button sits in the flex flow (margin-left:auto pushes it right);
+    // a bar-less listing gets it overlaid, with padding kept clear of the code.
+    (bar || box).appendChild(btn);
+  });
+}
+
 function start() {
   store.load();
   $$('[data-str]').forEach(el => { el.textContent = STR[el.dataset.str]; });
   $$('[data-str-label]').forEach(el => el.setAttribute('aria-label', STR[el.dataset.strLabel]));
   document.addEventListener('input', e => { if (e.target.matches('input[type=range]')) fillRange(e.target); });
   mountLabs();
+  mountCodeCopy();
 
   /* ---------- theme (floating button) ---------- */
   const themeBtn = $('#themeBtn');

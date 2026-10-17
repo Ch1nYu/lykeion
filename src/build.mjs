@@ -3,7 +3,7 @@ import { readFile, readdir, writeFile, access } from 'node:fs/promises';
 import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
-import { createMarkdown, tex } from './markdown.mjs';
+import { createMarkdown, tex, fenceInfo } from './markdown.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
 import { projectMathSource, applyProjectMath } from './mathlib.mjs';
 import { parsePages } from './verify.mjs';
@@ -198,8 +198,8 @@ function renderHero(project, chapters, errors) {
 
 // ---------- custom fenced blocks ----------
 function renderFence(token, ctx, countLab) {
-  const [kind, ...rest] = token.info.trim().split(/\s+/);
-  const arg = rest.join(' ');
+  const { lang: kind, attrs, words } = fenceInfo(token.info);
+  const arg = words.slice(1).join(' ');
   const md = createMarkdown(ctx);
   const src = token.content;
   switch (kind) {
@@ -230,8 +230,13 @@ function renderFence(token, ctx, countLab) {
       countLab();
       return renderLab(arg, parseYaml(src, ctx, 'lab') || {}, ctx);
     default: {
-      const lang = kind ? ` class="language-${esc(kind)}"` : '';
-      return `<pre><code${lang}>${esc(src)}</code></pre>\n`;
+      // A plain fence is a code listing: a language label, an optional `title="…"` caption, and the
+      // code itself. No syntax highlighting — a Lecture Site must work offline with no dependencies.
+      const cls = kind ? ` class="language-${esc(kind)}"` : '';
+      const bar = kind || attrs.title
+        ? `<div class="code-bar">${kind ? `<span class="code-lang">${esc(kind)}</span>` : ''}${attrs.title ? `<span class="code-cap">${esc(attrs.title)}</span>` : ''}</div>`
+        : '';
+      return `<div class="code">${bar}<pre><code${cls}>${esc(src)}</code></pre></div>\n`;
     }
   }
 }
