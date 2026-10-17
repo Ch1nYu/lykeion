@@ -26,7 +26,7 @@ const DATA = JSON.parse($('#lykeion-data').textContent);
 const STR = Object.assign({
   menu: '目錄', navLabel: '章節導覽', reset: '重設進度', resetAsk: '確定清除所有閱讀紀錄與闖關成績？', resetYes: '清除', resetNo: '取消', resetDone: '進度已清除',
   notStarted: '尚未開始', allDone: '全部完成', readOf: '讀完 {r} / {t} 節', passedOf: '闖關通過 {p} / {t} 關', readToast: '§{n} {t} 已讀完',
-  themeSystem: '主題：跟隨系統', themeLight: '主題：淺色', themeDark: '主題：深色', themeHint: '（按下切換）', toTop: '回到頁首',
+  themeSystem: '主題：跟隨系統', themeLight: '主題：淺色', themeDark: '主題：深色', themeHint: '（按下切換）', toTop: '回到頁首', skip: '跳到內容',
   level: '第 {n} 關', qCount: '{n} 題', locked: '第 {n} 關「{t}」尚未解鎖。', lockedHint: '先通過第 {n} 關「{t}」（正確率 60% 以上）。', goLevel: '前往第 {n} 關',
   intro: '每題作答後立刻顯示解析；正確率 60% 以上解鎖下一關。', best: '最佳紀錄：{p}%', start: '開始挑戰', again: '再挑戰一次',
   qOf: '第 {i} / {n} 題　答對 {c}', answer: '輸入答案', check: '確認', next: '下一題', result: '看結果', combo: '連續答對 {n} 題！',
@@ -191,6 +191,17 @@ function start() {
   scrim.addEventListener('click', () => drawer(false));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && side.classList.contains('open')) drawer(false); });
   nav.addEventListener('click', e => { if (e.target.closest('a')) drawer(false); });
+
+  /* ---------- skip link ---------- */
+  // The sidebar is a long list of links before the sheet, so the first Tab stop jumps over it.
+  $('.skip')?.addEventListener('click', e => {
+    e.preventDefault();
+    drawer(false);
+    const main = $('#main');
+    if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+    main.focus({ preventScroll: true });
+    main.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  });
 
   /* ---------- reset ---------- */
   $('#resetBtn').addEventListener('click', () => { $('#resetConfirm').hidden = false; $('#resetNo').focus(); });

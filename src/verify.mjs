@@ -143,6 +143,29 @@ async function renderGate(htmlPath) {
     // Desktop, light.
     const { page, errors } = await openPage(browser, url, { viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
 
+    // Keyboard: the sidebar is a long index of links, so the first Tab stop must be a skip link
+    // that is actually visible while focused and moves focus into the sheet.
+    await page.evaluate(() => { if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); });
+    await page.keyboard.press('Tab');
+    const firstStop = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return { tag: 'body', cls: '', text: '', isSkip: false, shown: false };
+      const box = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      const shown = cs.visibility !== 'hidden' && Number(cs.opacity) > 0.5 && box.width > 0 && box.height > 0
+        && box.left >= -1 && box.top >= -1 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1;
+      return { tag: el.tagName.toLowerCase(), cls: String(el.className || ''), text: (el.textContent || '').trim().slice(0, 40), isSkip: el.matches('.skip'), shown };
+    });
+    await page.keyboard.press('Enter');
+    const landed = await page.evaluate(() => {
+      const el = document.activeElement, main = document.getElementById('main');
+      return { tag: el ? el.tagName.toLowerCase() : '(none)', id: el?.id || '', inMain: !!el && !!main && (el === main || main.contains(el)) };
+    });
+    const skipOk = firstStop.isSkip && firstStop.shown && landed.inMain;
+    add(skipOk, skipOk
+      ? `skip link “${firstStop.text}” is the first Tab stop, visible when focused, and Enter moves focus into main`
+      : `skip link is not a working first Tab stop: first Tab focused ${firstStop.tag}${firstStop.cls ? '.' + firstStop.cls.split(' ')[0] : ''}${firstStop.isSkip ? ' (not visible while focused)' : ''}, Enter left focus on ${landed.tag}${landed.id ? '#' + landed.id : ''}${landed.inMain ? '' : ' (outside main)'}`);
+
     const stats = await page.evaluate(() => {
       const unrendered = [];
       const walker = document.createTreeWalker(document.querySelector('main'), NodeFilter.SHOW_TEXT, {
