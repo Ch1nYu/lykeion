@@ -90,6 +90,27 @@ steps:
     chips: [{ text: "np ≥ 5", state: good }, { text: "n(1-p) ≥ 5", state: good }, { text: "小 n 不適用", state: muted }]
 ```
 
+```lab stepper
+tag: LAB F
+title: 四種籌碼狀態
+hint: 同一份清單裡，哪些保留、哪些剔除、哪些只是分類標籤
+legend: { good: 保留, bad: 錯誤, muted: 剔除, info: 中性分類 }
+steps:
+  - label: 四態
+    text: 籌碼的顏色只說明一件事：這一項在目前這一步是什麼角色。
+    chips:
+      - { text: "保留的項目", state: good, note: "要用的" }
+      - { text: "算錯的項目", state: bad, note: "要改的" }
+      - { text: "剔除的項目", state: muted, note: "先不看" }
+      - { text: "文字", state: info, note: "只是分類" }
+  - label: 中性分類
+    text: 中性分類不是對錯，也不代表剔除，所以不劃線、不用紅綠。
+    chips:
+      - { text: "文字", state: info }
+      - { text: "向量", state: info }
+      - { text: "雜訊", state: muted }
+```
+
 ```calc
 - { expr: "10*0.3", expect: 3, note: "E[X] = np" }
 - { expr: "10*0.3*(1-0.3)", expect: 2.1, note: "Var(X) = np(1-p)" }

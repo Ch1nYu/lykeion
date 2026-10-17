@@ -160,15 +160,17 @@ verdict: [{ when: "pa == 0.3", text: "P(A|B) = P(A)，此時 A 與 B 獨立。" 
 **`stepper`** — walk through an algorithm one state at a time.
 
 ```yaml
-legend: { good: 想算的那一項, bad: 算錯的地方, muted: 這一步先不看 }   # optional; each entry needs a chip
+legend: { good: 想算的那一項, bad: 算錯的地方, muted: 這一步先不看, info: 只是分類 }   # optional; each entry needs a chip
 steps:
   - label: "(a)"
     text: 盛行率 $P(D) = 0.01$，敏感度 $P(+ \mid D) = 0.9$。
     table: { head: [Tid, Home, Class], rows: [[1, Yes, No], [2, No, No]], highlight: [0] }
-    chips: [{ text: "P(+|D)P(D) = 0.009", state: good, note: "真陽" }, { text: "P(+|¬D)P(¬D) = 0.099", state: bad }]   # good | bad | muted
+    chips: [{ text: "P(+|D)P(D) = 0.009", state: good, note: "真陽" }, { text: "P(+|¬D)P(¬D) = 0.099", state: bad }]   # good | bad | muted | info
 ```
 
-A chip `state` is one of `good`, `bad`, `muted` (or omitted for a plain chip); any other value fails the build. `legend` is optional and only renders the entries you name — its swatches are the chip markup itself, so a swatch cannot drift from the chips it explains.
+A chip `state` is one of `good`, `bad`, `muted`, `info` (or omitted for a plain chip); any other value fails the build. Pick by meaning, not by colour: `good` / `bad` say right or wrong (a kept item, a mistake), `muted` says excluded or pruned (dashed and struck through), and `info` marks a neutral category — an artefact that is text or a vector, not better or worse — with a tinted highlight and no strikethrough. Using `muted` for a neutral category misreads it as removed.
+
+`legend` is optional and only renders the entries you name — its swatches are the chip markup itself, so a swatch cannot drift from the chips it explains.
 
 **`table`** — editable contingency table or matrix with live outputs.
 

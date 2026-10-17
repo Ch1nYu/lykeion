@@ -106,12 +106,12 @@ test('build rejects an unknown stepper chip state and lists the allowed ones', (
   assert.deepEqual(ok, []);
   const errs = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a', chips: [{ text: 'A', state: 'freq' }, { text: 'B', state: 'pruned' }] }] } });
   assert.equal(errs.length, 2);
-  assert.match(errs[0], /x\.md §1\.1: Lab "stepper" steps\[0\]\.chips\[0\]\.state "freq" must be one of good, bad, muted/);
+  assert.match(errs[0], /x\.md §1\.1: Lab "stepper" steps\[0\]\.chips\[0\]\.state "freq" must be one of good, bad, muted, info/);
   assert.match(errs[1], /steps\[0\]\.chips\[1\]\.state "pruned"/);
   // The legend is a single object parameter, so a key that is not a state is a build error too.
   const legendErrs = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a' }], legend: { good: '留下', frequency: 'x' } } });
   assert.equal(legendErrs.length, 1);
-  assert.match(legendErrs[0], /Lab "stepper" legend has no key "frequency" \(allowed: good, bad, muted\)/);
+  assert.match(legendErrs[0], /Lab "stepper" legend has no key "frequency" \(allowed: good, bad, muted, info\)/);
 });
 
 test('stepper legend swatches reuse the chip class, so they cannot drift from the chips', async () => {

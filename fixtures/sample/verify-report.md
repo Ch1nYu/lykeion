@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T10:54:53.185Z
-- Verified: 2026-10-17T10:54:56.724Z
+- Built: 2026-10-17T12:07:59.222Z
+- Verified: 2026-10-17T12:08:03.009Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,7 +9,7 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| render | ✓ pass | 20 checks passed |
+| render | ✓ pass | 22 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 
 ## numeric
@@ -43,14 +43,16 @@
 - ✓ no unrendered TeX in body text
 - ✓ all in-page links resolve
 - ✓ sidebar lists 6 links for 5 sections
-- ✓ 5 Labs mounted
+- ✓ 6 Labs mounted
 - ✓ Lab lab-1 (slider-calc): slider → output changed
 - ✓ Lab lab-2 (stepper): button → output changed
 - ✓ Lab lab-3 (table): number input → output changed
 - ✓ Lab lab-4 (curve): slider → output changed
 - ✓ Lab lab-5 (stepper): button → output changed
+- ✓ Lab lab-6 (stepper): button → output changed
 - ✓ Lab lab-2 (stepper): stepper legend: 2 swatches match the chip states they name
 - ✓ Lab lab-5 (stepper): stepper legend: 2 swatches match the chip states they name
+- ✓ Lab lab-6 (stepper): stepper legend: 4 swatches match the chip states they name
 - ✓ Quiz Level 1 “條件機率”: 3 questions answered with the key → all accepted
 - ✓ Quiz Level 2 “二項分布”: 3 questions answered with the key → all accepted
 - ✓ theme button cycles light → dark → system

@@ -1,14 +1,16 @@
 /* Lab type "stepper": walk through an algorithm one state at a time.
    params: { steps: [{ label, text?, table?: { head, rows, highlight? }, chips?: [{ text, state?, note? }] }],
-             start?, legend?: { good?, bad?, muted? } }
-   Chip `state` is one of good | bad | muted; `legend` names the states the reader needs labelled and
-   is drawn with the very same chip markup, so a swatch cannot drift from a chip. */
+             start?, legend?: { good?, bad?, muted?, info? } }
+   Chip `state` is one of good | bad | muted | info. good/bad mean right/wrong, muted means excluded or
+   pruned (struck through), info is a neutral category with no verdict (a tint, no strikethrough).
+   `legend` names the states the reader needs labelled and is drawn with the very same chip markup, so a
+   swatch cannot drift from a chip. */
 Lykeion.registerLab('stepper', function (root, p, api) {
   var H = api.H, esc = api.esc;
   var steps = p.steps || [];
   if (!steps.length) throw new Error('stepper needs at least one step');
   var cur = Math.min(Math.max(0, p.start || 0), steps.length - 1);
-  var STATES = ['good', 'bad', 'muted'];
+  var STATES = ['good', 'bad', 'muted', 'info'];
 
   var controls = H('div', { class: 'controls' });
   var seg = H('div', { class: 'seg', role: 'group', 'aria-label': p.title || 'steps' });

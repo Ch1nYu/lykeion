@@ -221,11 +221,11 @@ async function renderGate(htmlPath) {
         return { swatches, chips };
       }, lab.id);
       if (!probe) continue;
-      const noChip = probe.swatches.filter((s) => !/^(good|bad|muted)$/.test(s.state));
+      const noChip = probe.swatches.filter((s) => !/^(good|bad|muted|info)$/.test(s.state));
       const drifted = probe.swatches.filter((s) => probe.chips[s.state] && s.paint !== probe.chips[s.state]);
       const compared = probe.swatches.filter((s) => probe.chips[s.state]);
       if (noChip.length) {
-        add(false, `Lab ${lab.id} (${lab.type}): stepper legend swatch "${noChip[0].state || '(none)'}" is not a chip state (good, bad, muted)`);
+        add(false, `Lab ${lab.id} (${lab.type}): stepper legend swatch "${noChip[0].state || '(none)'}" is not a chip state (good, bad, muted, info)`);
       } else if (drifted.length) {
         add(false, `Lab ${lab.id} (${lab.type}): stepper legend swatch "${drifted[0].state}" is not painted like its chip — swatch ${drifted[0].paint}, chip ${probe.chips[drifted[0].state]}`);
       } else if (!compared.length) {

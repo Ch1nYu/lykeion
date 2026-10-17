@@ -203,6 +203,7 @@ input[type=number]{font-family:var(--f-mono); font-size:1rem; width:5.2em; paddi
 .chip.good{border-color:var(--good); background:var(--good-soft)}
 .chip.bad{border-color:var(--bad); background:var(--bad-soft); text-decoration:line-through; text-decoration-color:var(--bad)}
 .chip.muted{border-style:dashed; color:var(--muted); background:transparent; text-decoration:line-through}
+.chip.info{border-color:var(--accent); background:var(--accent-soft)}
 .chips{display:flex; flex-wrap:wrap; gap:8px}
 .state{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:500; padding:3px 10px; border-radius:999px}
 .state.ok{background:var(--good-soft); color:var(--good)}
