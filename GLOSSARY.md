@@ -50,6 +50,24 @@ _Avoid_: Theme, colour, accent
 The only Palettes a Lecture Site may use: the bundled Palettes the maintainer approved, plus the user's own Palettes that pass the automated checks.
 _Avoid_: Presets, colour options
 
+## Teaching
+
+**Analogy**:
+An intuition card placed before the formalism, mapping a familiar situation part for part onto the concept, and returned to once the formula arrives.
+_Avoid_: Example, metaphor, story
+
+**Takeaway**:
+The one sentence a reader should leave a section with, set as a short block with an accent rule.
+_Avoid_: Summary, conclusion
+
+**Formula Parts**:
+A formula broken into ordered pieces, each explained in words, so the reader can take the formula apart one piece at a time instead of receiving it whole.
+_Avoid_: Breakdown, annotation
+
+**Teaching Gate**:
+The check that a Lecture Site explains rather than transcribes: no page references, no wall of prose, every formula followed by words, an analogy before the formalism, a mix of block kinds.
+_Avoid_: Style check, lint
+
 **Acceptance Fixture**:
 A fixed Scope whose regenerated Lecture Site must reach a known score; the regression test for every runtime change.
 _Avoid_: Test data, sample, benchmark

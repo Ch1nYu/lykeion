@@ -1,25 +1,32 @@
 /* lykeion base stylesheet.
-   Layout: a study desk. Sticky index card (sidebar) on the left, one wide sheet of paper on the right;
-   reading column ~44rem, Labs break out wider as "lab sheets" clipped onto the page.
+   Layout: a study desk. A sticky bar of chapter tabs on top, a sticky index card (sidebar) on the left,
+   one wide sheet of paper on the right; one view is shown at a time (see runtime.js).
    Colours come only from Palette tokens (ADR 0002); this file must not contain literal colours. */
 :root{
   --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
-  --f-hand:"LXGW WenKai TC","Kaiti TC","DFKai-SB",var(--f-display);
   --f-mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  /* MathML needs a maths face: without one Chrome draws stretched delimiters (\binom parentheses)
+     at their unstretched size. This token is used by `math` elements and by nothing else. */
   --f-math:"STIX Two Math","Latin Modern Math","Cambria Math",math;
-  --fs-body:1.1875rem; --fs-h3:1.35rem; --fs-h2:1.85rem; --fs-h1:clamp(2.2rem,4.2vw,3.2rem);
+  --fs-body:1.125rem; --fs-h3:1.3rem; --fs-h2:1.8rem; --fs-h1:clamp(2.2rem,4.2vw,3.2rem);
   --side:300px;
+  /* reading rhythm: one measure for prose, two gaps for block spacing */
+  --measure:34em;
+  --gap-sec:104px;
+  --gap-block:40px;
+  --top-h:0px;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth; scroll-padding-top:24px; -webkit-text-size-adjust:100%}
+html{scroll-behavior:smooth; scroll-padding-top:calc(var(--top-h) + 16px); -webkit-text-size-adjust:100%}
 :root{padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}
-body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--f-body); font-size:var(--fs-body); line-height:1.85; letter-spacing:.01em}
+body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--f-body); font-size:var(--fs-body); line-height:1.9; letter-spacing:.01em; font-variant-numeric:tabular-nums}
 body::before{content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:var(--grain-opacity); mix-blend-mode:var(--grain-blend); background-image:var(--grain)}
 img,svg{max-width:100%}
 [hidden]{display:none!important}
 a{color:var(--accent); text-underline-offset:3px}
-:focus-visible{outline:3px solid var(--accent); outline-offset:2px; border-radius:4px}
+:focus{outline:none}
+:focus-visible{outline:3px solid var(--accent); outline-offset:3px; border-radius:4px}
 ::selection{background:var(--hl)}
 .sr-only{position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 
@@ -36,29 +43,54 @@ a{color:var(--accent); text-underline-offset:3px}
 .readbar{position:fixed; top:0; left:0; right:0; height:3px; z-index:60}
 .readbar span{display:block; height:100%; width:0; background:var(--accent); transition:width .2s linear}
 
+/* ---------- top bar: brand, chapter tabs, progress ---------- */
+.topbar{position:sticky; top:0; z-index:50; background:var(--paper); border-bottom:1px solid var(--rule)}
+.topbar .in{display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px)); max-width:1400px; margin:0 auto}
+.topbar .menu{display:none; flex:none; white-space:nowrap}
+.topbar .tname{font-family:var(--f-display); font-weight:900; font-size:1.02rem; flex:none; max-width:22ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.chaps{display:flex; gap:6px; flex:1 1 auto; min-width:0; overflow-x:auto; scrollbar-width:none}
+.chaps::-webkit-scrollbar{display:none}
+.chaps button{flex:none; font:inherit; font-size:.9rem; border:1px solid transparent; background:none; color:var(--muted); padding:4px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; transition:background .2s, color .2s}
+.chaps button:hover{color:var(--ink); background:var(--card)}
+.chaps button[aria-current="true"]{background:var(--accent-soft); color:var(--accent); font-weight:700}
+.topbar .now{display:none; font-size:.92rem; color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.topbar .pct{flex:none; font-size:.88rem; color:var(--muted); font-variant-numeric:tabular-nums}
+/* The drawer carries its own copy of the chapter tabs on a phone; on a wide screen the top bar does. */
+.chaps-side{display:none}
+
+/* ---------- views ---------- */
+/* Exactly one view is shown at a time; showing one replays this entrance. */
+.view{animation:enter .45s cubic-bezier(.2,.7,.2,1) both}
+@keyframes enter{from{opacity:.001; transform:translateY(10px)} to{opacity:1; transform:none}}
+
 /* ---------- shell ---------- */
-.shell{position:relative; z-index:1; display:grid; grid-template-columns:var(--side) minmax(0,1fr); min-height:100vh}
-.side{position:sticky; top:0; height:100vh; overflow-y:auto; overscroll-behavior:contain; border-right:1px solid var(--rule);
+.shell{position:relative; z-index:1; display:grid; grid-template-columns:var(--side) minmax(0,1fr); min-height:calc(100vh - var(--top-h))}
+.side{position:sticky; top:var(--top-h); height:calc(100vh - var(--top-h)); overflow-y:auto; overscroll-behavior:contain; border-right:1px solid var(--rule);
   background:var(--paper-deep); padding:28px 20px 24px max(20px,env(safe-area-inset-left,0px)); display:flex; flex-direction:column; gap:22px}
 .brand{display:flex; flex-direction:column; gap:2px}
-.brand small{font-family:var(--f-mono); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.brand small{font-family:var(--f-body); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
 .brand b{font-family:var(--f-display); font-weight:900; font-size:1.45rem; line-height:1.3}
 .meter{display:grid; grid-template-columns:64px 1fr; gap:14px; align-items:center; background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:12px 14px}
 .ring{width:64px; height:64px}
 .ring circle{fill:none; stroke-width:7}
 .ring .track{stroke:var(--rule)}
 .ring .val{stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); transform:rotate(-90deg); transform-origin:50% 50%}
-.ring text{font-family:var(--f-mono); font-size:15px; font-weight:600; fill:var(--ink); text-anchor:middle; dominant-baseline:central}
+.ring text{font-family:var(--f-body); font-size:15px; font-weight:600; fill:var(--ink); text-anchor:middle; dominant-baseline:central; font-variant-numeric:tabular-nums}
 .meter-txt{font-size:.88rem; line-height:1.5; color:var(--ink-2)}
 .meter-txt b{display:block; color:var(--ink); font-size:1rem}
 .nav{display:flex; flex-direction:column; gap:18px}
 .nav-ch{font-family:var(--f-display); font-weight:700; font-size:1.02rem; display:flex; gap:8px; align-items:baseline; margin-bottom:4px}
-.nav-ch .n{font-family:var(--f-mono); font-size:.72rem; color:var(--muted); letter-spacing:.08em}
+.nav-ch .n{font-family:var(--f-body); font-size:.72rem; color:var(--muted); letter-spacing:.08em}
 .nav ol{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1px}
 .nav a{display:grid; grid-template-columns:18px 2.6em 1fr; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; color:var(--ink-2); text-decoration:none; font-size:.92rem; line-height:1.4; transition:background .2s, color .2s, transform .2s}
 .nav a:hover{background:var(--card); color:var(--ink); transform:translateX(2px)}
 .nav a.current{background:var(--card); color:var(--ink); box-shadow:inset 0 0 0 1px var(--rule)}
-.nav a .num{font-family:var(--f-mono); font-size:.74rem; color:var(--muted)}
+.nav a .num{font-family:var(--f-body); font-size:.74rem; color:var(--muted)}
+/* Sub-headings of the section being read: only the current section carries them. */
+.nav .subs ol{gap:0}
+.nav a.sub{grid-template-columns:1fr; padding-left:32px; font-size:.86rem; color:var(--muted)}
+.nav a.sub.current{background:none; box-shadow:none; color:var(--accent); font-weight:700}
+/* On the home view the list is the chapter index; a section list belongs to the chapter being read. */
 .dot{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--rule-strong); display:grid; place-items:center; transition:all .3s}
 .dot svg{width:10px; height:10px; opacity:0; transform:scale(.3); transition:all .35s cubic-bezier(.3,1.6,.5,1)}
 .nav a.current .dot{border-color:var(--accent)}
@@ -72,67 +104,76 @@ a{color:var(--accent); text-underline-offset:3px}
 .chipbtn:hover{border-color:var(--accent); color:var(--ink)}
 .confirm{font-size:.85rem; background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px}
 .confirm div{display:flex; gap:8px}
-.topbar{display:none}
 .scrim{display:none}
 main{min-width:0; padding-block:40px 120px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px))}
 .sheet{max-width:1000px; margin:0 auto}
 .prose{max-width:44rem}
 
 /* ---------- floating actions ---------- */
-.fab{position:fixed; right:max(18px,env(safe-area-inset-right,0px)); bottom:calc(18px + env(safe-area-inset-bottom,0px)); z-index:55; display:flex; flex-direction:column; gap:10px}
-.fab button{width:44px; height:44px; border-radius:50%; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); display:grid; place-items:center; cursor:pointer; box-shadow:var(--shadow); transition:transform .2s, border-color .2s, opacity .25s}
+.fab{position:fixed; right:max(18px,env(safe-area-inset-right,0px)); bottom:max(18px,env(safe-area-inset-bottom,0px)); z-index:55; display:flex; flex-direction:column; gap:10px}
+.fab button{width:46px; height:46px; border-radius:50%; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); display:grid; place-items:center; cursor:pointer; box-shadow:var(--shadow); transition:transform .2s, border-color .2s, opacity .25s}
 .fab button:hover{border-color:var(--accent); transform:translateY(-2px)}
 .fab button svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
 .fab .totop{opacity:0; pointer-events:none; transform:translateY(8px)}
 .fab .totop.show{opacity:1; pointer-events:auto; transform:none}
+/* Theme: sun and moon share one grid cell; the inactive one is rotated away. */
+#themeBtn svg{grid-area:1/1; transition:transform .45s cubic-bezier(.2,.8,.2,1), opacity .3s ease-out}
+#themeBtn[data-mode="light"] .moon,#themeBtn[data-mode="dark"] .sun{opacity:0; transform:rotate(-90deg) scale(.4)}
+/* The view transition replaces the page snapshot, so its own animation must not add a fade. */
+::view-transition-old(root),::view-transition-new(root){animation:none; mix-blend-mode:normal}
+::view-transition-new(root){z-index:2}
+/* Fallback when View Transitions are unavailable: a short cross-fade of colours only. */
+html.theme-fade,html.theme-fade *{transition:background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease, stroke .35s ease!important}
 
 /* ---------- hero ---------- */
 .hero{padding:24px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:28px}
-.hero .eyebrow{font-family:var(--f-mono); font-size:.8rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+.hero .eyebrow{font-family:var(--f-body); font-size:.8rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
 .hero h1{font-family:var(--f-display); font-weight:900; font-size:var(--fs-h1); line-height:1.25; margin:.3em 0 .4em; text-wrap:balance; animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
 .hero h1 em{font-style:normal; background:linear-gradient(transparent 62%, var(--hl) 62%) no-repeat; background-size:100% 100%; animation:sweep 1.2s .5s cubic-bezier(.6,.1,.2,1) both}
 .hero p{max-width:40rem; color:var(--ink-2); margin:0}
 .toc{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:28px}
 .toc a{display:flex; flex-direction:column; gap:4px; text-decoration:none; color:var(--ink); background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; transition:transform .25s, box-shadow .25s, border-color .25s; animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
 .toc a:hover{transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--rule-strong)}
-.toc .n{font-family:var(--f-mono); font-size:.76rem; color:var(--muted); letter-spacing:.1em}
+.toc .n{font-family:var(--f-body); font-size:.76rem; color:var(--muted); letter-spacing:.1em}
 .toc b{font-family:var(--f-display); font-size:1.2rem}
 .toc span{font-size:.92rem; color:var(--ink-2); line-height:1.6}
 @keyframes rise{from{transform:translateY(10px)}to{transform:none}}
 @keyframes sweep{from{background-size:0% 100%}to{background-size:100% 100%}}
 
 /* ---------- chapters & sections ---------- */
-.chapter{padding-top:40px}
+.chapter{padding-top:calc(var(--gap-sec) / 2)}
 .ch-head{display:flex; align-items:baseline; gap:18px; flex-wrap:wrap; border-bottom:2px solid var(--ink); padding-bottom:10px; margin-bottom:8px}
 .ch-head .ch-n{font-family:var(--f-display); font-weight:900; font-size:clamp(3rem,7vw,4.6rem); line-height:1; color:var(--accent)}
 .ch-head h2{font-family:var(--f-display); font-weight:900; font-size:clamp(1.8rem,3.4vw,2.4rem); margin:0; line-height:1.3; text-wrap:balance}
-.ch-head .src{flex-basis:100%; font-size:.85rem; color:var(--muted); font-family:var(--f-mono)}
-.sec{padding:34px 0 10px; position:relative}
+.ch-head .src{flex-basis:100%; font-size:.85rem; color:var(--muted); font-family:var(--f-body)}
+.sec{padding-block:calc(var(--gap-sec) / 2) 0; position:relative}
 .sec > h3{font-family:var(--f-display); font-weight:700; font-size:var(--fs-h2); line-height:1.4; margin:0 0 .5em; text-wrap:balance; display:flex; gap:14px; align-items:baseline}
-.sec > h3 .sn{font-family:var(--f-mono); font-weight:600; font-size:.95rem; color:var(--accent); letter-spacing:.04em; flex:none}
+.sec > h3 .sn{font-family:var(--f-body); font-weight:600; font-size:.95rem; color:var(--accent); letter-spacing:.04em; flex:none; font-variant-numeric:tabular-nums}
 .sec > h3 .t{background:linear-gradient(transparent 64%, var(--hl-soft) 64%) no-repeat; background-size:0% 100%; transition:background-size 1s cubic-bezier(.6,.1,.2,1)}
 .sec.seen > h3 .t{background-size:100% 100%}
-.sec .pages{font-family:var(--f-mono); font-size:.78rem; color:var(--muted); margin:-.4em 0 .6em}
-h4{font-family:var(--f-display); font-size:var(--fs-h3); margin:1.6em 0 .4em; line-height:1.45}
-p{margin:.7em 0}
-.prose ul,.prose ol{padding-left:1.4em; margin:.6em 0}
+.sec .pages{font-family:var(--f-body); font-size:.78rem; color:var(--muted); margin:-.4em 0 .6em}
+h4,.prose h3,.prose h4{font-family:var(--f-display); font-size:var(--fs-h3); margin:1.6em 0 .4em; line-height:1.45}
+.prose h3{font-size:var(--fs-h2); margin-top:1.8em}
+p{margin:0 0 1.15em; max-width:var(--measure)}
+.prose ul,.prose ol{padding-left:1.4em; margin:.6em 0; max-width:var(--measure)}
 .prose li{margin:.25em 0}
 .prose li::marker{color:var(--muted)}
 strong{font-weight:700}
 mark{background:linear-gradient(transparent 55%, var(--hl) 55%); color:inherit; padding:0 .1em}
 .en{color:var(--ink-2); font-size:.9em}
-code,.mono{font-family:var(--f-mono); font-size:.86em}
-code{background:var(--paper-deep); padding:.1em .35em; border-radius:4px}
-pre{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; overflow-x:auto; line-height:1.6}
+code{font-family:var(--f-mono); font-size:.86em; background:var(--paper-deep); padding:.1em .35em; border-radius:4px}
+.mono{font-variant-numeric:tabular-nums}
+pre{font-family:var(--f-mono); background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; overflow-x:auto; line-height:1.6}
 pre code{background:none; padding:0; font-size:.88rem}
+kbd{font-family:var(--f-mono)}
 
 /* ---------- code listings ----------
    A plain fenced block is a runnable listing: language bar with an optional caption, the code
    itself scrolling inside its own box. Colours come only from Palette tokens, so light and dark
    both work; the box never pushes the page sideways (the <pre> scrolls instead). */
-.code{position:relative; max-width:100%; min-width:0; margin:1.2em 0; background:var(--card); border:1px solid var(--rule); border-radius:12px; overflow:hidden}
+.code{position:relative; max-width:100%; min-width:0; margin-block:var(--gap-block); background:var(--card); border:1px solid var(--rule); border-radius:12px; overflow:hidden}
 .code-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--rule); background:var(--paper-deep)}
-.code-lang{font-family:var(--f-mono); font-size:.74rem; letter-spacing:.1em; color:var(--muted)}
+.code-lang{font-family:var(--f-body); font-size:.74rem; letter-spacing:.1em; color:var(--muted)}
 .code-cap{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; color:var(--ink-2)}
 .code-copy{flex:none; margin-left:auto; display:inline-flex; align-items:center; font:inherit; padding:6px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink-2); cursor:pointer}
 .code-copy:hover{border-color:var(--accent); color:var(--ink)}
@@ -145,34 +186,67 @@ pre code{background:none; padding:0; font-size:.88rem}
    reads as followed by a blank line. */
 .code pre code{font-size:1em; font-family:inherit}
 .sec-end{height:1px}
-.nextch{display:flex; justify-content:flex-end; margin:24px 0 0}
+.nextch{display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin:24px 0 0}
 
-/* margin note in handwriting, callouts, errata */
-.note{font-family:var(--f-hand); font-size:1.12rem; line-height:1.7; color:var(--ink-2); border-left:2px dashed var(--rule-strong); padding:2px 0 2px 16px; margin:1.1em 0}
+/* ---------- chapter pager ---------- */
+.pager{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:var(--gap-sec); border-top:1px solid var(--rule); padding-top:28px}
+.pager a{display:flex; flex-direction:column; gap:2px; text-decoration:none; color:var(--ink); padding:14px 18px; border-radius:12px; background:var(--card); border:1px solid var(--rule); transition:border-color .2s, transform .2s}
+.pager a:hover{border-color:var(--accent); transform:translateY(-2px)}
+.pager a span{font-size:.82rem; color:var(--muted)}
+.pager a.next{text-align:right}
+.pager b{font-family:var(--f-display); font-size:1.05rem; line-height:1.4}
+
+/* margin note, callouts, errata */
+.note{font-family:var(--f-body); font-size:1.05rem; line-height:1.9; color:var(--ink-2); border-left:2px dashed var(--rule-strong); padding:2px 0 2px 16px; margin-block:calc(var(--gap-block) * .7)}
 .note b,.note strong{color:var(--accent); font-weight:700}
-.callout{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; margin:1.2em 0}
-.callout .lbl,.erratum .lbl{font-family:var(--f-mono); font-size:.74rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); display:block}
-.erratum{background:var(--card); border:1px solid var(--rule); border-left:4px solid var(--bad); border-radius:10px; padding:12px 16px; margin:1.2em 0; font-size:.98rem}
+.callout{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; margin-block:calc(var(--gap-block) * .7)}
+.callout .lbl,.erratum .lbl{font-family:var(--f-body); font-size:.74rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); display:block}
+.erratum{background:var(--card); border:1px solid var(--rule); border-left:4px solid var(--bad); border-radius:10px; padding:12px 16px; margin-block:calc(var(--gap-block) * .7); font-size:.98rem}
 .erratum .lbl{color:var(--bad)}
-.erratum cite{display:block; font-style:normal; font-family:var(--f-mono); font-size:.8rem; color:var(--muted); margin-top:6px}
+.erratum cite{display:block; font-style:normal; font-family:var(--f-body); font-size:.8rem; color:var(--muted); margin-top:6px}
 
-/* formulas: MathML rendered at build time */
+/* the intuition card that comes before a formula, and the one-line conclusion that closes an idea */
+.analogy{display:grid; grid-template-columns:minmax(0,1fr); gap:6px; background:var(--card); border:1px solid var(--rule); border-radius:16px; padding:18px 22px; margin-block:calc(var(--gap-block) * .8); max-width:40em}
+.analogy > .tag{font-family:var(--f-display); font-size:1.05rem; color:var(--ink); letter-spacing:0}
+.analogy .body{color:var(--ink-2); font-size:1.02rem; line-height:1.85}
+.analogy .body > :first-child{margin-top:0}
+.analogy .body > :last-child{margin-bottom:0}
+.takeaway{border-left:4px solid var(--accent); padding:4px 0 4px 20px; margin-block:calc(var(--gap-block) * .8); max-width:38em}
+.takeaway > :first-child{margin-top:0}
+.takeaway > :last-child{margin-bottom:0}
+.takeaway p{color:var(--ink); font-size:1.08rem; line-height:1.8; margin:0}
+
+/* formulas: MathML rendered at build time. The maths face is the one place a fourth token is allowed,
+   and only on `math` itself — see test/typography.test.mjs. */
 math{font-family:var(--f-math)}
 /* Chromium sets stretchy over/underlines flush against the glyph (\overline{X} looks like X); give them room. */
 math mover[accent="true"] > mo[stretchy="true"]:last-child{padding-bottom:.18em}
 math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18em}
-.formula{font-size:1.25rem; text-align:center; margin:1em 0; padding:16px 12px; overflow-x:auto; background:var(--card); border:1px solid var(--rule); border-radius:12px; position:relative}
-.formula .tag{position:absolute; top:6px; left:12px; font-family:var(--f-mono); font-size:.7rem; letter-spacing:.12em; color:var(--muted)}
+.formula{font-size:1.25rem; text-align:center; margin-block:var(--gap-block); padding:16px 12px; overflow-x:auto; background:var(--card); border:1px solid var(--rule); border-radius:12px; position:relative}
+.formula .tag{position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:.7rem; letter-spacing:.12em; color:var(--muted)}
 .formula math[display="block"]{margin:.2em 0}
+/* a formula broken into parts: each piece is a button, and one explanation area below shows the
+   words for whichever piece is selected. The pieces sit in a flex row so a long formula wraps
+   between pieces rather than inside one. */
+.formula.parts{text-align:left; padding-top:22px}
+.formula.parts::before{content:attr(data-label); position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:.7rem; letter-spacing:.12em; color:var(--muted)}
+.formula.parts .eq{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.1em; font-size:1.15rem}
+.formula.parts .eq .piece{border:0; background:none; padding:2px 4px; border-radius:8px; cursor:pointer; font:inherit; color:inherit; transition:background .2s}
+.formula.parts .eq button.piece:hover{background:var(--hl-soft)}
+.formula.parts .eq button.piece[aria-pressed="true"]{background:var(--hl)}
+.formula.parts .eq button.piece:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.formula.parts .eq .piece.static{cursor:default}
+.formula.parts .say{border-top:1px dashed var(--rule-strong); margin-top:14px; padding-top:12px; font-size:.98rem; line-height:1.8; color:var(--ink-2)}
+.formula.parts .hint{font-family:var(--f-body); font-size:.82rem; color:var(--muted); margin:8px 0 0; text-align:left}
 .deriv{display:flex; flex-direction:column; gap:6px; align-items:flex-start; text-align:left; font-size:1.1rem; line-height:1.9}
-.deriv .why{font-family:var(--f-hand); font-size:.95rem; color:var(--muted); margin-left:.8em}
+.deriv .why{font-family:var(--f-body); font-size:.95rem; color:var(--muted); margin-left:.8em}
 
 /* tables */
-.tablewrap{overflow-x:auto; margin:1em 0; max-width:100%}
+.tablewrap{overflow-x:auto; margin-block:var(--gap-block); max-width:100%}
 table.data{border-collapse:collapse; font-size:.95rem; min-width:100%; font-variant-numeric:tabular-nums}
 table.data th,table.data td{padding:7px 12px; border-bottom:1px solid var(--rule); text-align:left}
-table.data th{font-family:var(--f-mono); font-size:.76rem; letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1.5px solid var(--rule-strong)}
-table.data td.num,table.data th.num{text-align:right; font-family:var(--f-mono)}
+table.data th{font-family:var(--f-body); font-size:.76rem; letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1.5px solid var(--rule-strong)}
+table.data td.num,table.data th.num{text-align:right; font-variant-numeric:tabular-nums}
 table.data tr{transition:background .25s}
 table.data tr.on{background:var(--hl-soft)}
 table.data tr.dim{opacity:.45}
@@ -180,25 +254,35 @@ table.data tr.dim{opacity:.45}
 .grid4{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px}
 .task{background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; transition:transform .25s, box-shadow .25s}
 .task:hover{transform:translateY(-3px); box-shadow:var(--shadow)}
-.task .k{font-family:var(--f-mono); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.task .k{font-family:var(--f-body); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
 .task h5{font-family:var(--f-display); font-size:1.18rem; margin:.15em 0 .3em}
 .task p{font-size:.95rem; line-height:1.7; margin:0; color:var(--ink-2)}
-.pill{display:inline-block; font-family:var(--f-mono); font-size:.72rem; padding:1px 8px; border-radius:999px; border:1px solid currentColor; letter-spacing:.04em; vertical-align:.1em}
+.pill{display:inline-block; font-family:var(--f-body); font-size:.72rem; padding:1px 8px; border-radius:999px; border:1px solid currentColor; letter-spacing:.04em; vertical-align:.1em}
+
+/* ---------- stack: one variant in the same grid cell, so text changes never move layout ---------- */
+.stack{display:grid}
+.stack > *{grid-area:1/1; visibility:hidden}
+.stack > .on{visibility:visible}
+/* The live region must stay in the accessibility tree even though every variant is hidden. */
+.stack > .sr-only{visibility:visible}
+/* Nothing is showing (show(-1)): A8 says the height stays reserved, so the cells keep their layout.
+   The box's own tint and padding are dropped, though — an empty tinted bar reads as a bug. */
+.stack.is-empty{background:none}
 
 /* ---------- Lab chrome (shared by all Lab types) ---------- */
-.lab{min-width:0; margin:1.6em 0 1.2em; background:var(--card); border:1px solid var(--rule-strong); border-radius:18px; box-shadow:var(--shadow); overflow:hidden}
+.lab{min-width:0; margin-block:var(--gap-block); background:var(--card); border:1px solid var(--rule-strong); border-radius:18px; box-shadow:var(--shadow); overflow:hidden}
 .lab-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 18px; border-bottom:1px dashed var(--rule-strong); background:var(--paper-deep)}
-.lab-head .tag{font-family:var(--f-mono); font-size:.72rem; font-weight:600; letter-spacing:.14em; color:var(--accent-ink); background:var(--accent); padding:3px 9px; border-radius:6px}
+.lab-head .tag{font-family:var(--f-body); font-size:.72rem; font-weight:600; letter-spacing:.14em; color:var(--accent-ink); background:var(--accent); padding:3px 9px; border-radius:6px}
 .lab-head b{font-family:var(--f-display); font-size:1.12rem}
-.lab-head .hint{font-family:var(--f-hand); color:var(--muted); font-size:1rem; margin-left:auto}
+.lab-head .hint{font-family:var(--f-body); color:var(--muted); font-size:.95rem; margin-left:auto}
 .lab-body{padding:18px; display:flex; flex-direction:column; gap:16px}
 .lab-body > *,.lab-cols > *,.sheet > *,.chapter,.sec{min-width:0}
 .lab-cols{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:20px; align-items:start}
-.lab-error{color:var(--bad); font-family:var(--f-mono); font-size:.9rem}
+.lab-error{color:var(--bad); font-family:var(--f-body); font-size:.9rem}
 .controls{display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center}
 .ctl{display:flex; flex-direction:column; gap:4px; min-width:0}
-.ctl > label,.ctl > .lbl{font-size:.82rem; color:var(--muted); font-family:var(--f-mono); letter-spacing:.04em}
-.ctl output{font-family:var(--f-mono); font-weight:600; color:var(--ink)}
+.ctl > label,.ctl > .lbl{font-size:.82rem; color:var(--muted); font-family:var(--f-body); letter-spacing:.04em}
+.ctl output{display:inline-block; min-width:5.5ch; text-align:right; font-family:var(--f-body); font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums}
 .seg{display:inline-flex; background:var(--paper-deep); border:1px solid var(--rule); border-radius:10px; padding:3px; gap:2px; flex-wrap:wrap}
 .seg button{font:inherit; font-size:.92rem; border:0; background:transparent; color:var(--ink-2); padding:5px 12px; border-radius:7px; cursor:pointer; transition:background .2s,color .2s}
 .seg button[aria-pressed="true"]{background:var(--card); color:var(--ink); box-shadow:inset 0 0 0 1px var(--rule-strong)}
@@ -210,24 +294,34 @@ table.data tr.dim{opacity:.45}
 .stepper{display:inline-flex; align-items:center; border:1px solid var(--rule-strong); border-radius:10px; overflow:hidden; background:var(--card)}
 .stepper button{font:inherit; width:34px; height:34px; border:0; background:transparent; color:var(--ink); cursor:pointer; font-size:1.1rem}
 .stepper button:hover{background:var(--paper-deep)}
-.stepper output{min-width:2.4em; text-align:center; font-family:var(--f-mono); font-weight:600}
-input[type=range]{-webkit-appearance:none; appearance:none; width:220px; max-width:100%; height:28px; background:transparent; cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:6px; background:linear-gradient(to right,var(--accent) var(--p,50%),var(--rule) var(--p,50%))}
-input[type=range]::-moz-range-track{height:6px; border-radius:6px; background:var(--rule)}
-input[type=range]::-moz-range-progress{height:6px; border-radius:6px; background:var(--accent)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--card); border:2.5px solid var(--accent); margin-top:-7px; transition:transform .15s; box-shadow:var(--shadow-sm)}
-input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--card); border:2.5px solid var(--accent)}
-input[type=range]:active::-webkit-slider-thumb{transform:scale(1.2)}
-input[type=number]{font-family:var(--f-mono); font-size:1rem; width:5.2em; padding:5px 8px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink)}
+.stepper output{min-width:2.4em; text-align:center; font-family:var(--f-body); font-weight:600; font-variant-numeric:tabular-nums}
+/* Designed range slider: a filled track, a card-coloured thumb, a focus ring only when the keyboard
+   is driving it. --p is written by the runtime as a percentage. */
+input[type=range]{-webkit-appearance:none; appearance:none; width:220px; max-width:100%; height:28px; background:transparent; cursor:pointer; margin:4px 0}
+input[type=range]:focus{outline:none}
+input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:999px; background:linear-gradient(var(--accent),var(--accent)) 0/var(--p,50%) 100% no-repeat, var(--rule)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:22px; height:22px; margin-top:-8px; border-radius:50%; background:var(--card); border:3px solid var(--accent); box-shadow:var(--shadow-sm); transition:transform .15s}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px var(--accent-soft)}
+input[type=range]::-moz-range-track{height:6px; border-radius:999px; background:var(--rule)}
+input[type=range]::-moz-range-progress{height:6px; border-radius:999px; background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--card); border:3px solid var(--accent); box-shadow:var(--shadow-sm); transition:transform .15s}
+input[type=range]:active::-moz-range-thumb{transform:scale(1.15)}
+input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-soft)}
+input[type=number]{font-family:var(--f-body); font-size:1rem; width:5.2em; padding:5px 8px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink); font-variant-numeric:tabular-nums}
 .readouts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
+/* A readout cell is as wide as its column, so a long label wraps inside 150px and the whole Lab grows
+   a line taller while a Lab is being driven. One column on a phone gives every value the full width. */
+@media (max-width:600px){.readouts{grid-template-columns:minmax(0,1fr)}}
 .ro{background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column}
-.ro span{font-size:.78rem; color:var(--muted); font-family:var(--f-mono); letter-spacing:.03em}
-.ro b{font-family:var(--f-mono); font-size:1.3rem; font-weight:600; font-variant-numeric:tabular-nums; transition:color .3s}
+.ro span{font-size:.78rem; color:var(--muted); font-family:var(--f-body); letter-spacing:.03em}
+/* A readout keeps its width across values: tabular digits plus room for the longest short value. */
+.ro b{font-family:var(--f-body); font-size:1.3rem; font-weight:600; font-variant-numeric:tabular-nums; min-width:5.5ch; transition:color .3s}
 .ro.win{border-color:var(--accent); background:var(--accent-soft)}
-.calc{font-family:var(--f-mono); font-size:.92rem; line-height:1.9; background:var(--paper); border:1px dashed var(--rule-strong); border-radius:10px; padding:10px 14px; overflow-x:auto}
+.calc{font-family:var(--f-body); font-size:.95rem; line-height:1.9; background:var(--paper); border:1px dashed var(--rule-strong); border-radius:10px; padding:10px 14px; overflow-x:auto; font-variant-numeric:tabular-nums}
 .calc .c{color:var(--muted)}
-.verdict{font-family:var(--f-hand); font-size:1.15rem; line-height:1.6; padding:10px 14px; border-radius:10px; background:var(--hl-soft)}
-.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-mono); font-size:.85rem; padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); transition:all .3s}
+.verdict{font-family:var(--f-body); font-size:1.05rem; line-height:1.7; padding:10px 14px; border-radius:10px; background:var(--hl-soft)}
+.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-body); font-size:.85rem; padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); transition:all .3s}
 .chip.good{border-color:var(--good); background:var(--good-soft)}
 .chip.bad{border-color:var(--bad); background:var(--bad-soft); text-decoration:line-through; text-decoration-color:var(--bad)}
 .chip.muted{border-style:dashed; color:var(--muted); background:transparent; text-decoration:line-through}
@@ -241,19 +335,19 @@ input[type=number]{font-family:var(--f-mono); font-size:1rem; width:5.2em; paddi
 .legend i{display:inline-block; width:14px; height:4px; border-radius:2px; vertical-align:middle; margin-right:6px}
 .vizwrap{position:relative; overflow-x:auto; max-width:100%}
 svg.viz{display:block; width:100%; height:auto; overflow:visible}
-svg text{font-family:var(--f-body); fill:var(--ink)}
+svg text{font-family:var(--f-body); fill:var(--ink); font-variant-numeric:tabular-nums}
 svg .axis line,svg .axis path{stroke:var(--rule-strong)}
 svg .grid line{stroke:var(--rule); stroke-dasharray:2 4}
-svg .tick{font-family:var(--f-mono); font-size:11px; fill:var(--muted)}
-.tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--paper); font-size:.82rem; font-family:var(--f-mono); line-height:1.5; padding:6px 10px; border-radius:8px; transform:translate(-50%,-110%); white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5}
+svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-variant-numeric:tabular-nums}
+.tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--paper); font-size:.82rem; font-family:var(--f-body); line-height:1.5; padding:6px 10px; border-radius:8px; transform:translate(-50%,-110%); white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5; font-variant-numeric:tabular-nums}
 .tip.show{opacity:1}
-.ctab{border-collapse:collapse; font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.ctab{border-collapse:collapse; font-family:var(--f-body); font-variant-numeric:tabular-nums}
 .ctab th,.ctab td{border:1px solid var(--rule-strong); padding:6px 12px; text-align:center}
 .ctab th{font-weight:600; font-size:.85rem; background:var(--paper-deep)}
 .ctab td.m{color:var(--muted)}
 .ctab input{width:4.4em}
 .bars2{display:flex; flex-direction:column; gap:12px}
-.hbar{display:grid; grid-template-columns:6.5em 1fr 4.5em; gap:10px; align-items:center; font-family:var(--f-mono); font-size:.88rem}
+.hbar{display:grid; grid-template-columns:6.5em 1fr 4.5em; gap:10px; align-items:center; font-family:var(--f-body); font-size:.88rem; font-variant-numeric:tabular-nums}
 .hbar .track{height:22px; background:var(--paper); border:1px solid var(--rule); border-radius:6px; display:flex; overflow:hidden}
 .hbar .track i{display:block; height:100%; background:var(--s1); transition:width .45s cubic-bezier(.2,.8,.2,1)}
 /* Signed bar: the fill grows from a zero line in either direction. Sign is shown by side and by a
@@ -276,16 +370,16 @@ svg .tick{font-family:var(--f-mono); font-size:11px; fill:var(--muted)}
 .stop .st{color:var(--star); font-size:.85rem; letter-spacing:1px; min-height:1.2em}
 .link{flex:1 0 24px; height:3px; background:repeating-linear-gradient(90deg,var(--rule-strong) 0 6px,transparent 6px 11px); margin-bottom:46px}
 .qcard{border:1px solid var(--rule); border-radius:14px; padding:20px; background:var(--paper)}
-.qmeta{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-family:var(--f-mono); font-size:.82rem; color:var(--muted); margin-bottom:10px}
+.qmeta{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-family:var(--f-body); font-size:.82rem; color:var(--muted); margin-bottom:10px; font-variant-numeric:tabular-nums}
 .qbar{height:6px; border-radius:6px; background:var(--rule); overflow:hidden; margin-bottom:14px}
 .qbar i{display:block; height:100%; background:var(--accent); transition:width .4s}
-.qtext{font-size:1.22rem; line-height:1.75; margin:0 0 14px}
+.qtext{font-size:1.2rem; line-height:1.8; margin:0 0 14px; max-width:var(--measure)}
 .qtitle{font-family:var(--f-display); font-size:1.5rem; font-weight:700; margin-bottom:4px}
 .qsub{color:var(--ink-2); margin-top:0}
 .opts{display:flex; flex-direction:column; gap:10px}
-.opt{font:inherit; text-align:left; display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border:1.5px solid var(--rule-strong); background:var(--card); color:var(--ink); border-radius:12px; cursor:pointer; transition:border-color .2s, background .2s, transform .15s; line-height:1.6}
+.opt{font:inherit; text-align:left; display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border:1.5px solid var(--rule-strong); background:var(--card); color:var(--ink); border-radius:12px; cursor:pointer; transition:border-color .2s, background .2s, transform .15s; line-height:1.7}
 .opt:hover:not(:disabled){border-color:var(--accent); transform:translateX(3px)}
-.opt .k{font-family:var(--f-mono); font-weight:600; color:var(--muted); flex:none}
+.opt .k{font-family:var(--f-body); font-weight:600; color:var(--muted); flex:none}
 .opt.right{border-color:var(--good); background:var(--good-soft)}
 .opt.wrong{border-color:var(--bad); background:var(--bad-soft); animation:shake .4s}
 .opt:disabled{cursor:default}
@@ -294,13 +388,13 @@ svg .tick{font-family:var(--f-mono); font-size:11px; fill:var(--muted)}
 .numans input{width:9em; font-size:1.1rem}
 .numans input.wrong{border-color:var(--bad); animation:shake .4s}
 .numans input.right{border-color:var(--good)}
-.fb{margin-top:14px; border-radius:12px; padding:12px 16px; line-height:1.75; animation:rise .35s both}
+.fb{margin-top:14px; border-radius:12px; padding:12px 16px; line-height:1.8; animation:rise .35s both}
 .fb.ok{background:var(--good-soft)}
 .fb.bad{background:var(--bad-soft)}
 .fb b{font-family:var(--f-display)}
 .fb .src{display:block; margin-top:6px; font-size:.9rem}
 .qnav{display:flex; justify-content:space-between; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center}
-.combo{font-family:var(--f-hand); color:var(--star); font-size:1.1rem}
+.combo{font-family:var(--f-body); color:var(--star); font-size:1.05rem; font-weight:700}
 .result{text-align:center; padding:10px 0}
 .result .bigstars{font-size:2.6rem; letter-spacing:6px; color:var(--star)}
 .result .bigstars span{display:inline-block; animation:stamp .5s cubic-bezier(.2,1.6,.4,1) both}
@@ -308,7 +402,7 @@ svg .tick{font-family:var(--f-mono); font-size:11px; fill:var(--muted)}
 .review{text-align:left; margin-top:18px; border-top:1px dashed var(--rule-strong); padding-top:14px}
 .review h6{font-family:var(--f-display); font-size:1.05rem; margin:0 0 8px}
 .review ol{margin:0; padding-left:1.4em; display:flex; flex-direction:column; gap:10px}
-.review li{line-height:1.6}
+.review li{line-height:1.7}
 .review .ans{display:block; font-size:.92rem; color:var(--ink-2)}
 @keyframes stamp{from{transform:scale(1.8); opacity:0}to{transform:scale(1); opacity:1}}
 .toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translate(-50%,30px); background:var(--ink); color:var(--paper); padding:8px 18px; border-radius:999px; font-size:.92rem; opacity:0; transition:all .35s cubic-bezier(.2,.8,.2,1); z-index:80; pointer-events:none}
@@ -317,28 +411,47 @@ svg .tick{font-family:var(--f-mono); font-size:11px; fill:var(--muted)}
 /* ---------- responsive ---------- */
 @media (max-width:1100px){ .lab-cols{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:900px){
+  .topbar .menu{display:inline-flex; align-items:center; gap:6px}
+  .topbar .tname{display:none}
+  .topbar .now{display:block; flex:none; max-width:16ch; min-width:0}
+  .topbar .pct{flex:none}
+  /* One row only: the tabs scroll inside their own strip instead of pushing the bar to two rows. */
+  .topbar .in{flex-wrap:nowrap}
+  .topbar .chaps{flex:1 1 auto; min-width:0}
+  .chaps-side{display:none}
   .shell{grid-template-columns:minmax(0,1fr)}
-  .side{position:fixed; left:0; top:0; bottom:0; width:min(320px,86vw); z-index:70; transform:translateX(-102%); visibility:hidden; transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s .35s; padding-top:calc(24px + env(safe-area-inset-top,0px))}
+  /* The drawer is `position:fixed`, but `.shell` carries a z-index for the grain overlay, and a
+     stacking context would trap the drawer under the scrim. So the shell stops creating one here and
+     `main` takes over the job of staying above the grain. */
+  .shell{z-index:auto}
+  main{position:relative; z-index:1}
+  .side{position:fixed; left:0; top:0; bottom:0; height:auto; width:min(320px,86vw); z-index:70; transform:translateX(-102%); visibility:hidden; transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s .35s; padding-top:calc(24px + env(safe-area-inset-top,0px))}
   .side.open{transform:none; visibility:visible; transition:transform .35s cubic-bezier(.2,.8,.2,1); box-shadow:var(--drawer-shadow)}
   .scrim{display:block; position:fixed; inset:0; background:var(--scrim); z-index:65; opacity:0; pointer-events:none; transition:opacity .3s}
   .scrim.show{opacity:1; pointer-events:auto}
-  .topbar{display:flex; position:sticky; top:env(safe-area-inset-top,0px); z-index:50; align-items:center; gap:12px; background:var(--paper-deep); border-bottom:1px solid var(--rule); padding-block:8px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px))}
-  .topbar b{font-family:var(--f-display); font-size:1.05rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .topbar .pct{font-family:var(--f-mono); font-size:.85rem; color:var(--muted)}
   .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
-  main{padding-block:20px 100px}
-  html{scroll-padding-top:64px}
+  main{padding-block:20px 100px}}
+@media (max-width:600px){
+  /* A phone has no room for a strip of tabs beside the title, so the bar keeps one row — menu,
+     current section, progress — and the same tabs move to the top of the drawer. */
+  .topbar .now{flex:1 1 0}
+  .topbar .chaps{display:none}
+  /* `flex:none` undoes the strip's `flex:1 1 auto`, which would stretch the tabs down the drawer. */
+  .chaps-side{display:flex; flex:none; flex-wrap:wrap; align-items:flex-start; align-content:flex-start; gap:6px; overflow:visible; padding-bottom:2px}
 }
 @media (max-width:560px){
-  :root{--fs-body:1.09rem; --fs-h2:1.5rem}
+  :root{--fs-body:1.06rem; --fs-h2:1.5rem}
   .grid2,.grid4{grid-template-columns:minmax(0,1fr)}
   .lab-body{padding:14px}
   .lab-head .hint{margin-left:0; flex-basis:100%}
   .formula{font-size:1.08rem}
   .quiz{padding:14px}
   .hbar{grid-template-columns:5em 1fr 4em}
-  .fab button{width:40px; height:40px}
+  .fab button{width:42px; height:42px}
+  .pager{grid-template-columns:minmax(0,1fr)}
+  .pager a.next{text-align:left}
 }
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important}
+  .view{animation:none}
 }

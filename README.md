@@ -43,13 +43,15 @@ The agent follows [`docs/workflow.md`](docs/workflow.md): it asks for the depth,
 | numeric | every number the page states is recomputed from its formula |
 | coverage | every slide page in scope is cited by a section |
 | quiz review | no quiz item can be answered from the options alone (length, absolute words, echoing the question) |
-| render | the page opens without errors in light and dark themes and at 375 px, every Lab responds, the quiz can be completed |
+| teaching | the writing teaches: no page references, no wall of prose, every formula explained in words, an analogy before the formalism, a mix of block kinds, filler phrases |
+| render | the page opens without errors in light and dark themes and at 375 px, every Lab responds, the quiz can be completed; only the three font tokens, readable line height, Lab and formula boxes keep their height, every tab and sidebar link lands on its target, back-to-top and theme buttons work |
 | source | an agent compared the content with the slides and references (and says whether that review was independent) |
+| teaching review | an agent reviewed the writing against the teaching rubric (and says whether that review was independent) |
 
 ## Repository map
 
 - `SKILL.md` — entry point for the agent.
-- `docs/workflow.md` — the procedure; `docs/content-format.md` — the content format; `references/` — writer, outline and source-checker guides.
+- `docs/workflow.md` — the procedure; `docs/content-format.md` — the content format; `references/` — writer, outline, source-checker and teaching-reviewer guides.
 - `bin/`, `src/` — the CLI; `runtime/`, `labs/` — the page runtime and built-in Lab types; `palettes/` — colour schemes.
 - `fixtures/sample` — original sample content used by the tests. Course slides never go in this repository.
 

@@ -46,8 +46,14 @@ Lykeion.registerLab('table', function (root, p, api) {
   var ro = H('div', { class: 'readouts', 'aria-live': 'polite' });
   outs.forEach(function (o) { o.el = H('div', { class: 'ro' }, '<span>' + esc(o.label) + '</span><b>—</b>'); ro.appendChild(o.el); });
   if (outs.length) root.appendChild(ro);
+  // One stacked cell for the verdicts: the box keeps the height of the tallest verdict, so a verdict
+  // appearing or disappearing never shifts the table under the reader's cursor.
   var verdictEl = H('div', { class: 'verdict', 'aria-live': 'polite' });
-  if (verdicts.length) root.appendChild(verdictEl);
+  var verdictStack = null;
+  if (verdicts.length) {
+    root.appendChild(verdictEl);
+    verdictStack = api.stack(verdictEl, verdicts.map(function (v) { return v.text; }));
+  }
 
   function sync() { inputs.forEach(function (i) { i.value = state[i.dataset.n]; }); }
   function update() {
@@ -58,8 +64,9 @@ Lykeion.registerLab('table', function (root, p, api) {
       tableWrap.querySelector('[data-all]').textContent = all;
     }
     outs.forEach(function (o) { var v = o.fn(state); api.setVal(o.el.querySelector('b'), o.labels && Object.prototype.hasOwnProperty.call(o.labels, String(v)) ? o.labels[String(v)] : api.fmt(v, o.digits == null ? 3 : o.digits)); });
-    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.innerHTML = verdicts[k].text; verdictEl.hidden = false; return; } }
-    verdictEl.innerHTML = ''; verdictEl.hidden = true;
+    if (!verdictStack) return;
+    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictStack.show(k); return; } }
+    verdictStack.show(-1);
   }
   inputs.forEach(function (i) { i.addEventListener('input', function () { var v = Number(i.value); state[i.dataset.n] = Number.isFinite(v) && v >= 0 ? v : 0; update(); }); });
   sync(); update();

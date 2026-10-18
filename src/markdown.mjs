@@ -108,6 +108,19 @@ export function fenceInfo(info) {
   return { lang: words[0] || '', attrs, words };
 }
 
+// `###`/`####` headings inside a section are linkable, so the sidebar can list them under the
+// section the reader is in (runtime renderSubs lists h3-h5). An author may name one with a raw `id=`,
+// otherwise the build numbers them `<section-id>-<n>` in document order (n from 1), which is stable as
+// long as the section id is. Headings inside code are escaped, so only real headings match.
+export function headingIds(html, secId) {
+  let n = 0;
+  return String(html).replace(/<(h[3-5])((?:\s[^>]*)?)>/gi, (all, tag, attrs = '') => {
+    if (/\sid\s*=/.test(attrs)) return all;
+    n++;
+    return `<${tag} id="${secId}-${n}"${attrs}>`;
+  });
+}
+
 export function createMarkdown(ctx) {
   const md = new MarkdownIt({ html: true, linkify: false, typographer: false });
   cjkEmphasisPlugin(md);

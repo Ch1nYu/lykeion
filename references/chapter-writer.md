@@ -13,10 +13,24 @@ You write one chapter of a Lecture Site: `content/NN-<slug>.md` in the format of
 
 ## Teaching
 
-- Each section moves from **intuition → definition/formula → worked example from the slides → pitfall or exam tip**.
+Write for a student who missed the lecture. Each section moves from **intuition → formula → worked example from the slides → pitfall or exam tip**, and each step has its own block shape, so the page alternates reading with looking and doing.
+
+- **Intuition first.** Before a section's first formula, an `analogy` block maps the idea onto something everyday, part for part (a jar of candies for impurity, a class average for a weighted sum). Come back to the analogy when the formula arrives. The `teaching` gate fails a section whose formula has no analogy before it.
+- **Teach every key formula piece by piece.** Write it as a `formula` with `parts`: each clickable piece's `say` tells what that piece *means* in the analogy or the example, not its name ("連抽兩次都抽到第 j 種的機率", not "p_j 的平方"). Order the parts so clicking them in turn tells the story from the smallest piece to the whole, and say that order in `hint`. A secondary formula may stay plain TeX, but a paragraph must follow it explaining what it says — the gate fails a formula followed directly by another formula, a heading or the section end.
+- **No page numbers in the text.** Sections carry their pages in `{pages=…}`; the reader sees them in the section header. Never write 「講義 p.34」「第 34 頁」「見投影片 12」 in prose, Lab text or quiz items — tell the content instead. The gate fails it.
+- **Short paragraphs, varied blocks.** One idea per paragraph (the gate's default limit is 160 characters). After at most three short paragraphs, show something: an `analogy`, a `formula`, a Lab, a table, a numbered list of calculation steps, a `note`, a `takeaway`. A long section must use at least two kinds of non-prose block.
+- **Close with a takeaway.** End a section with a one-sentence `takeaway` of what to remember, and use `note` for the exam trap: what a question typically twists, which two concepts students confuse.
+- Use `###` sub-headings that name a question or an idea (「切完之後，怎麼替這一刀打分數？」), not just a term; they become the sidebar's quick links.
 - Derive what the Depth asks for (see `docs/workflow.md`), one step per line, with a short reason beside non-obvious steps.
-- Use `note` blocks for exam tips and common traps: what a question typically twists, which two concepts students confuse.
 - Use tables for comparisons, and real Markdown lists for procedures.
+
+### Plain language
+
+Write natural Traditional Chinese (Taiwan), the way a good teacher talks — not a translation of English.
+
+- One idea per sentence; put the subject first; prefer verbs to stacked nouns (「把資料排好」, not 「進行資料的排序動作」).
+- Avoid filler and translation-ese: 「進行…的動作」「做一個…的動作」「被…所…」「對於…而言」「透過…的方式」「值得注意的是」「眾所周知」「顯而易見」. The gate fails the worst and warns on the rest; the list is `references/style-lexicon.json`.
+- Explain a term the first time it appears, in words a first-year student knows; keep the English term once in parentheses.
 - Tone: calm, precise, plain. Prefer the exact word to an intensifier; one emphasis (`<mark>` or **bold**) per paragraph at most.
 
 ## Numbers
@@ -39,7 +53,10 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 
 - opens on the slides' own example values, so the reader sees the slide's numbers first;
 - has a `hint` saying what to change and a `verdict` or readout that names what the reader should notice;
-- uses expressions that stay finite over the whole input range (guard divisions by zero and `log2(0)`).
+- uses expressions that stay finite over the whole input range (guard divisions by zero and `log2(0)`);
+- prefers a Lab the reader computes with (`slider-calc`, `table`, `curve`, a custom Lab) over a `stepper` that only pages through text — the gate allows at most a third of a site's Labs to be steppers.
+
+A custom Lab (`<project>/labs/<type>/lab.js`) puts every text that changes — an explanation, a verdict, a message — through `api.stack`, so the box keeps one height whatever it says. The render gate moves every control and fails a Lab whose box changes height.
 
 ## Quiz
 

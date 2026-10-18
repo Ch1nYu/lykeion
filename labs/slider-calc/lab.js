@@ -66,8 +66,14 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
   });
   if (bars.length) root.appendChild(barWrap);
 
+  // One stacked cell for the verdicts: the box keeps the height of the tallest verdict, so a verdict
+  // appearing or disappearing never shifts the controls under the reader's cursor.
   var verdictEl = H('div', { class: 'verdict', 'aria-live': 'polite' });
-  if (verdicts.length) root.appendChild(verdictEl);
+  var verdictStack = null;
+  if (verdicts.length) {
+    root.appendChild(verdictEl);
+    verdictStack = api.stack(verdictEl, verdicts.map(function (v) { return v.text; }));
+  }
 
   function update() {
     var vals = outs.map(function (o) { return o.fn(state); });
@@ -94,8 +100,9 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
       }
       b.el.querySelector('b').textContent = api.fmt(bv[i], b.digits == null ? 3 : b.digits);
     });
-    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictEl.innerHTML = verdicts[k].text; verdictEl.hidden = false; return; } }
-    verdictEl.textContent = ''; verdictEl.hidden = true;
+    if (!verdictStack) return;
+    for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictStack.show(k); return; } }
+    verdictStack.show(-1);
   }
   update();
 });

@@ -66,6 +66,10 @@ Done when numeric, coverage and render all show ✓. A render gate marked "skipp
 
 The **quiz review** gate fails any choice item whose options give the key away — the key clearly longest, absolute words only in the distractors, a hedge only in the key, or the key alone echoing the stem — and any Quiz Level whose key is the longest option in more than half of its items. Rewrite the options (see `references/chapter-writer.md`, Quiz) until it passes. The gate catches mechanical tells only; still read each item and ask whether a student who has not studied could pick the key.
 
+The **teaching** gate checks the writing rules of `references/chapter-writer.md` that a machine can count: no page numbers in body text, paragraph and prose-run length, a formula never left without words, an analogy before a section's first formula, enough kinds of block in a long section, the stepper share of Labs, and the phrases listed in `references/style-lexicon.json` (fail) — ⚠ entries are warnings to read, not failures. Its thresholds are in `references/teaching-rules.json`; a project may change one under `"teaching"` in `lykeion.json` only for a reason the user agreed to (a subject with long unavoidable definitions, say), never just to pass. Fix the content instead.
+
+The **render** gate also checks the reading experience: only the three font tokens, the prose line height and measure, every chapter tab and sidebar link landing on its target, a deep link opening the right chapter, the floating back-to-top and theme buttons, and that no Lab or formula box changes height while its controls move.
+
 ## 7. Source check
 
 Have the built content compared with the cited pages and the References, and record the result in `<project>/source-check.md`.
@@ -80,11 +84,19 @@ Steps 6–7 together get at most **3 fix rounds**. If gates still fail after rou
 
 Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 
-## 8. Report
+## 8. Teaching review
+
+Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md`. As with the source check, prefer a reviewer with fresh context, and state `Reviewer: independent` or `Reviewer: self (…)` in the header; `lykeion verify` shows a self-review as ⚠.
+
+Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains.
+
+Done when `lykeion verify` shows teaching review ✓ (or 2 rounds are spent).
+
+## 9. Report
 
 Tell the user, briefly:
 
 - the Lecture Site path (and offer to open it);
-- the gate results from `verify-report.md`, including anything skipped or still failing, and whether the source check was independent or a self-review;
+- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, and whether the source check and the teaching review were independent or self-reviews;
 - every **disputed** finding, quoted with its page and Reference, for the user to decide;
 - the Palette used.

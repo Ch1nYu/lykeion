@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-17T16:46:23.412Z
-- Verified: 2026-10-17T16:46:27.134Z
+- Built: 2026-10-18T17:10:19.777Z
+- Verified: 2026-10-18T17:10:43.792Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,8 +9,10 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| render | ✓ pass | 24 checks passed |
+| teaching | ✓ pass | 8 checks passed |
+| render | ✓ pass | 38 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
+| teaching review | … pending | awaiting agent review (references/teaching-reviewer.md) |
 
 ## numeric
 
@@ -37,29 +39,54 @@
 - ✓ Quiz Level “條件機率”: 2 choice items, no option gives the key away
 - ✓ Quiz Level “二項分布”: 2 choice items, no option gives the key away
 
+## teaching
+
+- ✓ pageRefs: no page references in body text or quiz items
+- ✓ maxParagraphChars: every paragraph is 160 chars or fewer
+- ✓ maxProseRun: no run of prose exceeds 520 chars
+- ✓ formulaExplained: every formula is followed by prose that explains it
+- ✓ analogyBeforeFormula: every section that has a formula opens with an analogy
+- ✓ minBlockKinds: every section over 900 chars of prose uses at least 2 non-prose kinds
+- ✓ stepperShare: 2 of 6 Labs are steppers
+- ✓ lexicon: no entry of style-lexicon.json matches (9 entries)
+
 ## render
 
 - ✓ skip link “跳到內容” is the first Tab stop, visible when focused, and Enter moves focus into main
-- ✓ 32 formulas rendered as MathML; 0 TeX errors
+- ✓ 52 formulas rendered as MathML; 0 TeX errors
 - ✓ no unrendered TeX in body text
 - ✓ all in-page links resolve
-- ✓ sidebar lists 6 links for 5 sections
+- ✓ 4 views (home, ch1, ch2, quizCh), exactly one shown at a time (home)
+- ✓ sidebar lists only the shown view (home: 3 links, ch1: 2 links / 2 sections + 2 sub-links, ch2: 2 links / 2 sections, quizCh: 2 links)
 - ✓ 6 Labs mounted
 - ✓ 2 code listings, each with a focusable copy button (2 labelled with a language)
+- ✓ all 230 text elements use --f-display or --f-body (--f-mono only inside pre/code/kbd)
+- ✓ 20 reading paragraphs: line-height ≥ 1.7 and width ≤ 40em
+- ✓ every stack shows at most one variant
+- ✓ 2 formula-parts blocks keep their height across 7 pieces and show exactly one explanation each
 - ✓ Lab lab-1 (slider-calc): slider → output changed
 - ✓ Lab lab-2 (stepper): button → output changed
 - ✓ Lab lab-3 (table): number input → output changed
 - ✓ Lab lab-4 (curve): slider → output changed
-- ✓ Lab lab-5 (stepper): button → output changed
+- ✓ Lab lab-5 (slider-calc): slider → output changed
 - ✓ Lab lab-6 (stepper): button → output changed
 - ✓ Lab lab-2 (stepper): stepper legend: 2 swatches match the chip states they name
-- ✓ Lab lab-5 (stepper): stepper legend: 2 swatches match the chip states they name
 - ✓ Lab lab-6 (stepper): stepper legend: 4 swatches match the chip states they name
+- ✓ every Lab keeps its height while its controls move at 1280px (6 Labs)
 - ✓ Quiz Level 1 “條件機率”: 3 questions answered with the key → all accepted
 - ✓ Quiz Level 2 “二項分布”: 3 questions answered with the key → all accepted
-- ✓ theme button cycles light → dark → system
+- ✓ 4 chapter tabs each show exactly their own view
+- ✓ 11 sidebar links land their target just under the top bar (or at the page end)
+- ✓ deep link #s2-2 opens ch2 with the section just under the top bar (section top y=64px, top bar bottom y=58px)
+- ✓ browser Back returns to ch1 (showing ch1)
+- ✓ back to top: hidden and out of the tab order at the top, shown and tabbable after one viewport, click → scrollY 0
+- ✓ theme button flips light → dark → light from a light system, aria-label “切換成深色模式” → “切換成淺色模式”
+- ✓ stored theme applies before first paint (a head script reads the store key; after a reload data-theme is dark, body rgb(28, 26, 22))
+- ✓ challenge button opens the quiz view and pushes history (#ch1 → #quizCh, showing quizCh)
+- ✓ a malformed hash (#%) still shows exactly one view (home)
 - ✓ no console or page errors (desktop)
 - ✓ no horizontal overflow at 375px
+- ✓ every Lab keeps its height while its controls move at 375px (6 Labs)
 - ✓ mobile drawer opens and closes with Esc
 - ✓ dark theme applies (body background rgb(28, 26, 22))
 - ✓ no console or page errors (mobile, dark)
@@ -67,3 +94,7 @@
 ## source
 
 - – source-check.md not found: the agent must review claims against the cited pages
+
+## teaching review
+
+- – teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md

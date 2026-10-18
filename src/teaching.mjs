@@ -1,0 +1,275 @@
+// The `teaching` gate: does the writing teach, or does it just restate the slides?
+//
+// Every threshold and every style pattern lives in `references/teaching-rules.json` and
+// `references/style-lexicon.json`, and a project overrides any of them under `lykeion.json`
+// `"teaching": {…}`. Nothing subject-specific is hard-coded here: a statistics lecture and a
+// literature lecture are checked by the same code, and only the lexicon entries say which
+// language a phrase belongs to.
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+export const RULES_PATH = join(ROOT, 'references', 'teaching-rules.json');
+export const LEXICON_PATH = join(ROOT, 'references', 'style-lexicon.json');
+
+// Block kinds that carry prose the reader reads as sentences.
+export const PROSE = new Set(['p', 'list']);
+// Kinds whose text the lexicon and the page-reference check read. The build imports this, so the
+// two sides cannot disagree about which blocks carry sentences.
+export const TEXTY = new Set(['p', 'list', 'note', 'callout', 'analogy', 'takeaway']);
+// The kinds `minBlockKinds` counts, with `lab:<type>` folded to `lab` so a Lab is one kind.
+const kindFamily = (kind) => (kind.startsWith('lab:') ? 'lab' : kind);
+export const BLOCK_KINDS = ['analogy', 'takeaway', 'note', 'callout', 'formula', 'formula-parts', 'lab', 'table', 'code'];
+const BLOCK_KIND_SET = new Set(BLOCK_KINDS);
+
+// Plain text of a Markdown fragment: no maths, no markup, punctuation kept (the lexicon patterns
+// are written against real sentences, `，` and `。` included).
+export function plainText(src) {
+  return String(src ?? '')
+    .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+    .replace(/\$[^$\n]*\$/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_~]{1,3}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Visible characters of a fragment: no whitespace, no maths.
+export const charCount = (src) => [...plainText(src).replace(/\s+/g, '')].length;
+
+const excerpt = (s, at = 0, len = 36) => {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim();
+  if (t.length <= len) return t;
+  const start = Math.max(0, Math.min(at - Math.floor(len / 3), t.length - len));
+  return `${start > 0 ? '…' : ''}${t.slice(start, start + len)}${start + len < t.length ? '…' : ''}`;
+};
+
+// ---------- configuration ----------
+// The defaults are the shipped JSON files; a project may override any rule key, append lexicon
+// entries, and switch a shipped entry off by its pattern string. A misspelt override key is
+// reported (not silently ignored), the same stance the build takes on unknown Lab parameters.
+export async function loadTeachingConfig(override = {}) {
+  const [base, baseLexicon] = await Promise.all([RULES_PATH, LEXICON_PATH].map((p) => readFile(p, 'utf8').then(JSON.parse)));
+  const { lexicon = [], lexiconOff = [], ...rest } = override || {};
+  const unknown = Object.keys(rest).filter((k) => !(k in base));
+  const rules = { ...base, ...rest };
+  const off = new Set([].concat(lexiconOff || []).map(String));
+  const added = [].concat(lexicon || []).filter((e) => e && e.pattern);
+  const entries = [...baseLexicon, ...added].filter((e) => e && e.pattern && !off.has(String(e.pattern)));
+  return { rules, lexicon: entries, unknown, known: Object.keys(base) };
+}
+
+const compile = (patterns, flags = '') => []
+  .concat(patterns || [])
+  .map((p) => { try { return new RegExp(p, flags); } catch { return null; } })
+  .filter(Boolean);
+
+// A lexicon entry applies to a project when it names no language, the project names none, or the
+// project's language starts with the entry's (`zh` covers `zh-Hant-TW`).
+const langApplies = (entry, projectLang) => {
+  const want = String(entry.lang || 'any').toLowerCase();
+  if (want === 'any' || !projectLang) return true;
+  return String(projectLang).toLowerCase().startsWith(want);
+};
+
+// ---------- the gate ----------
+// `teaching` is the `teaching` object written into checks.json:
+//   { sections: [{ id, num, title, file, blocks: [{ kind, chars, text? }] }],
+//     quiz:     [{ where, q, o, ex }] }
+export function teachingGate(teaching, project = {}, config = { rules: {}, lexicon: [] }) {
+  const { rules = {}, lexicon = [], unknown = [], known = [] } = config;
+  const items = [];
+  const sections = teaching?.sections || [];
+  const quiz = teaching?.quiz || [];
+  const projectLang = project.lang;
+
+  if (!teaching) {
+    return {
+      name: 'teaching', status: 'pending', headline: 'checks.json has no teaching data — rebuild',
+      items: [{ ok: null, msg: 'checks.json was written before the teaching gate existed: run "lykeion build" again' }],
+    };
+  }
+
+  // One item per failure, one summary item per rule that found nothing.
+  const report = (rule, failures, okMsg) => {
+    if (!failures.length) { items.push({ ok: true, msg: `${rule}: ${okMsg}` }); return; }
+    for (const f of failures) {
+      items.push(f.warn ? { ok: null, warn: true, msg: `${rule}: ${f.msg}` } : { ok: false, msg: `${rule}: ${f.msg}` });
+    }
+  };
+
+  for (const key of unknown) {
+    items.push({ ok: false, msg: `lykeion.json "teaching" has no rule "${key}" (allowed: ${known.join(', ')})` });
+  }
+
+  const where = (s) => `${s.file}${s.num ? ` §${s.num}` : ''}`;
+  const blocksOf = (s) => s.blocks || [];
+  const textBlocks = (s) => blocksOf(s).filter((b) => TEXTY.has(b.kind) && b.text);
+  // Spec: every failure names file, section and a short excerpt. A rule that fires on a block with no
+  // words of its own (a formula, a heading, a Lab) quotes the prose nearest to it instead — the
+  // sentence before it, else the section's first sentence, else the section title.
+  const quote = (s, at = -1) => {
+    const bs = blocksOf(s);
+    const prose = bs.filter((b) => PROSE.has(b.kind) && b.text);
+    const before = at >= 0 ? bs.slice(0, at).filter((b) => PROSE.has(b.kind) && b.text).pop() : null;
+    const pick = before || prose[0];
+    if (pick) return ` — near “${excerpt(pick.text)}”`;
+    return s.title ? ` — near “${s.title}”` : '';
+  };
+
+  // 1. pageRefs — a pointer at a page number (the patterns live in teaching-rules.json) sends the
+  //    reader to a page they do not have.
+  //    Section `pages` metadata and an erratum's `ref` are citations, not body text, so they are
+  //    never scanned; quiz stems, options and explanations are.
+  const pagePatterns = rules.pageRefs && rules.pageRefs !== false
+    ? compile(rules.pageRefs.patterns, rules.pageRefs.flags || '')
+    : [];
+  {
+    const failures = [];
+    const scan = (text, label) => {
+      for (const re of pagePatterns) {
+        re.lastIndex = 0;
+        const m = re.exec(text);
+        if (m) failures.push({ msg: `${label}: page reference “${m[0]}” in “${excerpt(text, m.index)}” — the page is not in the reader's hands; name the idea instead` });
+      }
+    };
+    for (const s of sections) for (const b of textBlocks(s)) scan(b.text, `${where(s)} ${b.kind}`, s);
+    for (const q of quiz) {
+      scan(q.q || '', `${q.where} question`, null);
+      (q.o || []).forEach((o, i) => scan(o, `${q.where} option ${i + 1}`, null));
+      scan(q.ex || '', `${q.where} explanation`, null);
+    }
+    report('pageRefs', failures, pagePatterns.length ? 'no page references in body text or quiz items' : 'rule disabled');
+  }
+
+  // 2. maxParagraphChars — a 200-character paragraph is a wall, not an explanation.
+  const maxPara = Number(rules.maxParagraphChars);
+  if (maxPara > 0) {
+    const failures = [];
+    for (const s of sections) for (const b of blocksOf(s)) {
+      if (b.kind !== 'p' || !b.chars || b.chars <= maxPara) continue;
+      failures.push({ msg: `${where(s)}: paragraph is ${b.chars} chars (max ${maxPara}) — “${excerpt(b.text)}”` });
+    }
+    report('maxParagraphChars', failures, `every paragraph is ${maxPara} chars or fewer`);
+  }
+
+  // 3. maxProseRun — prose, prose, prose with nothing to look at in between.
+  const maxRun = Number(rules.maxProseRun);
+  if (maxRun > 0) {
+    const failures = [];
+    for (const s of sections) {
+      let run = 0, first = null;
+      const flush = () => {
+        if (run > maxRun) failures.push({ msg: `${where(s)}: ${run} chars of prose in a row (max ${maxRun}) starting “${excerpt(first)}” — break it with a formula, Lab, table or note` });
+        run = 0; first = null;
+      };
+      for (const b of blocksOf(s)) {
+        if (PROSE.has(b.kind)) { run += b.chars || 0; if (first === null) first = b.text || ''; }
+        else flush();
+      }
+      flush();
+    }
+    report('maxProseRun', failures, `no run of prose exceeds ${maxRun} chars`);
+  }
+
+  // 4. formulaExplained — a formula dropped between two formulas (or straight into a heading or the
+  //    end of the section) was never taught. `formula-parts` carries its own explanation, so it is
+  //    exempt as a subject and transparent as a neighbour.
+  if (rules.formulaExplained) {
+    const failures = [];
+    for (const s of sections) {
+      const bs = blocksOf(s);
+      bs.forEach((b, i) => {
+        if (b.kind !== 'formula' && b.kind !== 'display-math') return;
+        for (let j = i + 1; j < bs.length; j++) {
+          const k = bs[j].kind;
+          if (PROSE.has(k)) return;
+          if (k === 'formula' || k === 'display-math' || k === 'h3' || k === 'h4') {
+            failures.push({ msg: `${where(s)}: the ${b.kind} block is followed by ${k === 'formula' || k === 'display-math' ? 'another formula' : 'a heading'} before any prose explains it${quote(s, i)}` });
+            return;
+          }
+          if (k === 'formula-parts') continue;
+        }
+        failures.push({ msg: `${where(s)}: the ${b.kind} block has no prose after it in this section — say what it means${quote(s, i)}` });
+      });
+    }
+    report('formulaExplained', failures, 'every formula is followed by prose that explains it');
+  }
+
+  // 5. analogyBeforeFormula — the concrete picture comes first, and the formula can point back at it.
+  if (rules.analogyBeforeFormula) {
+    const failures = [];
+    for (const s of sections) {
+      const bs = blocksOf(s);
+      const first = bs.findIndex((b) => b.kind === 'formula' || b.kind === 'formula-parts' || b.kind === 'display-math');
+      if (first < 0) continue;
+      if (bs.slice(0, first).some((b) => b.kind === 'analogy')) continue;
+      failures.push({ msg: `${where(s)}: the first formula arrives before any analogy — add an \`analogy\` block it can return to${quote(s, first)}` });
+    }
+    report('analogyBeforeFormula', failures, 'every section that has a formula opens with an analogy');
+  }
+
+  // 6. minBlockKinds — a long section made only of paragraphs is a wall of text, however correct.
+  const minKinds = rules.minBlockKinds;
+  if (minKinds && Number(minKinds.minChars) >= 0 && Number(minKinds.kinds) > 0) {
+    const failures = [];
+    for (const s of sections) {
+      const prose = blocksOf(s).filter((b) => PROSE.has(b.kind)).reduce((n, b) => n + (b.chars || 0), 0);
+      if (prose <= Number(minKinds.minChars)) continue;
+      const used = [...new Set(blocksOf(s).map((b) => kindFamily(b.kind)).filter((k) => BLOCK_KIND_SET.has(k)))];
+      if (used.length >= Number(minKinds.kinds)) continue;
+      failures.push({ msg: `${where(s)}: ${prose} chars of prose use ${used.length} non-prose kind(s)${used.length ? ` (${used.join(', ')})` : ''} — need ${minKinds.kinds} of ${BLOCK_KINDS.join(', ')}${quote(s)}` });
+    }
+    report('minBlockKinds', failures, `every section over ${minKinds.minChars} chars of prose uses at least ${minKinds.kinds} non-prose kinds`);
+  }
+
+  // 7. stepperShare — one Lab type doing all the work is a rhythm problem, not a content problem.
+  //    A plain number is read as the share; the object form also carries the Lab count below which a
+  //    share is meaningless (one stepper out of two Labs is not a habit).
+  const shareRule = rules.stepperShare;
+  const share = typeof shareRule === 'object' && shareRule ? Number(shareRule.share) : Number(shareRule);
+  const minLabs = typeof shareRule === 'object' && shareRule ? Number(shareRule.minLabs ?? 0) : 0;
+  if (share > 0) {
+    const labs = sections.flatMap((s) => blocksOf(s).filter((b) => b.kind.startsWith('lab:')).map((b) => ({ ...b, section: s })));
+    if (labs.length >= minLabs) {
+      const steppers = labs.filter((b) => b.kind === 'lab:stepper');
+      const ratio = labs.length ? steppers.length / labs.length : 0;
+      const failures = ratio > share
+        ? [{ msg: `${where((steppers[0] || labs[0]).section)}: ${steppers.length} of ${labs.length} Labs (${Math.round(ratio * 100)}%) are steppers (max ${Math.round(share * 100)}%) — walk another idea with a different Lab type${quote((steppers[0] || labs[0]).section)}` }]
+        : [];
+      report('stepperShare', failures, `${steppers.length} of ${labs.length} Labs are steppers`);
+    }
+  }
+
+  // 8. lexicon — the phrases that sound like teaching and are not. `fail` stops the gate, `warn`
+  //    is reported with ⚠ and does not.
+  if (lexicon.length) {
+    const failures = [];
+    let matched = 0;
+    for (const entry of lexicon) {
+      if (!langApplies(entry, projectLang)) continue;
+      const re = compile([entry.pattern], entry.flags || '')[0];
+      if (!re) { items.push({ ok: false, msg: `lexicon: pattern “${entry.pattern}” is not a valid regular expression` }); continue; }
+      for (const s of sections) for (const b of textBlocks(s)) {
+        re.lastIndex = 0;
+        const m = re.exec(b.text);
+        if (!m) continue;
+        matched++;
+        failures.push({ warn: entry.level !== 'fail', msg: `${where(s)}: “${excerpt(b.text, m.index)}” uses “${m[0]}” — ${entry.why || 'rewrite it as a plain sentence'}` });
+      }
+    }
+    report('lexicon', failures, `no entry of style-lexicon.json matches (${lexicon.length} entries)`);
+  }
+
+  const bad = items.filter((i) => i.ok === false).length;
+  const warns = items.filter((i) => i.warn).length;
+  return {
+    name: 'teaching',
+    status: bad ? 'fail' : 'pass',
+    headline: bad ? `${bad} problem(s)` : warns ? `${items.length} checks passed, ${warns} warning(s)` : `${items.length} checks passed`,
+    items,
+  };
+}

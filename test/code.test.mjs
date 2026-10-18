@@ -29,6 +29,9 @@ test('code listings get a focusable copy button and do not overflow at 375px', a
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     await page.goto(pathToFileURL(join(dir, 'sample.html')).href, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
+    // One view is shown at a time: open the chapter that holds the listing before probing it.
+    await page.evaluate(() => window.Lykeion.show('ch3', { noScroll: true }));
+    await page.waitForTimeout(100);
     const box = await page.evaluate(() => {
       const el = document.querySelector('#s3-1 .code');
       if (!el) return null;
@@ -51,6 +54,8 @@ test('code listings get a focusable copy button and do not overflow at 375px', a
     await m.route(/^https?:\/\//, (route) => route.abort());
     await m.goto(pathToFileURL(join(dir, 'sample.html')).href, { waitUntil: 'domcontentloaded' });
     await m.waitForTimeout(500);
+    await m.evaluate(() => window.Lykeion.show('ch3', { noScroll: true }));
+    await m.waitForTimeout(100);
     const mob = await m.evaluate(() => {
       const el = document.querySelector('#s3-1 .code');
       const pre = el.querySelector('pre');
@@ -90,6 +95,9 @@ test('a 3-line listing renders exactly 3 lines, with no extra blank rows', async
     await page.route(/^https?:\/\//, (route) => route.abort());
     await page.goto(pathToFileURL(join(dir, 'sample.html')).href, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
+    // The listing lives in a view that is hidden until shown, and a hidden <pre> measures 0 tall.
+    await page.evaluate(() => window.Lykeion.show('ch3', { noScroll: true }));
+    await page.waitForTimeout(100);
     const m = await page.evaluate(() => {
       const pre = document.querySelector('#s3-1 .code pre');
       const code = pre.querySelector('code');

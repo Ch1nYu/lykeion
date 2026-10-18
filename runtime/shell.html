@@ -8,7 +8,9 @@
 <meta name="generator" content="lykeion {{version}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=LXGW+WenKai+TC:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<!-- The reader's stored theme is applied before the stylesheet paints, so a dark reader never sees a white flash. -->
+<script>try{var s=JSON.parse(localStorage.getItem({{store_key}})||'null');if(s&&(s.theme==='light'||s.theme==='dark'))document.documentElement.setAttribute('data-theme',s.theme);}catch(e){}</script>
 <style>
 {{palette_css}}
 {{base_css}}
@@ -18,15 +20,20 @@
 <body>
 <a class="skip" href="#main" data-str="skip">跳到內容</a>
 <div class="readbar" aria-hidden="true"><span id="readbar"></span></div>
-<div class="topbar">
-  <button class="btn" id="menuBtn" aria-controls="side" aria-expanded="false">☰ <span data-str="menu"></span></button>
-  <b id="topTitle">{{title}}</b>
-  <span class="pct" id="topPct">0%</span>
+<div class="topbar" id="topbar">
+  <div class="in">
+    <button class="btn menu" id="menuBtn" aria-controls="side" aria-expanded="false">☰ <span data-str="menu"></span></button>
+    <b class="tname">{{title}}</b>
+    <nav class="chaps" id="chaps" aria-label="chapters"></nav>
+    <span class="now" id="topTitle"></span>
+    <span class="pct" id="topPct">0%</span>
+  </div>
 </div>
 <div class="scrim" id="scrim"></div>
 <div class="shell">
 <aside class="side" id="side" data-str-label="navLabel">
   <div class="brand"><small>{{eyebrow}}</small><b>{{title}}</b></div>
+  <nav class="chaps chaps-side" id="chapsSide" aria-label="chapters"></nav>
   <div class="meter">
     <svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="track" cx="32" cy="32" r="27"/><circle class="val" id="ringVal" cx="32" cy="32" r="27" stroke-dasharray="169.6" stroke-dashoffset="169.6"/><text x="32" y="33" id="ringTxt">0%</text></svg>
     <div class="meter-txt" aria-live="polite"><b id="meterMain"></b><span id="meterSub"></span></div>
@@ -50,7 +57,10 @@
 </div>
 <div class="fab">
   <button class="totop" id="toTop" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
-  <button id="themeBtn" type="button"></button>
+  <button id="themeBtn" type="button" data-mode="light" aria-label="theme">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 14.6A8.3 8.3 0 0 1 9.4 3.8a8.3 8.3 0 1 0 10.8 10.8z"/></svg>
+  </button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="application/json" id="lykeion-data">{{data_json}}</script>

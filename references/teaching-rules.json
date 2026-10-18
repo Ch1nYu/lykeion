@@ -1,0 +1,23 @@
+{
+  "pageRefs": {
+    "flags": "i",
+    "patterns": [
+      "\\bpp?\\.\\s*\\d",
+      "第\\s*\\d+\\s*頁",
+      "講義\\s*(第\\s*)?\\d",
+      "(投影片|slide)\\s*#?\\d"
+    ]
+  },
+  "maxParagraphChars": 160,
+  "maxProseRun": 520,
+  "formulaExplained": true,
+  "analogyBeforeFormula": true,
+  "minBlockKinds": {
+    "minChars": 900,
+    "kinds": 2
+  },
+  "stepperShare": {
+    "share": 0.34,
+    "minLabs": 3
+  }
+}

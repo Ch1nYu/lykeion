@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createMarkdown, fenceInfo } from '../src/markdown.mjs';
 import { build } from '../src/build.mjs';
+import { charCount } from '../src/teaching.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -126,4 +127,188 @@ test('block names still win over the code path, even with a title attribute', as
   // Only the python fence became a listing; the three block names produced their own markup.
   assert.equal((sec.match(/<div class="code">/g) || []).length, 1);
   assert.match(sec, /<span class="code-cap">真的程式碼<\/span>/);
+});
+
+// ---------- intuition card and one-line conclusion (spec B1, B2) ----------
+test('analogy renders as an intuition card with its title, and takeaway as a one-line conclusion', async () => {
+  const { sec } = await buildPage(
+    '```analogy 想像一罐糖果\n罐子裡有 $n$ 顆糖，每次抽一顆，抽完放回。\n```\n\n'
+    + '```takeaway\n抽完放回就是「獨立」，抽完不放回就不是。\n```\n',
+  );
+  // The card carries its class, the title as its first line, and the body as rendered Markdown.
+  assert.match(sec, /<div class="analogy"><b class="tag">想像一罐糖果<\/b><div class="body"><p>罐子裡有 <span class="katex">/);
+  assert.match(sec, /<\/div><\/div>/);
+  // A takeaway is prose in a block with the accent rule; the class is what styles it.
+  assert.match(sec, /<div class="takeaway"><p>抽完放回就是「獨立」，抽完不放回就不是。<\/p>\n<\/div>/);
+  // Neither block is a code listing, and neither leaks its fence into the page.
+  assert.ok(!/```/.test(sec), 'the fence markers must not reach the page');
+  assert.ok(!/<div class="code">[\s\S]*analogy/.test(sec), 'the analogy must not fall through to the code path');
+});
+
+test('analogy and takeaway keep their Markdown: emphasis, links and lists', async () => {
+  const { sec } = await buildPage('```takeaway\n**重點**：不是 [複製](https://example.com)，是<mark>重建</mark>。\n```\n');
+  assert.match(sec, /<div class="takeaway"><p><strong>重點<\/strong>：不是 <a href="https:\/\/example\.com">複製<\/a>，是<mark>重建<\/mark>。<\/p>/);
+});
+
+// ---------- `###` headings are linkable (spec B4) ----------
+test('### headings inside a section get <section-id>-<n> ids, and a hand-written id is kept', async () => {
+  const { html, sec } = await buildPage('### 第一個小節\n\n內文。\n\n<h3 id="named">第二個小節</h3>\n\n內文。\n\n#### 更深的\n\n內文。\n');
+  // Numbered in document order from 1, and prefixed with the section id so two sections cannot collide.
+  assert.match(sec, /<h3 id="s3-1-1">第一個小節<\/h3>/);
+  // A heading that already carries an id keeps it — the build must not rename an anchor an author
+  // (or a link from another section) already points at.
+  assert.match(sec, /<h3 id="named">第二個小節<\/h3>/);
+  // A heading that already has an id does not consume a number, so the generated ids stay contiguous.
+  assert.match(sec, /<h4 id="s3-1-2">更深的<\/h4>/);
+  // The ids resolve, so the sidebar links built from them are not broken.
+  for (const id of ['s3-1-1', 'named', 's3-1-2']) assert.ok(html.includes(`id="${id}"`), `missing ${id}`);
+});
+
+// Only a numbered section has an id to prefix. The intro above the first `##` is shared by every
+// chapter, so numbering its headings would mint the same `undefined-1` in each one.
+test('a ### heading above the first section is left alone rather than given a colliding id', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-intro.md'), '---\nchapter: 3\ntitle: I\nshort: i\nsource: sample.pdf\n---\n\n### 開場\n\n內文。\n\n## 3.1 S {pages=1}\n\n### 小節\n\n內文。\n');
+  await writeFile(join(dir, 'content', '04-intro.md'), '---\nchapter: 4\ntitle: J\nshort: j\nsource: sample.pdf\n---\n\n### 開場\n\n內文。\n\n## 4.1 S {pages=1}\n\n內文。\n');
+  await build(dir);
+  const html = await readFile(join(dir, 'sample.html'), 'utf8');
+  assert.doesNotMatch(html, /id="undefined-\d"/);
+  // The numbered section still numbers its own headings, so the sidebar has something to list.
+  assert.match(html, /<h3 id="s3-1-1">小節<\/h3>/);
+});
+
+// ---------- the teaching record (spec B5) ----------
+// `chars` is what a reader reads: no whitespace, no maths, and — for a parts formula — no YAML keys
+// (`tex:`, `say:`, `hint:` are markup, not words). The gate's maxProseRun and minBlockKinds rules
+// count these numbers, so a formula's YAML scaffolding must not read as prose.
+test('the teaching record counts visible words, not maths or YAML keys', async () => {
+  // The expected count is derived from the same strings that build the block, so the assertion
+  // cannot drift when a `say` is reworded: a hand-retyped expectation is exactly how this test went
+  // wrong once already.
+  const says = ['左邊是我們要的純度指標。', '右邊把它算出來。', '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。'];
+  const hint = '點每一段看它在做什麼';
+  const parts = [
+    '```formula GINI',
+    "tex: '\\mathrm{Gini} = 1 - \\sum_{i} p_{i}^{2}'",
+    'parts:',
+    "  - { tex: '\\mathrm{Gini}', say: '" + says[0] + "' }",
+    "  - { tex: '=', say: '" + says[1] + "' }",
+    "  - { tex: '1 - \\sum_{i} p_{i}^{2}', say: '" + says[2] + "' }",
+    'hint: ' + hint,
+    '```',
+    '',
+  ].join('\n');
+  const { dir } = await buildPage([
+    '```analogy 想像一罐糖果',
+    '抽一顆、放回去，再抽一顆。',
+    '```',
+    '',
+    parts,
+    '這個式子是純度指標。',
+    '',
+    '```takeaway',
+    '集中度越高，Gini 越小。',
+    '```',
+    '',
+  ].join('\n'));
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const blocks = checks.teaching.sections.find((s) => s.id === 's3-1').blocks;
+  assert.deepEqual(blocks.map((b) => b.kind), ['analogy', 'formula-parts', 'p', 'takeaway']);
+  // The three `say` sentences plus the `hint`, and nothing else: not `tex:`, not `parts:`, not the TeX.
+  assert.equal(blocks[1].chars, charCount(says.join('') + hint));
+  assert.ok(!blocks[1].text, 'a parts formula carries no prose for the lexicon to read');
+  assert.equal(blocks[0].text, '抽一顆、放回去，再抽一顆。');
+  assert.equal(blocks[3].text, '集中度越高，Gini 越小。');
+});
+
+// ---------- a formula taught in parts (spec B3) ----------
+// TeX is written with single-quoted YAML scalars: a double-quoted scalar reads `\frac` as an escape
+// and fails to parse, so single quotes (or a block scalar) are the documented form for `tex:`.
+const PARTS = [
+  '```formula GINI',
+  "tex: '\\mathrm{Gini} = 1 - \\sum_{i} p_{i}^{2}'",
+  'parts:',
+  "  - { tex: '\\mathrm{Gini}', say: '左邊是我們要的純度指標。' }",
+  "  - { tex: '=', say: '右邊把它算出來。' }",
+  "  - { tex: '1 - \\sum_{i} p_{i}^{2}', say: '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。' }",
+  'hint: 點每一段看它在做什麼',
+  '```',
+  '',
+].join('\n');
+
+test('a formula with parts renders clickable pieces, one explanation area, and the whole formula for AT', async () => {
+  const { sec } = await buildPage(PARTS);
+  // The card is the formula card, marked as the parts form, and carries its label.
+  assert.match(sec, /<div class="formula parts" data-label="GINI">/);
+  // Every part that has a `say` is a button; the first one starts pressed.
+  const buttons = sec.match(/<button type="button" class="piece" data-part="\d" aria-pressed="(?:true|false)">/g) || [];
+  assert.equal(buttons.length, 3);
+  assert.match(buttons[0], /data-part="0" aria-pressed="true"/);
+  assert.match(buttons[1], /data-part="1" aria-pressed="false"/);
+  // Each piece is real MathML, not a TeX string, and the whole formula is rendered once more for AT.
+  assert.equal((sec.match(/<math /g) || []).length, 4, 'three pieces plus the hidden whole formula');
+  // ONE explanation area, every `say` pre-rendered inside it, exactly one visible at the start.
+  const say = /<div class="say stack" id="s3-1-f0-say">([\s\S]*?)<\/div>\n<\/div>/.exec(sec);
+  assert.ok(say, 'the explanation area is a stack');
+  assert.equal((say[1].match(/<span data-part=/g) || []).length, 3, 'all say texts are rendered up front');
+  assert.equal((say[1].match(/class="on"/g) || []).length, 1, 'exactly one explanation is visible');
+  // The live region lets a screen reader hear the change without re-reading the formula.
+  assert.match(say[1], /<span class="sr-only" aria-live="polite"><\/span>/);
+  // The hint is prose, not maths.
+  assert.match(sec, /<p class="hint">點每一段看它在做什麼<\/p>/);
+});
+
+test('a part with no say is rendered but is not a button', async () => {
+  const { sec } = await buildPage([
+    '```formula X',
+    "tex: 'a + b = c'",
+    'parts:',
+    "  - { tex: 'a', say: '第一個量。' }",
+    "  - { tex: ' + ' }",
+    "  - { tex: 'b = c', say: '結果。' }",
+    '```',
+    '',
+  ].join('\n'));
+  // A piece the author did not explain is still shown, just not clickable: it is decoration, not
+  // a thing to say something about.
+  assert.match(sec, /<span class="piece static"><span class="katex">/);
+  assert.equal((sec.match(/<button type="button" class="piece"/g) || []).length, 2);
+});
+
+test('the plain TeX body form of `formula` is unchanged', async () => {
+  const { sec } = await buildPage('```formula BAYES\nP(A \\mid B) = \\frac{P(A \\cap B)}{P(B)}\n```\n');
+  // No parts wrapper, no buttons, no explanation area: exactly the block the fixture already had.
+  assert.match(sec, /<div class="formula"><span class="tag">BAYES<\/span><span class="katex">/);
+  assert.ok(!/class="formula parts"/.test(sec));
+  assert.ok(!/aria-pressed/.test(sec));
+});
+
+const partsFormula = (tex, parts) => ['```formula X', `tex: '${tex}'`, 'parts:', ...parts.map((p) => `  - ${p}`), '```', ''].join('\n');
+
+test('build rejects parts that do not spell the tex, and says what they spell', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-parts.md'), chapter(3, 'Parts',
+    partsFormula('a + b = c', ["{ tex: 'a + b', say: '左邊。' }", "{ tex: '= d', say: '右邊。' }"])));
+  await assert.rejects(build(dir), /03-parts\.md §3\.1: formula parts do not spell its tex — parts give "a\+b=d", tex is "a\+b=c"/);
+});
+
+test('build rejects a parts formula with fewer than two explained parts', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-say.md'), chapter(3, 'Say',
+    partsFormula('a = b', ["{ tex: 'a', say: '左邊。' }", "{ tex: ' = b' }"])));
+  await assert.rejects(build(dir), /03-say\.md §3\.1: formula parts need at least 2 parts with "say" \(found 1\)/);
+});
+
+test('build rejects a parts formula whose piece is not valid TeX', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-tex.md'), chapter(3, 'TeX',
+    partsFormula('a = \\frac{1}{', ["{ tex: 'a', say: '左邊。' }", "{ tex: ' = \\frac{1}{', say: '右邊。' }"])));
+  await assert.rejects(build(dir), /TeX error/);
+});
+
+test('build rejects a parts formula with fewer than two parts at all', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-one.md'), chapter(3, 'One',
+    partsFormula('a', ["{ tex: 'a', say: '只有一段。' }"])));
+  await assert.rejects(build(dir), /03-one\.md §3\.1: formula with parts needs at least 2 parts/);
 });

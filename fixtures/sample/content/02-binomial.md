@@ -9,13 +9,23 @@ source: sample.pdf
 
 ## 2.1 二項分布的機率質量函數 {pages=4}
 
+```analogy 十枚銅板各自很任性
+丟十枚銅板，每一枚自己決定正反，彼此不看別人。要問「剛好兩枚正面」，就是把所有「兩枚正、八枚反」的排法都算一次——這就是 $\binom{n}{k}$ 在做的事。
+```
+
 重複 $n$ 次獨立且成功機率同為 $p$ 的試驗，成功次數 $X$ 的機率是
 
 ```formula BINOM
-P(X = k) = \binom{n}{k} p^{k} (1-p)^{n-k}
+tex: "P(X = k) = \\binom{n}{k} p^{k} (1-p)^{n-k}"
+parts:
+  - { tex: "P(X = k)", say: "剛剛好 k 次成功的機率。" }
+  - { tex: "=", say: "右邊把它拆成兩件事：有幾種排法，以及每一種排法有多可能。" }
+  - { tex: "\\binom{n}{k}", say: "n 次裡選 k 次成功，有幾種排法。這只是數數，和機率無關。" }
+  - { tex: "p^{k} (1-p)^{n-k}", say: "其中任何一種排法發生的機率：k 次成功乘上 n-k 次失敗。" }
+hint: 先點「幾種排法」，再點最後一段
 ```
 
-其中 $\binom{n}{k}$ 數的是「哪幾次成功」。用專案自己的 `binomPmf` 檢查兩題：
+其中 $\binom{n}{k}$ 數的是「哪幾次成功」，$p^{k}(1-p)^{n-k}$ 是其中一種排法的機率。用專案自己的 `binomPmf` 檢查兩題：
 
 ```calc
 - { expr: "binomPmf(10, 2, 0.5)", expect: 0.044, note: "fair coin, exactly two heads in ten" }
@@ -23,7 +33,6 @@ P(X = k) = \binom{n}{k} p^{k} (1-p)^{n-k}
 ```
 
 同樣的計算寫成 Python 只要三行，變數與數字都和上面同一題（$n = 10$、$k = 2$、$p = 0.5$）：
-
 ```python title="二項 pmf：公平硬幣十次中兩次正面"
 from math import comb
 
@@ -74,6 +83,10 @@ verdict:
 
 ## 2.2 期望值、變異數與圖形 {pages=4}
 
+```analogy 重心與寬度
+期望值是把分布放在指針上，它會平衡的那一點；變異數是重量分散得多開。二項分布的平均永遠是 $np$，因為每一枚銅板各自貢獻 $p$。
+```
+
 二項分布有兩個好用的封閉式：$E[X] = np$，$\operatorname{Var}(X) = np(1-p)$。$p$ 越接近 0.5，分布越扁。
 
 ```lab curve
@@ -88,22 +101,23 @@ curves:
 marker: { label: k, value: 3 }
 ```
 
-```lab stepper
+形狀要好用，得先知道什麼時候可以偷懶：兩條期望次數 $np$ 與 $n(1-p)$ 都夠大時，鐘形才會成形。先動手試試什麼時候還不行：
+
+```lab slider-calc
 tag: LAB E
-title: 從機率質量函數走到常態近似
-hint: n 越大，形狀越像鐘形
-legend: { good: 目前這一步的重點, muted: 這一步先不看 }
-steps:
-  - label: 小 n
-    text: $n = 4$ 時只有五根柱子，形狀還很粗糙。
-    table: { head: [k, "P(X=k)"], rows: [[0, 0.063], [1, 0.250], [2, 0.375], [3, 0.250], [4, 0.063]], highlight: [2] }
-    chips: [{ text: "峰在 k = 2", state: good }, { text: "對稱", state: muted }]
-  - label: 大 n
-    text: $n = 20$ 時柱子變多、變細，整體接近鐘形。
-    chips: [{ text: "峰在 k = 10", state: good }, { text: "兩側對稱", state: good }]
-  - label: 近似
-    text: 只要 $np$ 與 $n(1-p)$ 都夠大，就可以用常態分布近似。
-    chips: [{ text: "np ≥ 5", state: good }, { text: "n(1-p) ≥ 5", state: good }, { text: "小 n 不適用", state: muted }]
+title: 拉動 n 與 p，看常態近似什麼時候可以用
+hint: 兩條期望次數都要 ≥ 5
+inputs:
+  - { id: n, label: n, min: 4, max: 40, step: 1, value: 10 }
+  - { id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }
+outputs:
+  - { label: np, expr: "n * p" }
+  - { label: "n(1-p)", expr: "n * (1 - p)" }
+  - { label: 判準, expr: "n * p >= 5 && n * (1 - p) >= 5 ? 1 : 0", labels: { "1": "可用常態近似", "0": "還不行" } }
+verdict:
+  - { when: "n * p < 5", text: "np 太小：分布還偏在一邊，鐘形還沒成形。" }
+  - { when: "n * (1 - p) < 5", text: "n(1-p) 太小：尾巴還很重，近似會低估尾端。" }
+  - { when: "n * p >= 5 && n * (1 - p) >= 5", text: "兩個期望次數都夠大，可以用常態近似。" }
 ```
 
 ```lab stepper
@@ -131,6 +145,10 @@ steps:
 - { expr: "10*0.3", expect: 3, note: "E[X] = np" }
 - { expr: "10*0.3*(1-0.3)", expect: 2.1, note: "Var(X) = np(1-p)" }
 - { expr: "binomPmf(20, 10, 0.5)", expect: 0.176 }
+```
+
+```takeaway
+期望值只靠 $np$，形狀才看 $p$：$p = 0.5$ 時變異數最大，分布最扁；$p$ 越偏一邊，分布越尖。
 ```
 
 ```quiz 二項分布
