@@ -38,7 +38,7 @@ Done when every Scope page has a `.txt` and a `.png`.
 
 Read every Scope page: the `.txt` for wording, the `.png` whenever the slide carries a figure, table, tree or formula (text extraction loses layout and maths). Then write `<project>/outline.md` following `references/outline.md`.
 
-For a Scope larger than about 40 pages with sub-agents available, dispatch one drafter per PDF (or page block) in parallel, each writing its chapter's part of the Outline from `references/outline.md`; then merge the parts into `outline.md` yourself and check that the parts together cover every Scope page.
+For a Scope larger than about 40 pages you may use sub-agents when the host offers them: dispatch one drafter per PDF (or page block) in parallel, each writing its chapter's part of the Outline from `references/outline.md`, then merge the parts into `outline.md` yourself and check that the parts together cover every Scope page. Without sub-agents, draft the Outline yourself, one block at a time, to the same bar.
 
 Done when every Scope page is assigned to a section in the Outline, each section has its planned Labs, quiz items and `calc` targets, and the Outline names one Palette from `lykeion palette list`.
 
@@ -48,7 +48,7 @@ Show the Outline to the user and wait for approval — the cheapest moment to ch
 
 Write one `content/NN-<slug>.md` per chapter following `references/chapter-writer.md` and `docs/content-format.md`.
 
-With sub-agents available, dispatch one writer per chapter in parallel; each receives `references/chapter-writer.md`, `docs/content-format.md`, its Outline part, and its page files. Without sub-agents, write the chapters one by one. Either way the content must meet the same bar.
+Sub-agents are optional. When the host offers them you may dispatch one writer per chapter in parallel; each receives `references/chapter-writer.md`, `docs/content-format.md`, its Outline part, and its page files. Otherwise write the chapters yourself, one by one, to the same bar.
 
 Done when every Outline section exists with its pages, every number stated in prose has a `calc` entry, and every number quiz item has a `calc`.
 
@@ -68,7 +68,11 @@ The **quiz review** gate fails any choice item whose options give the key away �
 
 ## 7. Source check
 
-Dispatch an independent reviewer with fresh context (a sub-agent; without one, do it yourself after re-reading `references/source-checker.md` from the top) to compare the built content with the cited pages and the References. It writes `<project>/source-check.md`. For a site with several chapters and sub-agents available, dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format; then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
+Have the built content compared with the cited pages and the References, and record the result in `<project>/source-check.md`.
+
+Prefer a reviewer with fresh context: a sub-agent, or another agent session the host provides. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format, then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
+
+When no such reviewer exists, review it yourself: re-read `references/source-checker.md` from the top first, and record that — `source-check.md` states its reviewer in the header (`Reviewer: independent`, or `Reviewer: self (no sub-agent available)`), and `lykeion verify` repeats which one in the source gate, as ⚠ for a self-review. A self-review is allowed; passing it off as an independent one is not.
 
 Fix every finding marked **certain**, rebuild, and re-run steps 6–7. Leave **disputed** findings unchanged for the user.
 
@@ -81,6 +85,6 @@ Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 Tell the user, briefly:
 
 - the Lecture Site path (and offer to open it);
-- the gate results from `verify-report.md`, including anything skipped or still failing;
+- the gate results from `verify-report.md`, including anything skipped or still failing, and whether the source check was independent or a self-review;
 - every **disputed** finding, quoted with its page and Reference, for the user to decide;
 - the Palette used.

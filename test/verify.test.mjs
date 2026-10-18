@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -160,6 +160,75 @@ test('build rejects a quiz sec that names no section or a section of another cha
   await assert.rejects(build(dir), /03-bad\.md §3\.1 quiz #1: sec "9\.9" names no section in this chapter/);
   await writeFile(join(dir, 'content', '03-bad.md'), withQuiz('1.1'));
   await assert.rejects(build(dir), /03-bad\.md §3\.1 quiz #1: sec "1\.1" is in another chapter/);
+});
+
+// The source check is a review of the agent's own writing. When no independent reviewer exists (no
+// sub-agent tool on the host), the writing agent reviews itself — which is allowed, but the report
+// must say so instead of presenting a self-review as an independent one.
+const sourceCheck = (reviewer, status = 'pass') => [`STATUS: ${status}`, ...(reviewer === undefined ? [] : [`Reviewer: ${reviewer}`]), '', '## Findings', '- none', ''].join('\n');
+
+async function sourceGateWith(text) {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'source-check.md'), text);
+  return sourceGate(dir);
+}
+
+test('source gate reports an independent review as such and leaves the status alone', async () => {
+  const g = await sourceGateWith(sourceCheck('independent'));
+  assert.equal(g.status, 'pass');
+  // A headline carries no status prefix: the report table and the console line print that already.
+  assert.equal(g.headline, 'independent (from source-check.md)');
+  assert.equal(g.items[0].ok, true);
+});
+
+test('source gate says in the headline when the reviewer reviewed its own writing', async () => {
+  const g = await sourceGateWith(sourceCheck('self', 'fail'));
+  // `self` only changes the headline: the STATUS line still decides the gate.
+  assert.equal(g.status, 'fail');
+  assert.equal(g.headline, 'self-review, not independent (from source-check.md)');
+  assert.match(g.items[0].msg, /reviewed by the writing agent, not independently/);
+});
+
+// A self-review can pass the gate, but the report must not print a ✓ beside it as if it were a
+// verified check: `warn` paints it ⚠, the one sign this project reserves for "not quite verified".
+test('source gate keeps a self-reviewed pass a pass but warns instead of ticking it', async () => {
+  const g = await sourceGateWith(sourceCheck('self'));
+  assert.equal(g.status, 'pass');
+  assert.match(g.headline, /self-review, not independent/);
+  assert.equal(g.items[0].ok, true);
+  assert.equal(g.items[0].warn, true);
+});
+
+// Projects written before the Reviewer line existed must not start failing: the gate says the
+// reviewer is not stated and still trusts the STATUS line.
+test('source gate reports a missing Reviewer line as not stated instead of failing', async () => {
+  const g = await sourceGateWith(sourceCheck(undefined));
+  assert.equal(g.status, 'pass');
+  assert.equal(g.headline, 'reviewer not stated (from source-check.md)');
+  assert.match(g.items[0].msg, /reviewer not stated/);
+  assert.equal(g.items[0].warn, true);
+});
+
+test('source gate reads the Reviewer line case-insensitively and counts disputed findings', async () => {
+  const g = await sourceGateWith('STATUS: pass\nreviewer: SELF\n\n- [disputed] x\n');
+  assert.equal(g.status, 'pass');
+  assert.equal(g.headline, 'self-review, not independent, 1 disputed item(s) for the user (from source-check.md)');
+});
+
+// The line belongs to the header. A `Reviewer:` quoted further down, inside a finding, is part of the
+// prose being checked, not a claim about who did the checking.
+test('source gate ignores a Reviewer line that is not in the header', async () => {
+  const g = await sourceGateWith('STATUS: pass\n\n## Findings\n- [certain] x.md §1.1 — the header must read `Reviewer: independent`\n');
+  assert.equal(g.headline, 'reviewer not stated (from source-check.md)');
+});
+
+// A present-but-unrecognised value is not the same as a missing line: say which it is, and do not
+// claim independence the file never claimed.
+test('source gate names an unrecognised Reviewer value instead of calling it unstated', async () => {
+  const g = await sourceGateWith(sourceCheck('sub-agent'));
+  assert.equal(g.status, 'pass');
+  assert.match(g.headline, /reviewer "sub-agent" not recognised/);
+  assert.ok(!/not stated/.test(g.headline), g.headline);
 });
 
 // Options are shuffled for the reader, so the source position of `a` says nothing — but a right

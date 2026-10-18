@@ -14,7 +14,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const help = `lykeion verify [project-dir] [--no-render]
 
 Runs the gates on the last build (run "lykeion build" first) and writes <project>/verify-report.md.
-Exit code 1 if any gate fails. Gate 4 (source) comes from <project>/source-check.md, written by the agent.`;
+Exit code 1 if any gate fails. Gate 4 (source) comes from <project>/source-check.md, written by the agent; a
+Reviewer line in its header says whether the reviewer was independent or the writing agent itself.`;
 
 export async function run(args) {
   const dir = resolve(args.find((a) => !a.startsWith('--')) || '.');
@@ -101,7 +102,18 @@ export function coverageGate(scope, sections) {
 }
 
 // ---------- gate: source (agent) ----------
-async function sourceGate(dir) {
+// The source check is the one gate the agent produces, not the CLI. Ideally a reviewer with fresh
+// context writes it (a sub-agent, or another agent session the host provides). When no such reviewer
+// exists the writing agent reviews its own content, which is allowed — but the report must not pass a
+// self-review off as an independent one, so source-check.md states its reviewer in its header and the
+// gate repeats it. A self-review keeps the STATUS line's verdict and gets a ⚠: it is a real review,
+// just not a verified one.
+const REVIEWERS = {
+  independent: { how: 'independent', msg: 'see source-check.md' },
+  self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see source-check.md', warn: true },
+};
+
+export async function sourceGate(dir) {
   let txt;
   try { txt = await readFile(join(dir, 'source-check.md'), 'utf8'); } catch {
     return { name: 'source', status: 'pending', headline: 'awaiting agent review (references/source-checker.md)', items: [{ ok: null, msg: 'source-check.md not found: the agent must review claims against the cited pages' }] };
@@ -109,7 +121,18 @@ async function sourceGate(dir) {
   const m = /^STATUS:\s*(pass|fail)/im.exec(txt);
   const status = m ? m[1].toLowerCase() : 'fail';
   const disputed = (txt.match(/^- \[disputed\]/gim) || []).length;
-  return { name: 'source', status, headline: `${status}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from source-check.md)`, items: [{ ok: status === 'pass', msg: 'see source-check.md' }] };
+  // Only the header counts: a `Reviewer:` quoted inside a finding is prose being checked, not a claim
+  // about who did the checking. A missing line is not a failure either — projects written before the
+  // line existed still verify — so both unknowns warn instead of failing.
+  const head = txt.split(/^##\s/m)[0];
+  const rev = /^Reviewer:\s*([^\s(]+)/im.exec(head);
+  const reviewer = rev ? rev[1].toLowerCase() : null;
+  const r = REVIEWERS[reviewer] || {
+    how: reviewer ? `reviewer "${reviewer}" not recognised (use independent or self)` : 'reviewer not stated',
+    msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see source-check.md` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see source-check.md',
+    warn: true,
+  };
+  return { name: 'source', status, headline: `${r.how}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from source-check.md)`, items: [{ ok: status === 'pass', warn: r.warn, msg: r.msg }] };
 }
 
 // ---------- gate: quiz review ----------

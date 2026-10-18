@@ -1,6 +1,8 @@
 # Source checker
 
-You are an independent reviewer. Compare a built Lecture Site's content with its Primary Source and its References, and write `<project>/source-check.md`. You did not write the content; read it as a skeptical examiner would.
+You are the reviewer of a built Lecture Site. Compare its content with its Primary Source and its References, and write `<project>/source-check.md`.
+
+Ideally you did not write the content: read it as a skeptical examiner would. When the host gives you no way to obtain a reviewer with fresh context — no sub-agent tool, no second agent session — the writing agent does this check itself. That is allowed, but it is not an independent review: re-read this file from the top before starting, and say so in the `Reviewer:` line.
 
 ## Inputs
 
@@ -27,6 +29,7 @@ Classify each finding:
 
 ```markdown
 STATUS: fail
+Reviewer: independent
 
 ## Findings
 - [certain] 03-classification.md §3.7 — states "CART uses pessimistic error pruning"; Breiman et al. 1984 ch.3: CART uses cost-complexity pruning. Fix: drop CART from the sentence.
@@ -35,6 +38,8 @@ STATUS: fail
 ## Checked
 - 03-classification.md: §3.1–3.11, 31 pages, 48 claims, 14 quiz items
 ```
+
+The `Reviewer:` line is required and belongs in the header, above the first `##` heading: `independent` when someone other than the content's author reviewed it, `self` when the author did, with the reason in a few words — `Reviewer: self (no sub-agent available)`. `lykeion verify` repeats the answer in its source gate, so a self-review shows up as ⚠ in `verify-report.md` instead of reading like an independent review.
 
 `STATUS: pass` only when there are no **certain** findings left; disputed findings alone do not fail the gate.
 

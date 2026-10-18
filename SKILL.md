@@ -12,5 +12,5 @@ Follow `docs/workflow.md` from step 1, in order; it points to every other file y
 Claude Code specifics:
 
 - Read PDFs' page images (`pages/<pdf>/p-NNN.png`) with the Read tool; it shows figures and formulas.
-- Step 4: dispatch one sub-agent per chapter in parallel. Step 7: dispatch a fresh sub-agent as the source checker.
+- Steps 4 and 7 can use sub-agents here, since Claude Code provides them; `docs/workflow.md` says what to do when a host does not.
 - Ask the Depth and the Outline approval as questions to the user, and wait for the answers.
