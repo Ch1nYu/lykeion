@@ -11,7 +11,7 @@ The Primary Source is the factual baseline. Content follows the slides; where a 
 
 ## 1. Set up
 
-1. Check the CLI: `node <repo>/bin/lykeion.mjs --help`. If `node_modules` is missing, run `npm install` in the repo (and `npx playwright install chromium` when no system Chrome exists).
+1. Check the CLI: `node <repo>/bin/lykeion.mjs --help`. It needs Node 22.13 or newer — `pdfjs-dist` uses `Promise.withResolvers`, which Node 20 lacks — so the CLI checks `process.versions.node` first and exits with one line naming both versions when the host Node is older. If `node_modules` is missing, run `npm install` in the repo (and `npx playwright install chromium` when no system Chrome exists).
 2. Settle the Scope from the user's message: which PDFs, which pages. Ask only for what the message leaves out.
 3. Ask the user for the **Depth** (Survey / Standard / Deep; default from `~/.config/lykeion/config.json`, normally Standard). Depth fixes the budget:
 

@@ -5,4 +5,5 @@ v1 targets Claude Code, but support for other agents (Codex, Cursor, …) is an 
 ## Consequences
 
 - One extra dependency (`pdfjs-dist`), and page images reuse the Playwright browser rather than a native canvas module.
+- The CLI inherits `pdfjs-dist`'s Node floor: 22.13. `package.json` declares it, and `bin/lykeion.mjs` checks `process.versions.node` before the command imports anything, because on an older Node the only symptom is `Promise.withResolvers is not a function` from deep inside the PDF code.
 - Anything an agent must do that a script could do is a bug in the CLI, not a line in `SKILL.md`.

@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 // lykeion CLI: every deterministic step of the workflow lives here (ADR 0004).
+import { tooOld, nodeFloorMessage } from '../src/node.mjs';
+
+// Node floor first, before any command import: see src/node.mjs. On an old Node every command fails
+// later with a message that names no cause.
+const old = tooOld(process.versions.node);
+if (old) {
+  console.error(nodeFloorMessage(old));
+  process.exit(1);
+}
+
 const COMMANDS = {
   init: () => import('../src/init.mjs'),
   extract: () => import('../src/extract.mjs'),

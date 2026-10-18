@@ -36,7 +36,7 @@ lykeion/                       # public repo
 ## Milestones
 
 ### M0 — Skeleton and CLI
-- `package.json`, `npm install`, Playwright browser: prefer system Chrome (`channel: 'chrome'`), otherwise download Chromium; if neither is available, the render gate is skipped and the report says "not render-verified".
+- `package.json` with `engines.node >= 22.13` (the floor `pdfjs-dist` imposes) and a startup check that names the version, `npm install`, Playwright browser: prefer system Chrome (`channel: 'chrome'`), otherwise download Chromium; if neither is available, the render gate is skipped and the report says "not render-verified".
 - `bin/lykeion.mjs` with subcommand dispatch; config loader for `~/.config/lykeion/` (honours `LYKEION_CONFIG_DIR`).
 - `lykeion extract <pdf...> [--pages a-b]`: per-page text via `pdfjs-dist`, per-page PNG rendered through the browser.
 - Done when: `extract` works on one of the fixture PDFs and `build --help` runs.
