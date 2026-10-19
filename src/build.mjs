@@ -17,7 +17,7 @@ project-dir contains lykeion.json and content/*.md (default: current directory).
 Writes the Lecture Site (lykeion.json "output", default <title>.html) and checks.json for "lykeion verify".
 Fails on any TeX, quiz, erratum or Lab error.`;
 
-const BUILD_STR = { challenge: '挑戰第 {n} 關：{t} →', pages: '講義 p.{p}', erratum: '勘誤／補充', quizTitle: '隨堂闖關', quizNum: 'QUIZ', quizSec: '闖關地圖', quizSub: '答對 60% 以上解鎖下一關；星等依正確率計算', home: '總覽', prevView: '上一章', nextView: '下一章', pagerLabel: '上一章／下一章' };
+const BUILD_STR = { challenge: '挑戰第 {n} 關：{t} →', pages: '講義 p.{p}', erratum: '勘誤／補充', quizTitle: '隨堂闖關', quizNum: 'QUIZ', quizSec: '闖關地圖', quizSub: '答對 60% 以上解鎖下一關；星等依正確率計算', home: '總覽', prevView: '上一章', nextView: '下一章', pagerLabel: '上一章／下一章', fraction: '整個分數' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fill = (t, v) => t.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
 
@@ -400,8 +400,16 @@ function parseYamlText(src) {
 // The words of a parts formula: the `say` sentences and the `hint`, never the TeX or the YAML keys.
 function formulaPartsText(src) {
   const v = parseYamlText(src);
-  const says = (Array.isArray(v.parts) ? v.parts : []).map((p) => (p && typeof p === 'object' ? String(p.say || '') : ''));
-  return [...says, String(v.hint || '')].join(' ');
+  return [...partSays(v.parts), String(v.hint || '')].join(' ');
+}
+
+// Every `say` in a parts list, a fraction's numerator and denominator included: they are prose too.
+function partSays(list) {
+  return (Array.isArray(list) ? list : []).flatMap((p) => {
+    if (!p || typeof p !== 'object') return [];
+    const own = String(p.say || '');
+    return p.frac && typeof p.frac === 'object' ? [own, ...partSays(p.frac.num), ...partSays(p.frac.den)] : [own];
+  });
 }
 
 // The text of an inline token: its children, minus maths (which the gate must not count as prose) — and
@@ -509,6 +517,28 @@ function isFormulaParts(src) {
 
 const squash = (s) => String(s || '').replace(/\s+/g, '');
 
+// What a list of parts spells: a piece's `tex`, or a fraction's `\frac{num}{den}`. A fraction has no
+// `tex` of its own, so this spelling is the only place its TeX is written out.
+function spellParts(list) {
+  return (Array.isArray(list) ? list : []).map((p) => {
+    if (typeof p === 'string') return p;
+    if (p && p.frac && typeof p.frac === 'object') return `\\frac{${spellParts(p.frac.num)}}{${spellParts(p.frac.den)}}`;
+    return (p && p.tex) || '';
+  }).join('');
+}
+
+// `\dfrac` and `\tfrac` set the same fraction as `\frac`, so `tex` may use either for the comparison.
+const spellKey = (s) => squash(s).replace(/\\[dt]frac/g, '\\frac');
+
+// Every explanation in a parts list: a piece's `say` and a fraction's own, plus those inside it.
+function countSays(list) {
+  return (Array.isArray(list) ? list : []).reduce((n, p) => {
+    if (!p || typeof p !== 'object') return n;
+    const own = String(p.say || '').trim() ? 1 : 0;
+    return n + own + (p.frac && typeof p.frac === 'object' ? countSays(p.frac.num) + countSays(p.frac.den) : 0);
+  }, 0);
+}
+
 // A formula taught piece by piece: the pieces are laid out in order as buttons, and one explanation
 // area (the stack pattern) shows the words for whichever piece is selected. Everything is rendered at
 // build time — the runtime only toggles classes and `aria-pressed` — so the block still reads as a
@@ -521,50 +551,88 @@ function renderFormulaParts(parts, label, ctx, md) {
   const minExplained = Number(rule.minExplained ?? 2);
   const maxPartShare = Number(rule.maxPartShare ?? 0.5);
   const whole = String(parts.tex || '');
-  const wholeLength = squash(whole).length;
   const list = Array.isArray(parts.parts) ? parts.parts : [];
   if (list.length < minParts) { ctx.errors.push(`${ctx.where}: formula with parts needs at least ${minParts} parts`); return ''; }
 
   // 1. The pieces must spell the whole formula. Whitespace is free (layout is not content), so it is
   //    dropped on both sides before comparing; anything else is a typo the reader would see twice.
-  const spelled = list.map((p) => (typeof p === 'string' ? p : p && p.tex) || '').join('');
-  if (squash(spelled) !== squash(whole)) {
+  const spelled = spellParts(list);
+  if (spellKey(spelled) !== spellKey(whole)) {
     ctx.errors.push(`${ctx.where}: formula parts do not spell its tex — parts give "${squash(spelled).slice(0, 60)}", tex is "${squash(whole).slice(0, 60)}"`);
   }
 
   // 2. A clickable piece with nothing to say is a dead end: at least `minExplained` must carry `say`.
-  const says = list.filter((p) => p && typeof p === 'object' && String(p.say || '').trim()).length;
+  const says = countSays(list);
   if (says < minExplained) ctx.errors.push(`${ctx.where}: formula parts need at least ${minExplained} parts with "say" (found ${says})`);
 
-  const cells = [];
-  const keys = [];
-  list.forEach((p, i) => {
-    const piece = typeof p === 'string' ? { tex: p } : (p || {});
-    const html = tex(String(piece.tex || ''), true, ctx.errors, ctx.where);
-    const say = String(piece.say || '').trim();
-    // 3. A clickable piece that is most of the formula explains the formula, not the piece: the reader
-    //    presses it and learns what the whole thing does. Static pieces are exempt.
-    const share = wholeLength ? squash(piece.tex).length / wholeLength : 0;
-    if (say && share > maxPartShare) {
-      ctx.errors.push(`${ctx.where}: formula part "${squash(piece.tex).slice(0, 40)}" is ${Math.round(share * 100)} % of the formula (limit ${Math.round(maxPartShare * 100)} %) — split it into smaller pieces, each with its own say`);
-    }
-    // A piece with no `say` is still part of the formula, just not clickable — an operator or a
-    // bracket that needs no explanation.
-    cells.push(say
-      ? `<button type="button" class="piece" data-part="${i}" aria-pressed="${keys.length === 0 ? 'true' : 'false'}">${html}</button>`
-      : `<span class="piece static">${html}</span>`);
-    if (say) keys.push({ i, html: md.renderInline(say) });
-  });
+  // `seq` numbers every part in reading order, so each `data-part` is unique across nested fractions.
+  const st = { ctx, md, maxPartShare, wholeLength: squash(whole).length, seq: 0, keys: [] };
+  const cells = renderPartList(list, st);
 
   // The explanation area is the stack pattern: every `say` is rendered up front in the same grid cell,
   // so choosing a piece never changes the height of the block. The first clickable piece starts
   // selected, so the area is never empty on arrival.
   const id = `${esc(ctx.sec.id || 'intro')}-f${ctx.formulaSeq.n}`;
   ctx.formulaSeq.n++;
-  const say = keys.length
-    ? `<div class="say stack" id="${id}-say">${keys.map((k, n) => `<span data-part="${k.i}"${n === 0 ? ' class="on"' : ''}>${k.html}</span>`).join('')}<span class="sr-only" aria-live="polite"></span></div>`
+  const say = st.keys.length
+    ? `<div class="say stack" id="${id}-say">${st.keys.map((k, n) => `<span data-part="${k.i}"${n === 0 ? ' class="on"' : ''}>${k.html}</span>`).join('')}<span class="sr-only" aria-live="polite"></span></div>`
     : '';
-  return `<div class="formula parts"${label ? ` data-label="${esc(label)}"` : ''}><div class="eq">${cells.join('')}</div>${say}${parts.hint ? `<p class="hint">${md.renderInline(String(parts.hint))}</p>` : ''}<span class="sr-only">${tex(whole, true, ctx.errors, ctx.where)}</span></div>\n`;
+  return `<div class="formula parts"${label ? ` data-label="${esc(label)}"` : ''}><div class="eq">${cells}</div>${say}${parts.hint ? `<p class="hint">${md.renderInline(String(parts.hint))}</p>` : ''}<span class="sr-only">${tex(whole, true, ctx.errors, ctx.where)}</span></div>\n`;
+}
+
+// The cells of one row, in order. A fraction is one cell, so its numerator and denominator are rows
+// of their own inside it.
+function renderPartList(list, st) {
+  return (Array.isArray(list) ? list : []).map((p) => (p && p.frac && typeof p.frac === 'object' ? renderFraction(p, st) : renderPiece(p, st))).join('');
+}
+
+// 3. A clickable part that is most of the formula explains the formula, not the part: the reader presses
+//    it and learns what the whole thing does. `text` is the part's TeX (or a fraction's spelling).
+function checkShare(text, st) {
+  const share = st.wholeLength ? squash(text).length / st.wholeLength : 0;
+  if (share > st.maxPartShare) {
+    st.ctx.errors.push(`${st.ctx.where}: formula part "${squash(text).slice(0, 40)}" is ${Math.round(share * 100)} % of the formula (limit ${Math.round(st.maxPartShare * 100)} %) — split it into smaller pieces, each with its own say`);
+  }
+}
+
+function renderPiece(p, st) {
+  const piece = typeof p === 'string' ? { tex: p } : (p || {});
+  const html = tex(String(piece.tex || ''), true, st.ctx.errors, st.ctx.where);
+  const say = String(piece.say || '').trim();
+  const i = st.seq++;
+  if (!say) {
+    // A piece with no `say` is still part of the formula, just not clickable — an operator or a
+    // bracket that needs no explanation.
+    return `<span class="piece static">${html}</span>`;
+  }
+  checkShare(piece.tex, st);
+  const pressed = st.keys.length === 0;
+  st.keys.push({ i, html: st.md.renderInline(say) });
+  return `<button type="button" class="piece" data-part="${i}" aria-pressed="${pressed}">${html}</button>`;
+}
+
+// A fraction: numerator over a bar over denominator. The bar is the fraction's own target when it has a
+// `say`, and it is read in the same order as the rest of the formula (numerator, bar, denominator).
+function renderFraction(p, st) {
+  const { num, den } = p.frac;
+  if (!Array.isArray(num) || !Array.isArray(den)) {
+    st.ctx.errors.push(`${st.ctx.where}: a fraction part needs "num" and "den" lists`);
+    return '';
+  }
+  // A fraction with no explanation inside is one piece the reader cannot take apart, so it is measured
+  // as a single leaf, and the share rule applies even though it carries no `say` of its own.
+  if (countSays(num) + countSays(den) === 0) checkShare(spellParts([p]), st);
+  const numHtml = renderPartList(num, st);
+  const say = String(p.say || '').trim();
+  let bar = '<span class="frac-bar static"></span>';
+  if (say) {
+    const i = st.seq++;
+    const pressed = st.keys.length === 0;
+    st.keys.push({ i, html: st.md.renderInline(say) });
+    bar = `<button type="button" class="piece frac-bar" data-part="${i}" aria-pressed="${pressed}" aria-label="${esc(st.ctx.S.fraction)}"></button>`;
+  }
+  const denHtml = renderPartList(den, st);
+  return `<span class="frac"><span class="frac-num">${numHtml}</span>${bar}<span class="frac-den">${denHtml}</span></span>`;
 }
 
 function addQuiz(items, levelArg, ctx, md) {

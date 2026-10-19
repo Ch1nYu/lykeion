@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { build } from '../src/build.mjs';
+import { launchBrowser } from '../src/browser.mjs';
 import { verify } from '../src/verify.mjs';
 
 // The render gate's promises are only worth anything if it can fail. Each test below builds a tiny
@@ -213,4 +215,56 @@ test('inline maths that towers over the line fails the line-spacing check', asyn
   // The message names the paragraph and both heights, so the fix ("match the body") is obvious.
   assert.match(bad.msg, /前後都還有字/);
   assert.match(bad.msg, /tallest line \d+(\.\d+)?px \(×\d/);
+});
+
+// A fraction part: its numerator and denominator are pieces of their own, so the parts check must press
+// them too. x, the numerator, the fraction bar and the denominator are the four pieces.
+const FRAC_PROBE = [
+  '```formula FRAC',
+  "tex: 'x = \\frac{ab}{cd}'",
+  'parts:',
+  "  - { tex: 'x', say: '左邊。' }",
+  "  - { tex: ' = ' }",
+  "  - { frac: { num: [ { tex: 'ab', say: '分子。' } ], den: [ { tex: 'cd', say: '分母。' } ] }, say: '整個分數。' }",
+  '```',
+].join('\n');
+
+test('E4 presses the pieces inside a fraction, and each keeps the card height and one explanation', async (t) => {
+  const dir = await tiny(FRAC_PROBE);
+  const items = await renderItems(t, dir);
+  if (!items) return;
+  const ok = find(items, /formula-parts blocks keep their height/);
+  assert.ok(ok, `expected a formula-parts item, got:\n${items.map((i) => i.msg).join('\n')}`);
+  assert.equal(ok.ok, true, ok.msg);
+  assert.match(ok.msg, /across 4 pieces/);
+});
+
+test('clicking the numerator of a fraction shows its explanation, and the card keeps its height', async (t) => {
+  const dir = await tiny(FRAC_PROBE);
+  const browser = await launchBrowser();
+  if (!browser) {
+    t.skip('no browser available');
+    return;
+  }
+  try {
+    const page = await browser.newPage();
+    // The same offline rule the gate uses: external requests are blocked and the DOM is what is checked.
+    await page.route(/^https?:\/\//, (route) => route.abort());
+    await page.goto(pathToFileURL(join(dir, 'probe.html')).href, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    // Only one view is shown at a time, so open the chapter that holds the formula first.
+    await page.evaluate(() => window.Lykeion.show(document.querySelector('.formula.parts').closest('.view').id, { noScroll: true }));
+    const card = page.locator('.formula.parts').first();
+    const numerator = page.locator('.frac-num button.piece').first();
+    const before = (await card.boundingBox()).height;
+    await numerator.click();
+    const shown = page.locator('.formula.parts .say > span.on');
+    assert.equal(await shown.count(), 1, 'exactly one explanation is visible');
+    assert.match(await shown.textContent(), /分子/);
+    assert.equal(await numerator.getAttribute('aria-pressed'), 'true');
+    const after = (await card.boundingBox()).height;
+    assert.ok(Math.abs(after - before) < 1, `card height ${before}px → ${after}px after the numerator`);
+  } finally {
+    await browser.close();
+  }
 });

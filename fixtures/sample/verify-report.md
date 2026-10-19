@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-19T04:24:39.774Z
-- Verified: 2026-10-19T04:25:05.303Z
+- Built: 2026-10-19T05:42:39.771Z
+- Verified: 2026-10-19T05:43:04.957Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -56,7 +56,7 @@
 ## render
 
 - ✓ skip link “跳到內容” is the first Tab stop, visible when focused, and Enter moves focus into main
-- ✓ 55 formulas rendered as MathML; 0 TeX errors
+- ✓ 54 formulas rendered as MathML; 0 TeX errors
 - ✓ no TeX residue in any visible text (prose, sidebar, top bar, pager, toast)
 - ✓ all in-page links resolve
 - ✓ 4 views (home, ch1, ch2, quizCh), exactly one shown at a time (home)
@@ -66,7 +66,7 @@
 - ✓ all 231 text elements use --f-display or --f-body (--f-mono only inside pre/code/kbd)
 - ✓ 20 reading paragraphs: line-height ≥ 1.7 and width ≤ 40em
 - ✓ every stack shows at most one variant
-- ✓ 2 formula-parts blocks keep their height across 8 pieces and show exactly one explanation each
+- ✓ 2 formula-parts blocks keep their height across 9 pieces and show exactly one explanation each
 - ✓ 14 paragraphs with inline maths keep their line spacing
 - ✓ 1 headings with maths render as maths in the sidebar
 - ✓ Lab lab-1 (slider-calc): slider → output changed

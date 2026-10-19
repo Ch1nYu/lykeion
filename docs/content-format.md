@@ -91,6 +91,26 @@ Section body in Markdown.
 
   Each part with a `say` becomes a button; pressing it shows that one explanation in a fixed-height area under the formula, and the first explained part is already selected. Parts without a `say` are rendered but not clickable (use them for operators and spacing). `hint` is optional prose under the card. Single-quoted YAML scalars keep TeX literal (`tex: '\frac{P(A)}{P(B)}'`); in a double-quoted scalar every backslash must be doubled (`tex: "\\frac{P(A)}{P(B)}"`), because YAML reads `\f` as an escape.
 
+A fraction is a part too. Its numerator and denominator are lists of parts of their own, laid out as a real stacked fraction, so a `\frac` can be taken apart without splitting it into a slash:
+
+````markdown
+```formula BAYES
+tex: 'P(A \mid B) = \frac{P(A \cap B)}{P(B)}'
+parts:
+  - { tex: 'P(A \mid B) =' }
+  - frac:
+      num: [ { tex: 'P(A \cap B)', say: '分子：A 和 B 同時發生的機率。' } ]
+      den: [ { tex: 'P(B)', say: '分母：已知 B 發生，只在 B 的世界裡算比例。' } ]
+    say: '整個分數：在 B 發生的情況下，A 也發生的比例。'   # optional
+```
+````
+
+- `num` and `den` take the same items as top-level `parts` (a string or `{tex, say}`), and may contain a `frac` themselves.
+- The fraction's own `say` is optional. It is the target on the fraction bar, and it becomes one more explanation in the same area. Each numerator, denominator and bar is a button when it has a `say`.
+- The spelling rule counts a fraction as `\frac{` + numerator + `}{` + denominator + `}`, whitespace removed. `\dfrac` and `\tfrac` in `tex` are accepted as the same fraction. A mismatch is reported in the same words as any other: what the parts spell against what `tex` is.
+- `formulaParts.maxPartShare` applies to clickable leaf pieces only. When a fraction has a `say` inside its numerator or denominator, the fraction itself is not measured: its pieces are, one by one, and its own `say` does not make it oversized. When neither `num` nor `den` contains a `say`, the whole fraction is measured as one piece, with or without its own `say`, so wrapping a whole formula in one unexplained fraction still fails the share rule.
+- `formulaParts.minExplained` counts every `say`, the fraction's own included.
+
 The build rejects a parts formula whose pieces, joined with whitespace removed, do not spell `tex`, one with fewer than `formulaParts.minExplained` explained parts, a clickable piece longer than `formulaParts.maxPartShare` of the whole `tex` (whitespace removed; default 0.5, so no single explained piece may be more than half the formula), and any piece that is not valid TeX — so a breakdown can never drift from the formula it explains.
 
 - Maths in a heading (`## 3.1 縮放用 $\sqrt{d_k}$`, `### 除以 $\sqrt{d_k}$`) reaches the sidebar, the top bar and the pager as rendered maths: a label copies the heading's markup, not its text, so the TeX source never appears next to the marks. The plain-text label the runtime keeps for toasts and `Lykeion.views()` flattens the formula to marks (`√(dk)`), never `dk\sqrt{d_k}`.
