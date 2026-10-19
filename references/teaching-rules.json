@@ -46,5 +46,10 @@
       "typeof", "instanceof", "console", "log", "switch", "case", "default", "throw", "catch", "export",
       "extends", "super", "static", "void", "delete", "do"
     ]
+  },
+  "formulaParts": {
+    "minParts": 2,
+    "minExplained": 2,
+    "maxPartShare": 0.5
   }
 }

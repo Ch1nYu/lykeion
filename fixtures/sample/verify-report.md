@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-19T03:45:42.437Z
-- Verified: 2026-10-19T03:46:07.456Z
+- Built: 2026-10-19T04:24:39.774Z
+- Verified: 2026-10-19T04:25:05.303Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,7 +9,7 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| teaching | ✓ pass | 10 checks passed |
+| teaching | ✓ pass | 11 checks passed |
 | render | ✓ pass | 40 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 | teaching review | … pending | awaiting agent review (references/teaching-reviewer.md) |
@@ -48,14 +48,15 @@
 - ✓ analogyBeforeFormula: every section that has a formula opens with an analogy
 - ✓ minBlockKinds: every section over 900 chars of prose uses at least 2 non-prose kinds
 - ✓ stepperShare: 2 of 6 Labs are steppers
-- ✓ lexicon: no entry of style-lexicon.json matches (9 entries)
+- ✓ lexicon: no entry of style-lexicon.json matches (22 entries)
 - ✓ plainMath: no maths typed as plain text
 - ✓ numericMath: every number in maths is part of an expression
+- ✓ codeSource: every code listing says where it comes from
 
 ## render
 
 - ✓ skip link “跳到內容” is the first Tab stop, visible when focused, and Enter moves focus into main
-- ✓ 53 formulas rendered as MathML; 0 TeX errors
+- ✓ 55 formulas rendered as MathML; 0 TeX errors
 - ✓ no TeX residue in any visible text (prose, sidebar, top bar, pager, toast)
 - ✓ all in-page links resolve
 - ✓ 4 views (home, ch1, ch2, quizCh), exactly one shown at a time (home)
@@ -65,7 +66,7 @@
 - ✓ all 231 text elements use --f-display or --f-body (--f-mono only inside pre/code/kbd)
 - ✓ 20 reading paragraphs: line-height ≥ 1.7 and width ≤ 40em
 - ✓ every stack shows at most one variant
-- ✓ 2 formula-parts blocks keep their height across 7 pieces and show exactly one explanation each
+- ✓ 2 formula-parts blocks keep their height across 8 pieces and show exactly one explanation each
 - ✓ 14 paragraphs with inline maths keep their line spacing
 - ✓ 1 headings with maths render as maths in the sidebar
 - ✓ Lab lab-1 (slider-calc): slider → output changed

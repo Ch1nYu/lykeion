@@ -523,7 +523,7 @@ test('the teaching record keeps each block’s words and the maths it sets, and 
     '---', 'chapter: 1', 'title: Maths', 'short: maths', 'source: sample.pdf', '---', '',
     '## 1.1 式子 {pages=1}', '',
     '這一段有 $0.5$ 與 $1 - 1/n_c$ 兩個數字。', '',
-    '```formula GINI', "tex: 'G = 1'", 'parts:', "  - { tex: 'G', say: '左邊是 $0$ 的化身。' }", "  - { tex: ' = 1', say: '右邊是 $1 - 1/n_c$。' }", '```', '',
+    '```formula GINI', "tex: 'G = 1'", 'parts:', "  - { tex: 'G', say: '左邊是 $0$ 的化身。' }", "  - { tex: ' = ' }", "  - { tex: '1', say: '右邊是 $1 - 1/n_c$。' }", '```', '',
     '```lab grow', 'tag: LAB A', 'title: 一個 Lab', 'hint: 看 $E[X]$ 怎麼動。', 'label: d_k', '', 'note: 記得 QKᵀ 不對稱。', '```', '',
   ].join('\n');
   await writeFile(join(dir, 'content', '01-maths.md'), body);

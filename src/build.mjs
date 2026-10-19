@@ -519,7 +519,9 @@ function renderFormulaParts(parts, label, ctx, md) {
   const rule = ctx.teachingRules?.formulaParts || {};
   const minParts = Number(rule.minParts ?? 2);
   const minExplained = Number(rule.minExplained ?? 2);
+  const maxPartShare = Number(rule.maxPartShare ?? 0.5);
   const whole = String(parts.tex || '');
+  const wholeLength = squash(whole).length;
   const list = Array.isArray(parts.parts) ? parts.parts : [];
   if (list.length < minParts) { ctx.errors.push(`${ctx.where}: formula with parts needs at least ${minParts} parts`); return ''; }
 
@@ -540,6 +542,12 @@ function renderFormulaParts(parts, label, ctx, md) {
     const piece = typeof p === 'string' ? { tex: p } : (p || {});
     const html = tex(String(piece.tex || ''), true, ctx.errors, ctx.where);
     const say = String(piece.say || '').trim();
+    // 3. A clickable piece that is most of the formula explains the formula, not the piece: the reader
+    //    presses it and learns what the whole thing does. Static pieces are exempt.
+    const share = wholeLength ? squash(piece.tex).length / wholeLength : 0;
+    if (say && share > maxPartShare) {
+      ctx.errors.push(`${ctx.where}: formula part "${squash(piece.tex).slice(0, 40)}" is ${Math.round(share * 100)} % of the formula (limit ${Math.round(maxPartShare * 100)} %) — split it into smaller pieces, each with its own say`);
+    }
     // A piece with no `say` is still part of the formula, just not clickable — an operator or a
     // bracket that needs no explanation.
     cells.push(say
