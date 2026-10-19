@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { teachingGate, loadTeachingConfig, plainText, charCount } from '../src/teaching.mjs';
+import { teachingGate, loadTeachingConfig, plainText, charCount, termsOf } from '../src/teaching.mjs';
 import { teachingReviewGate, sourceGate, verify, loadSlideText } from '../src/verify.mjs';
 import { build } from '../src/build.mjs';
 
@@ -512,6 +512,104 @@ test('a project can switch plainMath off and widen what numericMath ignores', as
   assert.match(ruleFailures(num, 'numericMath')[0].msg, /\$np\$/);
 });
 
+// ---------- sayConnects ----------
+// A parts formula's piece must tie to the analogy or the worked numbers. The fixtures are the smallest
+// blocks the build would write: `says` is each explanation (plain text and its maths), `example` the
+// digit-bearing paragraphs before the formula.
+const says = (...texts) => texts.map((text) => ({ text, math: [] }));
+const analogy = (title, text) => ({ kind: 'analogy', chars: charCount(text), title, text });
+const parts = (label, list, example = '') => ({ kind: 'formula-parts', chars: 0, label, says: list, example });
+const sayRule = (g) => ruleItems(g, 'sayConnects');
+
+test('sayConnects fails a definitional say that ties to nothing in the analogy or the example', () => {
+  // The model's own failure: a say that restates the definition while its analogy sits right above it.
+  const g = run([sec([
+    analogy('專案顧問媒合平台', '需求單與名片：顧問把需求單交給平台，平台依需求配對名片。'),
+    parts('SOFTMAX', says('將縮放後的得分轉換為每行總和為一的注意力權重機率分布。', '在指數函數之前，把得分除以一個縮放常數。')),
+  ])]);
+  assert.equal(g.status, 'fail');
+  const [f] = ruleFailures(g, 'sayConnects');
+  assert.match(f.msg, /^sayConnects: 01-a\.md §1\.1: formula SOFTMAX has 2 of 2 explanations that do not tie/);
+  assert.match(f.msg, /“將縮放後的得分轉換為每行總和為一的注意力權重機率分布。”/);
+  assert.match(f.msg, /tie each piece to the analogy or the example: what it is in the analogy, or what number it takes in the example/);
+});
+
+test('sayConnects passes a candy-jar say that works through the analogy', () => {
+  const g = run([sec([
+    analogy('一罐糖果', '罐子裡有紅糖與藍糖，抽一顆、放回去，再抽一顆。第二次的機率不會因為第一次而改變。'),
+    parts('DRAW', says('抽一顆糖、放回去之後，再抽一顆：兩次都是同一種糖的機率。', '紅糖與藍糖的比例，決定第二次抽到紅糖的機率。')),
+  ])]);
+  assert.equal(g.status, 'pass', failing(g).map((i) => i.msg).join('\n'));
+  assert.equal(sayRule(g)[0].ok, true);
+});
+
+test('sayConnects passes a say that works through the numbers of the example', () => {
+  // No analogy at all: the example is there (so the rule judges), and the digits alone make each say connect.
+  const g = run([sec([
+    { kind: 'p', chars: 8, text: '共有 10 次。' },
+    parts('CALC', says('分子是 0.2，也就是 A 與 B 同時發生的量。', '分母是 0.4。'), '共有 10 次。'),
+  ])]);
+  // Only sayConnects is judged here: the fixture has no analogy, so analogyBeforeFormula fires on purpose.
+  assert.equal(ruleFailures(g, 'sayConnects').length, 0);
+  assert.equal(sayRule(g)[0].ok, true);
+  // A number that sits in maths counts too: `$0.4$` is read from the record's maths, not from its plain text.
+  const inMaths = run([sec([
+    { kind: 'p', chars: 8, text: '共有 10 次。' },
+    parts('CALC', [{ text: '分母是桌布的大小。', math: ['0.4'] }, { text: '分子是重疊的那塊。', math: ['0.2'] }], '共有 10 次。'),
+  ])]);
+  assert.equal(ruleFailures(inMaths, 'sayConnects').length, 0);
+  assert.equal(sayRule(inMaths)[0].ok, true);
+});
+
+test('sayConnects ties a say to the worked example before the formula', () => {
+  // No analogy: the paragraph before the formula is the example, and the say shares a word with it.
+  const g = run([sec([
+    { kind: 'p', chars: 12, text: '抽出的紅糖有 3 顆。' },
+    parts('EX', says('紅糖的比例決定答案。', '把資料轉換為分布。'), '抽出的紅糖有 3 顆。'),
+  ])]);
+  assert.equal(ruleFailures(g, 'sayConnects').length, 0);
+  assert.equal(sayRule(g)[0].ok, true);
+});
+
+test('sayConnects does not let a stop term count as a connection', () => {
+  // Every shared word here is generic: 這個、公式、的、機率、表示、我們、計算、結果.
+  const g = run([sec([
+    analogy('公式的機率', '這個公式的機率是我們的計算結果。'),
+    parts('GENERIC', says('這個公式表示的機率。', '我們的計算結果。')),
+  ])]);
+  assert.equal(g.status, 'fail');
+  assert.equal(ruleFailures(g, 'sayConnects')[0].ok, false);
+  assert.match(ruleFailures(g, 'sayConnects')[0].msg, /2 of 2 explanations/);
+
+  // The term extraction itself: stop terms are gone, and a real word still shows.
+  const stop = defaults.rules.sayConnects.stopTerms;
+  const terms = termsOf('這個公式的機率：桌布 the rate', stop);
+  assert.ok(terms.has('桌布'));
+  assert.ok(terms.has('rate'));
+  for (const t of ['機率', '公式', '這個', 'the']) assert.equal(terms.has(t), false, `${t} should not count`);
+});
+
+test('sayConnects reports ⚠ for a section with neither an analogy nor worked numbers, and does not fail on it', () => {
+  const g = run([sec([parts('BARE', says('將資料轉換為機率分布。', '把它整理成一張表。'))])]);
+  assert.equal(ruleFailures(g, 'sayConnects').length, 0, 'a warning never fails the gate');
+  const [w] = sayRule(g);
+  assert.equal(w.ok, null);
+  assert.equal(w.warn, true);
+  assert.match(w.msg, /formula BARE has no analogy and no worked numbers before it — cannot judge/);
+});
+
+test('sayConnects threshold is a project override, and the override keeps the stop terms', async () => {
+  // One of two says ties (桌布), the other does not: 50% passes the default and fails a stricter project.
+  const blocks = [analogy('桌布', '桌布以內。'), parts('HALF', says('桌布上那一塊。', '將資料轉換為分布。'))];
+  assert.equal(run([sec(blocks)]).status, 'pass');
+  const strict = await loadTeachingConfig({ sayConnects: { minShare: 0.8 } });
+  assert.equal(strict.rules.sayConnects.minShare, 0.8);
+  assert.ok(strict.rules.sayConnects.stopTerms.includes('機率'), 'a partial override keeps the stop terms');
+  const g = run([sec(blocks)], { config: strict });
+  assert.equal(g.status, 'fail');
+  assert.match(ruleFailures(g, 'sayConnects')[0].msg, /need 80%/);
+});
+
 // ---------- what the record carries for these two rules ----------
 test('the teaching record keeps each block’s words and the maths it sets, and leaves Lab labels alone', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
@@ -549,6 +647,40 @@ test('the teaching record keeps each block’s words and the maths it sets, and 
   const g = teachingGate(checks.teaching, {}, defaults);
   assert.match(ruleFailures(g, 'plainMath')[0].msg, /QKᵀ/);
   assert.match(ruleFailures(g, 'numericMath')[0].msg, /\$0\.5\$/);
+});
+
+// The sayConnects rule reads what the build records: a parts formula's label, its explanations in order
+// (maths kept apart), and the digit paragraphs before it; an analogy's title is part of its words.
+test('the teaching record carries a parts formula’s explanations and worked example, and an analogy’s title', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Tie probe', output: 'probe.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  const body = [
+    '---', 'chapter: 1', 'title: Tie', 'short: tie', 'source: sample.pdf', '---', '',
+    '## 1.1 連結 {pages=1}', '',
+    '```analogy 一罐糖果', '罐子裡有紅糖與藍糖。', '```', '',
+    '這一段沒有數字，只講紅糖。', '',
+    '抽一顆糖的機率是 $0.5$，共有 3 次。', '',
+    '```formula CANDY', "tex: 'P = \\frac{a}{b}'", 'parts:', "  - { tex: 'P', say: '左邊是紅糖的比例。' }", "  - { tex: ' = ' }", "  - frac:", "      num: [ { tex: 'a', say: '分子是 $0.2$ 的那一塊。' } ]", "      den: [ { tex: 'b' } ]", "    say: '整個分數。'", '```', '',
+  ].join('\n');
+  await writeFile(join(dir, 'content', '01-tie.md'), body);
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const blocks = checks.teaching.sections[0].blocks;
+  const analogyBlock = blocks.find((b) => b.kind === 'analogy');
+  const prose = blocks.find((b) => b.kind === 'p' && /機率/.test(b.text));
+  const formula = blocks.find((b) => b.kind === 'formula-parts');
+  assert.equal(analogyBlock.title, '一罐糖果');
+  assert.equal(formula.label, 'CANDY');
+  // Explanations in reading order: the piece, then the fraction's own say, then its numerator's.
+  assert.deepEqual(formula.says, [
+    { text: '左邊是紅糖的比例。', math: [] },
+    { text: '整個分數。', math: [] },
+    { text: '分子是 的那一塊。', math: ['0.2'] },
+  ]);
+  // Only the digit paragraph is worked example; the paragraph without a digit is left out.
+  assert.equal(prose.text, '抽一顆糖的機率是 ，共有 3 次。');
+  assert.equal(formula.example, '抽一顆糖的機率是 ，共有 3 次。');
 });
 
 // ---------- end to end ----------

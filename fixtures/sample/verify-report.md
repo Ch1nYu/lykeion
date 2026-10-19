@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-19T05:49:25.671Z
-- Verified: 2026-10-19T05:49:51.220Z
+- Built: 2026-10-19T06:45:25.772Z
+- Verified: 2026-10-19T06:45:50.446Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -9,7 +9,7 @@
 | numeric | ✓ pass | 13/13 numbers match |
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
-| teaching | ✓ pass | 11 checks passed |
+| teaching | ✓ pass | 12 checks passed |
 | render | ✓ pass | 40 checks passed |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 | teaching review | … pending | awaiting agent review (references/teaching-reviewer.md) |
@@ -52,6 +52,7 @@
 - ✓ plainMath: no maths typed as plain text
 - ✓ numericMath: every number in maths is part of an expression
 - ✓ codeSource: every code listing says where it comes from
+- ✓ sayConnects: every formula piece ties to the analogy or the example
 
 ## render
 
