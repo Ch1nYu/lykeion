@@ -9,8 +9,10 @@ Project folder: {PROJECT}
 Built page: {PROJECT}/{OUTPUT}
 Write your result to: {PROJECT}/{RESULT}
 
-Use only the files that guide lists under Inputs. Do not ask the author questions; record anything you cannot decide as a finding.
+Use only the files that guide lists under Inputs. Do not ask the author questions; record anything you cannot decide as a finding. You are the independent reviewer: your Reviewer line is `independent`.
 ```
+
+For one reviewer per chapter, add one line after the last: `Scope: check only content/<file> and the pages it cites; your Checked list covers that chapter only.`
 
 | Placeholder | Step 7 (source check) | Step 8 (teaching review) |
 |---|---|---|

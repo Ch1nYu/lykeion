@@ -2,7 +2,7 @@
 
 You are the reviewer of a built Lecture Site. Compare its content with its Primary Source and its References, and write `<project>/source-check.md`.
 
-You did not write the content: read it as a skeptical examiner would. If you can start another agent with fresh context (a sub-agent tool, or another agent session), the check must be done by that agent, given only the files listed under Inputs — never the writer's conversation. Only when the host has no way to start another agent may the writing agent do this check itself. That is not an independent review: re-read this file from the top before starting, and say so in the `Reviewer:` line with the reason.
+You did not write the content: read it as a skeptical examiner would. If you were started with the message in `reviewer-brief.md`, you are the independent reviewer: write `Reviewer: independent`, even if you cannot start agents yourself. The rest of this paragraph is for the writing agent. If you can start another agent with fresh context (a sub-agent tool, or another agent session), the check must be done by that agent, given only the files listed under Inputs — never the writer's conversation. Only when the host has no way to start another agent may the writing agent do this check itself. That is not an independent review: re-read this file from the top before starting, and say so in the `Reviewer:` line with the reason.
 
 ## Inputs
 
