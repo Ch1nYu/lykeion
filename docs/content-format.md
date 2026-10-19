@@ -348,6 +348,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `plainMath` | five patterns: an identifier with an underscore (`[A-Za-zα-ωΑ-Ω][A-Za-z0-9]*_[{A-Za-z0-9]`), `\\[A-Za-z]+` (a backslash command), `[A-Za-z0-9}]\s*\^\s*\{?\w`, `[A-Za-z0-9)]\s*[ᵀᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]`, and the math marks `[√∑∏∫≈≠≤≥→↦∈∉⊆⊂∪∩∞±×÷·∇∂Δ]` | an underscore, a backslash command, a `^`, a superscript or a maths mark is typed as plain text instead of `$…$` — the reader sees `√d_k` where the lecture means a formula |
 | `codeSource` | `{ "exampleLabel": "示範", "minIdentifierShare": 0.5, "outputTitles": ["輸出"], "keywords": [...] }` | a code listing has no `from`, or its `from` is none of `slides`, a `references` prefix or `example` (with 「示範」 in the title); a `from="slides"` listing shares fewer than `minIdentifierShare` of its identifiers with its section's pages. Missing page text is ⚠ (not checkable). `outputTitles` are exempt, and `keywords` are not counted as identifiers |
 | `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
+| `proseNumbers` | `{ "ignore": ["\\d+(?:\\.\\d+){2,}", "§\\s*\\d+(?:\\.\\d+)*"] }` | a decimal or a percentage in the reading text (paragraphs, lists, notes, callouts, analogies, takeaways, a parts formula's words, a quiz explanation) matches no `calc` expect or Lab readout of its section at the precision written, and is not inside `<q>…</q>`. Integers are not checked. `ignore` patterns are blanked before the scan; a project's `proseNumbers` replaces the whole rule, so repeat the patterns you keep |
 
 - Every failure names the file, the section and a short excerpt.
 - `formulaParts` is not a gate rule but the same kind of constant: `{ "minParts": 2, "minExplained": 2, "maxPartShare": 0.5 }` decides how many pieces a `formula` block needs, how many of them must carry a `say`, and how large an explained piece may be relative to the whole formula. The build and the gate read the same file, so a project that overrides it changes both.
@@ -355,3 +356,15 @@ overrides any of them under `teaching` in `lykeion.json`.
 - `plainMath` and `numericMath` are `false` to switch them off, and `numericMath.ignore` is a regex source, not a pattern list: the parts of a formula that do not make it an expression.
 - An unknown key under `teaching` is a gate failure, so a typo cannot silently do nothing.
 - A `teaching review` gate reads `teaching-review.md` (written by the teaching reviewer) exactly like the source gate reads `source-check.md`: `STATUS: pass|fail` decides, a missing file stays pending, and a self-review is reported with ⚠.
+
+### Numbers in prose
+
+A decimal (`0.083`) or a percentage (`90%`) in the reading text must come from its own section: a `calc` entry gives it, or a Lab shows it at the values the Lab opens on. The build evaluates the readouts of the built-in Labs (`slider-calc` outputs and bars, `table` outputs, `curve` markers) with the page's own maths, so a number in the prose and in the Lab cannot disagree on arrival. Write it at the precision the Lab shows: `0.444` reads `0.4444`, `44.4%` reads `0.4444`, and a truncated slide figure (`0.444` for `0.4449`) counts as well as a rounded one. A quiz explanation is checked against the section its item links to (`sec`). Lab hints, verdicts and erratum text are not checked by this rule.
+
+A figure the slides state that this site does not compute is quoted with `<q>…</q>`. The reader sees quotation marks and a dotted underline, so the figure is visibly the slide's:
+
+```markdown
+講義寫 <q>90%</q>、<q>7%</q>、<q>3%</q>，這是為了直觀而取的數字。
+```
+
+Say in the prose what the true value is when it differs. A custom Lab's outputs are its own code and the build cannot evaluate them, so quote a number from one, or compute it with a `calc`.

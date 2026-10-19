@@ -41,6 +41,17 @@ export function plainText(src) {
 // Visible characters of a fragment: no whitespace, no maths.
 export const charCount = (src) => [...plainText(src).replace(/\s+/g, '')].length;
 
+// `<q>…</q>` marks a number quoted from the slides. The build keeps the marks as two private-use
+// characters so the gate can see where a quotation starts and ends; `unmark` drops them for everything
+// that shows or counts text.
+const QUOTE_OPEN = '', QUOTE_CLOSE = '';
+const QUOTED = /[\s\S]*?/g;
+const MARKER = /[]/g;
+export const markQuotes = (src) => String(src ?? '').replace(/<q>/g, QUOTE_OPEN).replace(/<\/q>/g, QUOTE_CLOSE);
+// Plain text that keeps the quotation marks (see `markQuotes`).
+export const markedText = (src) => plainText(markQuotes(src));
+export const unmark = (s) => String(s ?? '').replace(MARKER, '');
+
 const excerpt = (s, at = 0, len = 36) => {
   const t = String(s ?? '').replace(/\s+/g, ' ').trim();
   if (t.length <= len) return t;
@@ -75,6 +86,39 @@ const langApplies = (entry, projectLang) => {
   if (want === 'any' || !projectLang) return true;
   return String(projectLang).toLowerCase().startsWith(want);
 };
+
+// ---------- proseNumbers helpers ----------
+// A number as the reader sees it: an optional minus, digits with an optional decimal part, an optional
+// percent sign. Not preceded by a Latin letter, digit, `_` or `.`, so `x2.5` and `2.1.3` are not numbers
+// here (versions and section numbers are the `ignore` patterns' job).
+const NUMBER = /(?<![A-Za-z0-9_.])([-−]?)(\d+(?:\.\d+)?)(?:\s?(%|％))?/g;
+// The kinds whose words the `proseNumbers` rule reads (see rule 12).
+const NUMBER_PROSE = new Set(['p', 'list', 'note', 'callout', 'analogy', 'takeaway', 'formula-parts']);
+
+// Does `x`, written to `d` decimals, read as `w`? Rounding and truncation both count, because a slide
+// sometimes truncates where a computed value rounds: 0.4449 reads as 0.444 by truncation, 0.4444 as 0.444
+// either way.
+const agrees = (x, d, w) => {
+  if (!Number.isFinite(x)) return false;
+  const f = 10 ** d, s = x * f;
+  return [Math.round(s), Math.trunc(s + Math.sign(s) * 1e-9)].some((k) => Math.abs(k / f - w) < 1e-9);
+};
+
+// The candidate nearest to `w`, for the failure message. A percentage is compared both as a percentage
+// (`0.9995` is `99.95 %`) and as the value itself (`8.3` is `8.3 %`).
+const closest = (cands, pct, w) => {
+  let best = null;
+  for (const c of cands) {
+    if (!Number.isFinite(c.v)) continue;
+    for (const v of pct ? [c.v * 100, c.v] : [c.v]) {
+      const dist = Math.abs(v - w);
+      if (!best || dist < best.dist) best = { dist, v, kind: c.kind, from: c.from };
+    }
+  }
+  return best;
+};
+// A number for a message: six significant figures, no float noise (99.95400000001 → 99.954).
+const shown = (v) => String(Number(Number(v).toPrecision(6)));
 
 // ---------- the gate ----------
 // `teaching` is the `teaching` object written into checks.json:
@@ -363,6 +407,56 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
       failures.push({ msg: `${loc}: ${shown} is from="${from}", which is none of "slides", "example" or a reference in lykeion.json (${cited.join(' / ') || 'no references'})` });
     }
     report('codeSource', failures, 'every code listing says where it comes from');
+  }
+
+  // 12. proseNumbers — a decimal or a percentage the reader reads must be a number the section computes:
+  //     a `calc` expect, or a Lab readout at its default inputs, at the precision written. A number inside
+  //     `<q>…</q>` is an explicit quotation of the slides and passes. Integers are not checked. The reading
+  //     text is paragraphs, lists, notes, callouts, analogies, takeaways, a parts formula's words and the
+  //     quiz explanations; headings, tables, code and maths are not reading text.
+  const numbersRule = rules.proseNumbers;
+  // A checks.json written before the numeric record existed has no calc or readouts to check against:
+  // every decimal would fail for the wrong reason, so ask for a build instead.
+  const numbersStale = sections.some((s) => !Array.isArray(s.calc) || !Array.isArray(s.readouts));
+  if (numbersRule && numbersRule !== false && numbersStale) {
+    report('proseNumbers', [{ warn: true, msg: 'checks.json was written before the numeric record existed — run "lykeion build" again' }], '');
+  } else if (numbersRule && numbersRule !== false) {
+    const ignore = compile([].concat(numbersRule.ignore || []), 'g');
+    const failures = [];
+    const expects = (s) => [
+      ...(s?.calc || []).map((c) => ({ v: Number(c.expect), kind: 'calc expect', from: c.note || c.expr })),
+      ...(s?.readouts || []).map((r) => ({ v: Number(r.value), kind: 'Lab readout at default', from: `${r.lab} ${r.label}`.trim() })),
+    ];
+    const scan = (src, label, cands) => {
+      // Spans that are quoted or ignored are blanked to spaces of the same length, so every index below
+      // still points into `src`.
+      const masked = [QUOTED, ...ignore].reduce((out, re) => out.replace(re, (x) => ' '.repeat(x.length)), src);
+      for (const m of masked.matchAll(NUMBER)) {
+        const [token, sign, digits, unit] = m;
+        const pct = !!unit;
+        const decimals = (digits.split('.')[1] || '').length;
+        if (!pct && !decimals) continue;
+        const w = Number(digits) * (sign ? -1 : 1);
+        if (cands.some((c) => agrees(c.v, decimals, w) || (pct && agrees(c.v * 100, decimals, w)))) continue;
+        const at = m.index - (src.slice(0, m.index).match(MARKER) || []).length;
+        const near = closest(cands, pct, w);
+        const hint = near ? ` (closest ${near.kind}: ${shown(near.v)}${pct ? ' %' : ''}${near.from ? ` (${near.from})` : ''})` : '';
+        failures.push({ msg: `${label}: “${token.trim()}” in “${excerpt(unmark(src), at)}” matches no calc or Lab readout in this section${hint} — compute it with a \`calc\`, show it in the Lab, or mark the slide's figure with <q>` });
+      }
+    };
+    for (const s of sections) {
+      const cands = expects(s);
+      for (const b of blocksOf(s)) {
+        if (!NUMBER_PROSE.has(b.kind) || !(b.marked ?? b.text)) continue;
+        scan(b.marked ?? b.text, `${where(s)} ${b.kind}`, cands);
+      }
+    }
+    for (const q of quiz) {
+      const src = q.exMarked ?? q.ex;
+      if (!src) continue;
+      scan(src, `${q.where} explanation`, expects(sections.find((s) => s.id === q.sec)));
+    }
+    report('proseNumbers', failures, 'every decimal and percentage matches a calc or a Lab readout at its default, or is quoted');
   }
 
   const bad = items.filter((i) => i.ok === false).length;
