@@ -182,19 +182,27 @@ test('source gate reports an independent review as such and leaves the status al
 });
 
 test('source gate says in the headline when the reviewer reviewed its own writing', async () => {
-  const g = await sourceGateWith(sourceCheck('self', 'fail'));
+  const g = await sourceGateWith(sourceCheck('self (no sub-agent tool in this host)', 'fail'));
   // `self` only changes the headline: the STATUS line still decides the gate.
   assert.equal(g.status, 'fail');
-  assert.equal(g.headline, 'self-review, not independent (from source-check.md)');
+  assert.equal(g.headline, 'self-review, not independent (no sub-agent tool in this host) (from source-check.md)');
   assert.match(g.items[0].msg, /reviewed by the writing agent, not independently/);
+});
+
+// A self-review must explain why an independent reviewer was unavailable.
+test('source gate fails a self-review with no reason', async () => {
+  const g = await sourceGateWith(sourceCheck('self'));
+  assert.equal(g.status, 'fail');
+  assert.equal(g.items[0].ok, false);
+  assert.match(g.items[0].msg, /Reviewer "self" needs a reason: get an independent reviewer, or write Reviewer: self \(reason\)/);
 });
 
 // A self-review can pass the gate, but the report must not print a ✓ beside it as if it were a
 // verified check: `warn` paints it ⚠, the one sign this project reserves for "not quite verified".
-test('source gate keeps a self-reviewed pass a pass but warns instead of ticking it', async () => {
-  const g = await sourceGateWith(sourceCheck('self'));
+test('source gate keeps a reasoned self-review pass a pass but warns instead of ticking it', async () => {
+  const g = await sourceGateWith(sourceCheck('self (no sub-agent tool in this host)'));
   assert.equal(g.status, 'pass');
-  assert.match(g.headline, /self-review, not independent/);
+  assert.equal(g.headline, 'self-review, not independent (no sub-agent tool in this host) (from source-check.md)');
   assert.equal(g.items[0].ok, true);
   assert.equal(g.items[0].warn, true);
 });
@@ -210,9 +218,9 @@ test('source gate reports a missing Reviewer line as not stated instead of faili
 });
 
 test('source gate reads the Reviewer line case-insensitively and counts disputed findings', async () => {
-  const g = await sourceGateWith('STATUS: pass\nreviewer: SELF\n\n- [disputed] x\n');
+  const g = await sourceGateWith('STATUS: pass\nreviewer: SELF (no sub-agent tool in this host)\n\n- [disputed] x\n');
   assert.equal(g.status, 'pass');
-  assert.equal(g.headline, 'self-review, not independent, 1 disputed item(s) for the user (from source-check.md)');
+  assert.equal(g.headline, 'self-review, not independent (no sub-agent tool in this host), 1 disputed item(s) for the user (from source-check.md)');
 });
 
 // The line belongs to the header. A `Reviewer:` quoted further down, inside a finding, is part of the
@@ -229,6 +237,26 @@ test('source gate names an unrecognised Reviewer value instead of calling it uns
   assert.equal(g.status, 'pass');
   assert.match(g.headline, /reviewer "sub-agent" not recognised/);
   assert.ok(!/not stated/.test(g.headline), g.headline);
+});
+
+// The report names how many reviews the writing agent did itself, under the gate table, and says
+// nothing when every review is independent.
+test('report flags self-reviewed gates under the table and stays silent when none is self-reviewed', async () => {
+  const dir = await sampleCopy();
+  await build(dir);
+  const flag = '⚠ 2 review(s) by the writing agent itself — not an independent check.';
+  await writeFile(join(dir, 'source-check.md'), sourceCheck('self (no sub-agent tool in this host)'));
+  await writeFile(join(dir, 'teaching-review.md'), sourceCheck('self (no sub-agent tool in this host)'));
+  await verify(dir, { render: false });
+  const selfReport = await readFile(join(dir, 'verify-report.md'), 'utf8');
+  assert.ok(selfReport.includes(flag), selfReport);
+  assert.ok(selfReport.indexOf(flag) < selfReport.indexOf('## numeric'), 'the line sits under the gate table');
+
+  await writeFile(join(dir, 'source-check.md'), sourceCheck('independent'));
+  await writeFile(join(dir, 'teaching-review.md'), sourceCheck('independent'));
+  await verify(dir, { render: false });
+  const cleanReport = await readFile(join(dir, 'verify-report.md'), 'utf8');
+  assert.ok(!cleanReport.includes('by the writing agent itself'), cleanReport);
 });
 
 // Options are shuffled for the reader, so the source position of `a` says nothing — but a right
