@@ -40,9 +40,9 @@ Read every Scope page: the `.txt` for wording, the `.png` whenever the slide car
 
 For a Scope larger than about 40 pages you may use sub-agents when the host offers them: dispatch one drafter per PDF (or page block) in parallel, each writing its chapter's part of the Outline from `references/outline.md`, then merge the parts into `outline.md` yourself and check that the parts together cover every Scope page. Without sub-agents, draft the Outline yourself, one block at a time, to the same bar.
 
-Done when every Scope page is assigned to a section in the Outline, each section has its planned Labs, quiz items and `calc` targets, and the Outline names one Palette from `lykeion palette list`.
+Done when every Scope page is assigned to a section in the Outline or listed under **Left out on purpose** with a reason, each section has its planned Labs, quiz items and `calc` targets, and the Outline names one Palette from `lykeion palette list`.
 
-Show the Outline to the user and wait for approval — the cheapest moment to change direction. Skip the wait only when the user said to proceed without review. Record the approved Palette: `lykeion palette use <title> <id>`, and set it in `lykeion.json`.
+Show the Outline to the user and wait for approval — the cheapest moment to change direction; the pages left out on purpose are shown there too, so the user can take one back. Skip the wait only when the user said to proceed without review. Once approved, add each left-out run to the scope's `exclude` in `lykeion.json` with its reason (`"exclude": [{ "pages": "1", "reason": "封面" }]`), so coverage stops requiring it and a section that cites it fails. Record the approved Palette: `lykeion palette use <title> <id>`, and set it in `lykeion.json`.
 
 ## 4. Write
 

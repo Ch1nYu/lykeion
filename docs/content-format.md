@@ -35,6 +35,7 @@ Any error below fails the build; nothing broken is silently rendered.
 - `hero.title` may contain `<em>` for the highlighter sweep.
 - `levels` gives each Quiz Level a subtitle; keys are level titles used in quiz blocks.
 - `scope` is what `verify` checks coverage against; `file` matches a chapter's `source`.
+- `scope[].exclude` lists the pages the scope leaves out on purpose, each with its reason: `"exclude": [{ "pages": "1-3", "reason": "AI 發展史，不屬核心邏輯" }]`. Excluded pages are not required for coverage; `verify` lists them as "excluded on purpose" with the reason. A section that cites an excluded page fails, an exclusion without a reason fails, and an excluded page must lie inside the scope's `pages`. `init` does not write it; the Outline proposes it (see `references/outline.md`).
 - `teaching` overrides the teaching rules (`references/teaching-rules.json`) and extends the style lexicon (`references/style-lexicon.json`) for this project; see [Teaching rules](#teaching-rules).
 
 ## Chapter file
@@ -231,6 +232,7 @@ Every number a worked example states must have a `calc` entry, so `verify` can r
 ### `lab <type>` — an interactive Lab (YAML parameters)
 
 Common keys: `tag` (badge, e.g. `LAB A`), `title`, `hint`. Any `text` or `note` value is rendered as inline Markdown with maths.
+A `label` is plain text, not maths: write 「向量維度 d」 or 「除以根號 d」, not `d_k` or `√d`. The `plainMath` rule reads every `label` and fails the ones that type maths (a lone letter with digits such as `x1` is allowed).
 Labs break out of the reading column, so put them at the top level of a section (not inside a list).
 
 **`slider-calc`** — sliders in, computed readouts out.
@@ -344,14 +346,15 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `analogyBeforeFormula` | `true` | a section has a formula but no `analogy` before its first one |
 | `minBlockKinds` | `{ "minChars": 900, "kinds": 2 }` | a long section uses fewer than that many kinds of non-prose block |
 | `stepperShare` | `{ "share": 0.34, "minLabs": 3 }` | with `minLabs` or more Labs, more than `share` of them are steppers |
-| `lexicon` | `references/style-lexicon.json` | a `level: "fail"` phrase appears; `level: "warn"` is reported with ⚠ and does not fail |
-| `plainMath` | five patterns: an identifier with an underscore (`[A-Za-zα-ωΑ-Ω][A-Za-z0-9]*_[{A-Za-z0-9]`), `\\[A-Za-z]+` (a backslash command), `[A-Za-z0-9}]\s*\^\s*\{?\w`, `[A-Za-z0-9)]\s*[ᵀᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]`, and the math marks `[√∑∏∫≈≠≤≥→↦∈∉⊆⊂∪∩∞±×÷·∇∂Δ]` | an underscore, a backslash command, a `^`, a superscript or a maths mark is typed as plain text instead of `$…$` — the reader sees `√d_k` where the lecture means a formula |
+| `lexicon` | `references/style-lexicon.json` | a `level: "fail"` phrase appears; `level: "warn"` is reported with ⚠ and does not fail. A match that an entry's `except` exception accepts is skipped (see below) |
+| `plainMath` | five patterns: an identifier with an underscore (`[A-Za-z][A-Za-z0-9]*_(?:\{|[A-Za-z0-9])`), a backslash command (`\\[A-Za-z]{2,}`), a radical followed by a letter or `(` (`√\s*[A-Za-z(]`), a `^` after a letter, digit or `)` (`[A-Za-z0-9)\]]\^\s*[\{A-Za-z0-9(]`), and a letter followed by a superscript or subscript digit or modifier letter (`ᵀ`, `²`, `ₓ`, …). Lab `label` fields are checked with the same patterns, after `labelAllow` removes a lone letter with digits (`x1`, `p2`) | maths typed as plain text instead of `$…$` — the reader sees `√d_k` where the lecture means a formula; a Lab label that types maths |
 | `codeSource` | `{ "exampleLabel": "示範", "minIdentifierShare": 0.5, "outputTitles": ["輸出"], "keywords": [...] }` | a code listing has no `from`, or its `from` is none of `slides`, a `references` prefix or `example` (with 「示範」 in the title); a `from="slides"` listing shares fewer than `minIdentifierShare` of its identifiers with its section's pages. Missing page text is ⚠ (not checkable). `outputTitles` are exempt, and `keywords` are not counted as identifiers |
 | `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
 
 - Every failure names the file, the section and a short excerpt.
 - `formulaParts` is not a gate rule but the same kind of constant: `{ "minParts": 2, "minExplained": 2, "maxPartShare": 0.5 }` decides how many pieces a `formula` block needs, how many of them must carry a `say`, and how large an explained piece may be relative to the whole formula. The build and the gate read the same file, so a project that overrides it changes both.
-- `lexicon` entries are `{ pattern, why, level: "fail"|"warn", lang: "zh"|"en"|"any" }`. A project's entries are appended to the shipped ones; `lexiconOff` lists patterns to switch off. `lang` only decides whether an entry applies to a project (`lang: "zh"` applies to `zh-Hant-TW`); the rules themselves are language-neutral.
+- `lexicon` entries are `{ pattern, why, level: "fail"|"warn", lang: "zh"|"en"|"any", except? }`. A project's entries are appended to the shipped ones; `lexiconOff` lists patterns to switch off. `lang` only decides whether an entry applies to a project (`lang: "zh"` applies to `zh-Hant-TW`); the rules themselves are language-neutral.
+- `except` names exceptions from `lexiconExceptions` (in `teaching-rules.json`). The shipped `glossed` exception accepts a match that a parenthesised Latin gloss follows at once, so `非顯而易見（non-trivial）` is a translated term and passes, while `顯而易見，` is still reported. An unknown name in `except` fails the gate.
 - `plainMath` and `numericMath` are `false` to switch them off, and `numericMath.ignore` is a regex source, not a pattern list: the parts of a formula that do not make it an expression.
 - An unknown key under `teaching` is a gate failure, so a typo cannot silently do nothing.
 - A `teaching review` gate reads `teaching-review.md` (written by the teaching reviewer) exactly like the source gate reads `source-check.md`: `STATUS: pass|fail` decides, a missing file stays pending, and a self-review is reported with ⚠.

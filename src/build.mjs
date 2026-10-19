@@ -299,6 +299,22 @@ function labText(params) {
   return out.join(' ');
 }
 
+// A Lab's `label` fields (slider, readout, bar and button captions). They are plain text by design, so
+// the `plainMath` gate reads them on their own, and they are recorded as they are typed.
+function labelsOf(params) {
+  const out = [];
+  const walk = (v) => {
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (!v || typeof v !== 'object') return;
+    for (const [k, val] of Object.entries(v)) {
+      if (k === 'label' && typeof val === 'string') out.push(val);
+      else walk(val);
+    }
+  };
+  walk(params);
+  return out;
+}
+
 // A code listing records where its code claims to come from (`from`), its caption (`title`) and the
 // identifiers it uses, so the `codeSource` gate can check the code against the slides without re-parsing
 // the Markdown. Keywords are filtered by the gate, which owns the keyword list.
@@ -353,7 +369,13 @@ function collectBlocks(tokens) {
         // Lab's words live in its params rather than in its body.
         if (kind === 'erratum') { const txt = String(parseYamlText(t.content).text || ''); push(kind, txt, txt, mathsIn(txt)); }
         else if (kind === 'formula-parts') { const txt = formulaPartsText(t.content); push(kind, txt, txt, mathsIn(txt)); }
-        else if (kind && kind.startsWith('lab:')) { const txt = labText(parseYamlText(t.content)); push(kind, '', txt, mathsIn(txt)); }
+        else if (kind && kind.startsWith('lab:')) {
+          const params = parseYamlText(t.content);
+          const txt = labText(params);
+          push(kind, '', txt, mathsIn(txt));
+          const labels = labelsOf(params);
+          if (labels.length) blocks[blocks.length - 1].labels = labels;
+        }
         else if (kind === 'formula') push(kind, '', '');
         else if (kind === 'code') { push(kind, t.content, null, mathsIn(t.content)); Object.assign(blocks[blocks.length - 1], listingSource(t)); }
         else if (kind) push(kind, t.content, null, mathsIn(t.content));

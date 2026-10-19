@@ -20,8 +20,12 @@
     "share": 0.34,
     "minLabs": 3
   },
+  "lexiconExceptions": {
+    "glossed": "^[（(][^（）()\\n]*[A-Za-z][^（）()\\n]*[）)]"
+  },
   "plainMath": {
     "flags": "",
+    "labelAllow": "(?<![\\p{L}\\p{N}_])[A-Za-z]\\d+(?![\\p{L}\\p{N}_^])",
     "patterns": [
       "[A-Za-z][A-Za-z0-9]*_(?:\\{|[A-Za-z0-9])",
       "\\\\[A-Za-z]{2,}",

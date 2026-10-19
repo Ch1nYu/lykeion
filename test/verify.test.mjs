@@ -31,6 +31,37 @@ test('coverage gate reports uncited pages as ranges', () => {
   assert.deepEqual([...parsePages('2-4, 7')], [2, 3, 4, 7]);
 });
 
+// `exclude` lists the pages a scope leaves out on purpose: they are not required, they are listed with
+// their reason, and a section that cites one fails.
+test('coverage gate lists excluded pages with their reason and does not require them', () => {
+  const scope = [{ file: 'a.pdf', pages: '1-6', exclude: [{ pages: '1-3', reason: 'AI 發展史，不屬核心邏輯' }] }];
+  const cited = [{ file: 'x.md', source: 'a.pdf', num: '1.1', title: 't', pages: '4-5' }];
+  const short = coverageGate(scope, cited);
+  assert.equal(short.status, 'fail', 'page 6 is still uncited');
+  assert.match(short.items.map((i) => i.msg).join('\n'), /uncited: 6\b/);
+  assert.doesNotMatch(short.items.map((i) => i.msg).join('\n'), /uncited: [^\n]*\b[123]\b/);
+
+  const full = coverageGate(scope, [...cited, { file: 'x.md', source: 'a.pdf', num: '1.2', title: 'u', pages: '6' }]);
+  assert.equal(full.status, 'pass');
+  assert.ok(full.items.some((i) => i.ok && i.msg === 'a.pdf: excluded on purpose: p.1–3 — AI 發展史，不屬核心邏輯'), full.items.map((i) => i.msg).join('\n'));
+  assert.match(full.items.find((i) => i.msg.startsWith('a.pdf p.1-6')).msg, /3\/3 pages cited/);
+});
+
+test('coverage gate fails a section that cites an excluded page, an exclusion with no reason, and one outside the scope', () => {
+  const scope = [{ file: 'a.pdf', pages: '1-6', exclude: [{ pages: '2', reason: '書目' }] }];
+  const citesIt = coverageGate(scope, [{ file: 'x.md', source: 'a.pdf', num: '1.1', title: 't', pages: '1-3,4-6' }]);
+  assert.equal(citesIt.status, 'fail');
+  assert.ok(citesIt.items.some((i) => i.ok === false && i.msg === '§1.1 cites p.2, which lykeion.json excludes'), citesIt.items.map((i) => i.msg).join('\n'));
+
+  const noReason = coverageGate([{ file: 'a.pdf', pages: '1-6', exclude: [{ pages: '6', reason: '  ' }] }], [{ file: 'x.md', source: 'a.pdf', num: '1.1', title: 't', pages: '1-5' }]);
+  assert.equal(noReason.status, 'fail');
+  assert.ok(noReason.items.some((i) => i.ok === false && /exclude p\.6 has no reason/.test(i.msg)));
+
+  const outside = coverageGate([{ file: 'a.pdf', pages: '1-6', exclude: [{ pages: '7-8', reason: '參考書目' }] }], [{ file: 'x.md', source: 'a.pdf', num: '1.1', title: 't', pages: '1-6' }]);
+  assert.equal(outside.status, 'fail');
+  assert.ok(outside.items.some((i) => i.ok === false && /exclude p\.7-8 is outside the scope p\.1-6/.test(i.msg)));
+});
+
 async function sampleCopy() {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
   await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
