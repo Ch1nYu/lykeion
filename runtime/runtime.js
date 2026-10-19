@@ -23,6 +23,16 @@ function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 
+/* A label copied from rendered prose must not carry the maths source with it. KaTeX writes the TeX
+   into an <annotation> beside the rendered MathML, and textContent flattens both, so a heading
+   “除以 $\sqrt{d_k}$” read as “除以 dk\sqrt{d_k}”. A label that can hold HTML keeps the rendered
+   maths and drops the annotation; a label that is only text (a toast, an aria-label) reads the
+   clean `data-title` the build wrote for it — never the TeX. */
+const dropTex = node => { const c = node.cloneNode(true); $$('annotation', c).forEach(a => a.remove()); return c; };
+const labelHtml = node => (node ? dropTex(node).innerHTML : '');
+// The rendered title of a section sits in its `.t`; a view names itself in its `h2`.
+const titleEl = el => (el && ($('.t', el) || $('h2,h1', el))) || null;
+
 /* One grid cell, every variant stacked on top of each other: switching text never changes the box
    height, so a readout or a verdict can change without the page jumping under the reader's eyes.
    show(-1) hides all variants but keeps the reserved space. */
@@ -59,6 +69,9 @@ const STR = Object.assign({
   copy: '複製程式碼', copied: '已複製到剪貼簿', copyFail: '無法自動複製，請手動選取複製'
 }, DATA.strings || {});
 const T = (k, v = {}) => STR[k].replace(/\{(\w+)\}/g, (_, x) => (x in v ? v[x] : ''));
+// A template slot that is filled with rendered HTML rather than text: `backTo` names a section, and a
+// section title may hold maths, which has to arrive as markup (see `labelHtml`).
+const LABEL = '\u0000';
 const LEVELS = DATA.levels || [];
 
 /* ================= storage ================= */
@@ -257,7 +270,7 @@ function start() {
       navQuiz = ol;
     } else {
       $$('.sec', v).forEach(sec => {
-        const a = H('a', { href: '#' + sec.id }, `<span class="dot">${CHECK}</span><span class="num">${esc(sec.dataset.num)}</span><span>${esc(sec.dataset.title)}</span>`);
+        const a = H('a', { href: '#' + sec.id }, `<span class="dot">${CHECK}</span><span class="num">${esc(sec.dataset.num)}</span><span>${labelHtml(titleEl(sec)) || esc(sec.dataset.title)}</span>`);
         navLinks[sec.id] = a;
         ol.appendChild(H('li')).appendChild(a);
       });
@@ -278,7 +291,7 @@ function start() {
     const wrap = H('div', { class: 'subs' });
     const ol = H('ol');
     heads.forEach(h => {
-      const a = H('a', { class: 'sub', href: '#' + h.id }, esc(h.textContent.trim()));
+      const a = H('a', { class: 'sub', href: '#' + h.id }, labelHtml(h));
       navLinks[h.id] = a;
       ol.appendChild(H('li')).appendChild(a);
     });
@@ -374,6 +387,7 @@ function start() {
   function showView(id, opts = {}) {
     const { view, el } = resolve('#' + String(id).replace(/^#/, ''));
     const v = setView(view.id);
+    if (el && el !== view) setCurrent(el.id, true);
     if (!opts.noScroll) scrollToEl(el, opts.instant);
     return v ? v.id : null;
   }
@@ -383,6 +397,7 @@ function start() {
   function navigate(href, opts = {}) {
     const { view, el, own } = resolve(href);
     if (own) setView(view.id);
+    if (el && el !== view) setCurrent(el.id, true);
     // A caller that scrolls itself (the quiz card) passes `noScroll`, so the page does not travel to
     // the section and then again to the card inside it.
     if (!opts.noScroll) scrollToEl(el, opts.instant);
@@ -523,7 +538,7 @@ function start() {
     if (navLinks[id]) navLinks[id].classList.add('current');
     // The top bar names the section the reader is in; a view with no section (the quiz levels, the
     // chapter index) has nothing to name, so it is cleared instead of naming the previous view's.
-    const s = document.getElementById(id); if ($('#topTitle')) $('#topTitle').textContent = s && s.dataset.num ? `§${s.dataset.num} ${s.dataset.title}` : '';
+    const s = document.getElementById(id); if ($('#topTitle')) $('#topTitle').innerHTML = s && s.dataset.num ? `§${esc(s.dataset.num)} ${labelHtml(titleEl(s)) || esc(s.dataset.title)}` : '';
     renderSubs(id);
     const heads = s ? $$('h3[id],h4[id],h5[id]', s) : [];
     heads.forEach(h => spy.observe(h));
@@ -590,7 +605,9 @@ function start() {
   const unlocked = i => i === 0 || !!(store.data.quiz[i - 1] && store.data.quiz[i - 1].passed);
   function secLink(q) {
     const s = q.sec && document.getElementById(q.sec);
-    const back = s ? `<a href="#${esc(q.sec)}">${esc(T('backTo', { n: s.dataset.num, t: s.dataset.title }))}</a>` : '';
+    // The link text is built from a template, so the title slot takes the rendered maths in place of
+    // a placeholder instead of being escaped into it.
+    const back = s ? `<a href="#${esc(q.sec)}">${esc(T('backTo', { n: s.dataset.num, t: LABEL })).replace(LABEL, labelHtml(titleEl(s)) || esc(s.dataset.title))}</a>` : '';
     const pages = q.pages ? `<span class="mono">${esc(T('pages', { p: q.pages }))}</span>` : '';
     return back || pages ? `<span class="src">${[back, pages].filter(Boolean).join('　')}</span>` : '';
   }

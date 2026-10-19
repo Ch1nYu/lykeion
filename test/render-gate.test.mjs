@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build } from '../src/build.mjs';
@@ -34,6 +34,14 @@ const renderItems = async (t, dir) => {
     return null;
   }
   return gate.items;
+};
+
+// Insert a fragment into the built page: the way to break one promise without breaking the build (a
+// stylesheet that sets text too wide, a script that labels something the way a regression would).
+const append = async (dir, fragment) => {
+  const file = join(dir, 'probe.html');
+  const html = await readFile(file, 'utf8');
+  await writeFile(file, html.replace('</body>', `${fragment}\n</body>`));
 };
 
 const find = (items, re) => items.find((i) => re.test(i.msg));
@@ -159,4 +167,50 @@ test('E3 keeps the built-in table Lab steady at both widths', async (t) => {
     assert.ok(ok, `expected the ${width} stability item, got:\n${items.map((i) => i.msg).join('\n')}`);
     assert.equal(ok.ok, true, ok.msg);
   }
+});
+
+// A label is a label: the sidebar copies the heading it names, and a heading may hold maths. Reading
+// the heading's text instead of its markup pastes the TeX source into the link, where it renders as
+// literal `\sqrt{d_k}` next to the flattened marks. The check that catches it must say which label.
+// Built from a code point, so the fragment that reaches the page has exactly one backslash.
+const TEX_RESIDUE = String.fromCharCode(92) + 'sqrt{d_k}';
+test('a sidebar label that shows TeX source fails the TeX-residue check', async (t) => {
+  const dir = await tiny('這一段正常。\n');
+  // The label is built by the runtime, so the fault is injected the way a regression would: after load,
+  // with the markup a textContent-based label would have produced.
+  await append(dir, '<script>addEventListener("load",()=>{document.getElementById("nav").insertAdjacentHTML("beforeend",' + JSON.stringify(`<a href="#s1-1">${TEX_RESIDUE}</a>`) + ');});</script>');
+  const items = await renderItems(t, dir);
+  if (!items) return;
+  const bad = find(items, /TeX shown as text/);
+  assert.ok(bad, `expected a TeX-residue item, got:\n${items.map((i) => i.msg).join('\n')}`);
+  assert.equal(bad.ok, false, 'the residue item fails');
+  assert.match(bad.msg, /a label/);
+  assert.ok(bad.msg.includes(TEX_RESIDUE), `the message quotes the residue: ${bad.msg}`);
+});
+
+// The positive side of the same promise: a `###` heading with maths reaches the sidebar as rendered
+// maths, and the gate says so instead of passing silently.
+test('a sub-heading with maths renders as maths in the sidebar', async (t) => {
+  const body = '這一段有東西。\n\n### 標準差是 $\sqrt{d_k}$\n\n內文說明。\n';
+  const dir = await tiny(body);
+  const items = await renderItems(t, dir);
+  if (!items) return;
+  const ok = find(items, /headings with maths render as maths in the sidebar/);
+  assert.ok(ok, `expected the maths-label item, got:\n${items.map((i) => i.msg).join('\n')}`);
+  assert.equal(ok.ok, true, ok.msg);
+});
+
+// Inline maths sits in a sentence: set larger than the body it makes its own line taller than the
+// paragraph's rhythm, and the text either side sits on a staircase.
+test('inline maths that towers over the line fails the line-spacing check', async (t) => {
+  const dir = await tiny('這一段有 $x$ 夾在句子裡，前後都還有字。\n');
+  await append(dir, '<style>math:not([display="block"]){font-size:2.6em}</style>');
+  const items = await renderItems(t, dir);
+  if (!items) return;
+  const bad = find(items, /grow around their inline maths/);
+  assert.ok(bad, `expected an inline-maths item, got:\n${items.map((i) => i.msg).join('\n')}`);
+  assert.equal(bad.ok, false, 'the inline-maths item fails');
+  // The message names the paragraph and both heights, so the fix ("match the body") is obvious.
+  assert.match(bad.msg, /前後都還有字/);
+  assert.match(bad.msg, /tallest line \d+(\.\d+)?px \(×\d/);
 });

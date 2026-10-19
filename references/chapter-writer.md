@@ -77,6 +77,16 @@ A custom Lab (`<project>/labs/<type>/lab.js`) puts every text that changes — a
 
 - Inline maths cannot wrap: keep `$…$` short (about 25 characters of output); put a longer expression on its own line with `$$…$$`, which scrolls on narrow screens.
 
+### Maths inside sentences
+
+Inline maths is set in a different font from the prose, so every `$…$` in a sentence is a small change of voice. Use it only where it carries maths.
+
+- **Every symbol goes in `$…$`, everywhere** — prose, `takeaway`, `note`, formula `say` and `hint`, Lab hints and verdicts, quiz items. Never type maths as plain text: no `d_k`, `x^2`, `√d`, `QKᵀ`, `\sqrt`. The `plainMath` rule fails it. (Lab slider and readout `label`s are plain text by design; keep them short and readable, e.g. `維度 d`.)
+- **Plain numbers are text, not maths**: write 「三個分數是 1、0.5、0」, not `$1$`、`$0.5$`、`$0$`. A number belongs in `$…$` only as part of an expression (`$1 - 1/n_c$`). The `numericMath` rule fails a `$…$` that is only a number.
+- **Keep inline maths small**: a symbol or a short expression. A fraction, a sum or anything with stacked parts goes on its own line (`$$…$$` or a `formula`), then the sentence after it explains it.
+- **Prefer words when the sentence is about the idea**: 「除以維度的平方根」 reads better in a takeaway than a formula; give the formula once, where it is taught.
+- Maths in a `###` heading is allowed but keep it to one short symbol; the heading also becomes a sidebar link.
+
 ## Language
 
 Traditional Chinese (Taiwan) prose; keep technical terms in English on first use, e.g. 條件機率（Conditional Probability）, then use one form consistently. TeX exactly as in a `.tex` file.

@@ -59,6 +59,28 @@ test('the literal ** guard ignores code spans, fences and maths', async () => {
   await build(dir);
 });
 
+// The plain-text label a section carries is read by toasts, the browser-facing API and the sidebar:
+// it must never hold the TeX source, and never the doubled MathML marks. A formula is flattened to
+// marks a reader can follow (`\sqrt{d_k}` reads as √(dk)) rather than to `dk\sqrt{d_k}`.
+test('a section title with maths gives a plain-text label without TeX and without doubled marks', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-maths.md'), chapter(3, 'Maths', '內文。'));
+  // Write the heading line by hand: `chapter()` puts the title in the `##` line, maths included.
+  const file = join(dir, 'content', '03-maths.md');
+  const src = await readFile(file, 'utf8');
+  await writeFile(file, src.replace('## 3.1 Maths', '## 3.1 縮放用 $\\sqrt{d_k}$'));
+  await build(dir);
+  const html = await readFile(join(dir, 'sample.html'), 'utf8');
+  const sec = /<section class="sec" id="s3-1"[\s\S]*?<\/section>/.exec(html)[0];
+  const title = /data-title="([^"]*)"/.exec(sec)[1];
+  assert.doesNotMatch(title, /\$|\\/, `the label must not carry TeX: ${title}`);
+  assert.doesNotMatch(title, /dk\\?sqrt/, `the label must not double the marks: ${title}`);
+  // The radical survives as a mark a reader (or a screen reader) can follow.
+  assert.match(title, /√\(dk\)/);
+  // The visible title still holds the rendered formula, so the page and its label cannot disagree.
+  assert.match(sec, /<span class="t">縮放用 <span class="katex"><math/);
+});
+
 // ---------- code listings ----------
 // A listing is a first-class part of the format: a plain fenced block with a language, an optional
 // caption from `title="…"`, and no syntax highlighting (Lecture Sites must work offline).
@@ -216,7 +238,9 @@ test('the teaching record counts visible words, not maths or YAML keys', async (
   assert.deepEqual(blocks.map((b) => b.kind), ['analogy', 'formula-parts', 'p', 'takeaway']);
   // The three `say` sentences plus the `hint`, and nothing else: not `tex:`, not `parts:`, not the TeX.
   assert.equal(blocks[1].chars, charCount(says.join('') + hint));
-  assert.ok(!blocks[1].text, 'a parts formula carries no prose for the lexicon to read');
+  // The `say` sentences *are* prose a rule must read (task E): they are where a formula is explained,
+  // and a rule that skipped them would miss a page reference typed inside an explanation.
+  assert.equal(blocks[1].text, [...says, hint].join(' '));
   assert.equal(blocks[0].text, '抽一顆、放回去，再抽一顆。');
   assert.equal(blocks[3].text, '集中度越高，Gini 越小。');
 });

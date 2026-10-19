@@ -89,6 +89,8 @@ verdict:
 
 二項分布有兩個好用的封閉式：$E[X] = np$，$\operatorname{Var}(X) = np(1-p)$。$p$ 越接近 0.5，分布越扁。
 
+### 標準差是 $\sqrt{\operatorname{Var}(X)}$
+
 ```lab curve
 tag: LAB D
 title: 拉動 n，看二項分布怎麼變寬

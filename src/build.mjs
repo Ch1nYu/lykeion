@@ -4,7 +4,7 @@ import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { createMarkdown, tex, fenceInfo, headingIds } from './markdown.mjs';
-import { plainText, charCount, TEXTY, loadTeachingConfig } from './teaching.mjs';
+import { plainText, charCount, isTexty, loadTeachingConfig } from './teaching.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
 import { projectMathSource, applyProjectMath } from './mathlib.mjs';
 import { parsePages } from './verify.mjs';
@@ -84,8 +84,9 @@ export async function build(dir, opts = {}) {
       teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, blocks: collectBlocks(tokens) });
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
-      out += `<section class="sec" id="${esc(sec.id)}" data-num="${esc(sec.num)}" data-title="${esc(sec.title)}" data-pages="${esc(sec.pages || '')}">\n`
-        + `<h3><span class="sn">§${esc(sec.num)}</span><span class="t">${inlineTitle(sec.title, errors, where)}</span></h3>${pages}\n`
+      const titleHtml = inlineTitle(sec.title, errors, where);
+      out += `<section class="sec" id="${esc(sec.id)}" data-num="${esc(sec.num)}" data-title="${esc(labelText(titleHtml))}" data-pages="${esc(sec.pages || '')}">\n`
+        + `<h3><span class="sn">§${esc(sec.num)}</span><span class="t">${titleHtml}</span></h3>${pages}\n`
         + `<div class="prose">${body}</div>\n<div class="sec-end"></div>\n</section>\n`;
     }
     if (chLevels.length) {
@@ -224,6 +225,40 @@ function inlineTitle(t, errors, where) {
   return esc(t).replace(/\$([^$]+)\$/g, (_, x) => tex(x, false, errors, where));
 }
 
+// The plain text of a rendered title, for the places that can only hold text (a `data-title`, which the
+// sidebar's toast and the browser-facing API read, and an aria-label). KaTeX keeps the TeX source in an
+// <annotation> and lays the visible formula out as MathML, so flattening the HTML naively reads
+// “除以 dk\sqrt{d_k}” — both the doubled marks and the source. Drop the annotation and let the marks
+// speak: `msqrt` reads “√(…)” and a fraction joins its two halves with a slash.
+function labelText(html) {
+  const parts = String(html || '').split(/(<\/?[a-z][^>]*>)/i);
+  const frac = [];
+  let out = '', annotation = 0, math = 0;
+  for (const part of parts) {
+    if (!part) continue;
+    if (part[0] === '<') {
+      const m = /^<\/?([a-z][a-z0-9]*)/i.exec(part);
+      if (!m) continue;
+      const tag = m[1].toLowerCase(), close = part[1] === '/';
+      if (tag === 'annotation') { annotation += close ? -1 : 1; continue; }
+      if (!annotation && (tag === 'math' || tag === 'semantics')) { math += close ? -1 : 1; continue; }
+      if (annotation || !math) continue;            // outside maths the tags are markup, its text stays
+      if (tag === 'msqrt') { out += close ? ')' : '√('; continue; }
+      if (tag === 'mfrac') { if (!close) frac.push({ rows: 0 }); else frac.pop(); continue; }
+      if (tag === 'mrow' && frac.length && close) {
+        const f = frac[frac.length - 1];
+        f.rows += 1;
+        if (f.rows === 1) out += '/';
+        continue;
+      }
+      continue;
+    }
+    if (annotation) continue;
+    out += part;
+  }
+  return out.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+}
+
 function renderHero(project, chapters, errors) {
   const h = project.hero;
   const toc = chapters.map((ch) => {
@@ -238,16 +273,44 @@ function renderHero(project, chapters, errors) {
 // is made of: the tokens are already parsed for rendering, so this walks them instead of re-parsing
 // the HTML. `chars` is what a reader actually reads — no whitespace, no maths (a formula's characters
 // are not prose the gate should count, and `$$…$$` has already been lifted out of the paragraphs).
-// `text` is kept for the kinds the gate reads as sentences (lexicon, page references).
+// `text` is the same words as a sentence, kept for the kinds the gate reads (lexicon, page references,
+// maths typed as text), and `math` lists the inline maths sources the block does carry, so a rule can
+// tell `$0$` (a number in maths) from `$1 - 1/n_c$` (an expression).
+
+// The words of a `$…$` or `$$…$$` span in a string that is not a token stream (a Lab's params, a
+// formula's `say`) — the other half of `plainText`, which drops them.
+const MATH_SRC = /\$\$([\s\S]+?)\$\$|\$([^$\n]+)\$/g;
+export const mathsIn = (s) => [...String(s ?? '').matchAll(MATH_SRC)].map((m) => (m[1] ?? m[2]).trim()).filter(Boolean);
+
+// What a Lab says in prose: its own `hint`, plus the `text`/`note` sentences inside its steps and
+// chips, and its verdicts. A `label` is exempt — a slider or readout label is plain text by design,
+// so "P(B)" written there is a label, not maths typed as text.
+const LAB_TEXT_KEYS = new Set(['hint', 'text', 'note']);
+function labText(params) {
+  const out = [];
+  const walk = (v) => {
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (!v || typeof v !== 'object') return;
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === 'string') { if (LAB_TEXT_KEYS.has(k)) out.push(val); } else walk(val);
+    }
+  };
+  walk(params);
+  return out.join(' ');
+}
 
 function collectBlocks(tokens) {
   const blocks = [];
   // How many list levels deep the walk is; a paragraph at depth > 0 belongs to a list item.
   let listDepth = 0;
-  const push = (kind, text = '') => {
-    const t = TEXTY.has(kind) ? plainText(text) : '';
+  // `gateText` is the prose the rules read when it differs from what `chars` counts (a Lab's sentences
+  // are words the reader reads, but they are not prose of the section and must not count as a run).
+  const push = (kind, text = '', gateText = null, maths = []) => {
     const b = { kind, chars: charCount(text) };
+    const t = isTexty(kind) ? plainText(gateText ?? text) : '';
     if (t) b.text = t;
+    const m = [...new Set(maths.filter(Boolean))];
+    if (m.length) b.math = m;
     blocks.push(b);
   };
   // Fence tokens carry their info string; the custom blocks are named there.
@@ -263,34 +326,52 @@ function collectBlocks(tokens) {
     return 'code';
   };
   // The visible words of a table are its cells; its pipes and dashes are layout.
-  const tableText = (at) => {
-    const parts = [];
-    for (let i = at + 1; i < tokens.length && tokens[i].type !== 'table_close'; i++) if (tokens[i].type === 'inline') parts.push(inlineText(tokens[i]));
-    return parts.join(' ');
+  const tableSplit = (at) => {
+    const parts = [], math = [];
+    for (let i = at + 1; i < tokens.length && tokens[i].type !== 'table_close'; i++) {
+      if (tokens[i].type !== 'inline') continue;
+      const s = inlineSplit(tokens[i]);
+      parts.push(s.text); math.push(...s.math);
+    }
+    return { text: parts.join(' '), math };
   };
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
     switch (t.type) {
       case 'fence': {
         const kind = fenceKind(t);
-        // A formula's own characters are maths, not prose; only a parts formula carries words.
-        if (kind === 'erratum') push(kind, String(parseYamlText(t.content).text || ''));
-        else if (kind === 'formula-parts') push(kind, formulaPartsText(t.content));
-        else if (kind) push(kind, kind.startsWith('lab:') || kind === 'formula' ? '' : t.content);
+        // A formula's own characters are maths, not prose; only a parts formula carries words, and a
+        // Lab's words live in its params rather than in its body.
+        if (kind === 'erratum') { const txt = String(parseYamlText(t.content).text || ''); push(kind, txt, txt, mathsIn(txt)); }
+        else if (kind === 'formula-parts') { const txt = formulaPartsText(t.content); push(kind, txt, txt, mathsIn(txt)); }
+        else if (kind && kind.startsWith('lab:')) { const txt = labText(parseYamlText(t.content)); push(kind, '', txt, mathsIn(txt)); }
+        else if (kind === 'formula') push(kind, '', '');
+        else if (kind) push(kind, t.content, null, mathsIn(t.content));
         break;
       }
       case 'math_block': push('display-math'); break;
       // The gate's vocabulary stops at h4; a deeper heading still breaks a prose run, so it counts as one.
-      case 'heading_open': push(t.tag === 'h3' ? 'h3' : 'h4', inlineText(tokens[i + 1])); break;
-      case 'table_open': push('table', tableText(i)); break;
+      case 'heading_open': {
+        const s = inlineSplit(tokens[i + 1]);
+        push(t.tag === 'h3' ? 'h3' : 'h4', s.text, null, s.math);
+        break;
+      }
+      case 'table_open': { const s = tableSplit(i); push('table', s.text, null, s.math); break; }
       // A paragraph inside a list item is part of that list: the list block already carries its words,
       // so recording it again would report the same sentence twice (once as `list`, once as `p`).
-      case 'paragraph_open': if (!listDepth) push('p', inlineText(tokens[i + 1])); break;
+      case 'paragraph_open': {
+        if (listDepth) break;
+        const s = inlineSplit(tokens[i + 1]);
+        push('p', s.text, null, s.math);
+        break;
+      }
       case 'bullet_list_open':
-      case 'ordered_list_open':
-        push('list', listText(tokens, i));
+      case 'ordered_list_open': {
+        const s = listSplit(tokens, i);
+        push('list', s.text, null, s.math);
         listDepth++;
         break;
+      }
       case 'bullet_list_close':
       case 'ordered_list_close':
         listDepth = Math.max(0, listDepth - 1);
@@ -313,15 +394,22 @@ function formulaPartsText(src) {
   return [...says, String(v.hint || '')].join(' ');
 }
 
-// The text of an inline token: its children, minus maths (which the gate must not count as prose).
-function inlineText(t) {
-  if (!t || t.type !== 'inline') return '';
-  return t.children.map((c) => (c.type === 'math_inline' ? '' : c.type === 'softbreak' || c.type === 'hardbreak' ? ' ' : c.content || '')).join('');
+// The text of an inline token: its children, minus maths (which the gate must not count as prose) — and
+// the maths it does carry, so a rule can see that the block writes `$0$` where it should write `0`.
+function inlineSplit(t) {
+  if (!t || t.type !== 'inline') return { text: '', math: [] };
+  const math = [];
+  const text = t.children.map((c) => {
+    if (c.type === 'math_inline') { math.push(c.content.trim()); return ''; }
+    return c.type === 'softbreak' || c.type === 'hardbreak' ? ' ' : c.content || '';
+  }).join('');
+  return { text, math };
 }
+const inlineText = (t) => inlineSplit(t).text;
 
 // A list is one block: every item's text, so the gate can read it as a sentence run.
-function listText(tokens, at) {
-  const parts = [];
+function listSplit(tokens, at) {
+  const parts = [], math = [];
   // Count nesting so a sub-list inside an item does not end the outer list early.
   let depth = 0;
   for (let i = at; i < tokens.length; i++) {
@@ -330,9 +418,12 @@ function listText(tokens, at) {
     else if (type === 'bullet_list_close' || type === 'ordered_list_close') {
       depth--;
       if (!depth) break;
-    } else if (type === 'inline') parts.push(inlineText(tokens[i]));
+    } else if (type === 'inline') {
+      const s = inlineSplit(tokens[i]);
+      parts.push(s.text); math.push(...s.math);
+    }
   }
-  return parts.join(' ');
+  return { text: parts.join(' '), math };
 }
 
 // ---------- custom fenced blocks ----------
@@ -474,7 +565,7 @@ function addQuiz(items, levelArg, ctx, md) {
     const inl = (s) => { const c = { ...ctx, where: w }; return createMarkdown(c).renderInline(String(s)); };
     // The gate reads quiz text as body text: a page reference or a filler phrase is as bad in a
     // question as in a paragraph, and this is the only place the plain strings still exist.
-    ctx.quizText.push({ where: w, q: plainText(q.q), o: (Array.isArray(q.o) ? q.o : []).map(plainText), ex: plainText(q.ex) });
+    ctx.quizText.push({ where: w, q: plainText(q.q), o: (Array.isArray(q.o) ? q.o : []).map(plainText), ex: plainText(q.ex), math: [...mathsIn(q.q), ...(Array.isArray(q.o) ? q.o : []).flatMap(mathsIn), ...mathsIn(q.ex)] });
     const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: quizSection(q, ctx, w), pages: q.pages || ctx.sec.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);

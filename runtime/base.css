@@ -219,6 +219,12 @@ kbd{font-family:var(--f-mono)}
 /* formulas: MathML rendered at build time. The maths face is the one place a fourth token is allowed,
    and only on `math` itself — see test/typography.test.mjs. */
 math{font-family:var(--f-math)}
+/* Inline maths shares a line with the body text, so it is matched to it rather than to the maths face's
+   own em: the maths font sets a taller x-height at the same size, which pushed the line box open and
+   made a paragraph with a formula look loose. A tiny inline margin keeps it off the CJK punctuation
+   either side; display maths keeps its own size. */
+math:not([display="block"]){font-size:.94em; line-height:1; margin-inline:.08em; vertical-align:baseline}
+math[display="block"]{margin-inline:0}
 /* Chromium sets stretchy over/underlines flush against the glyph (\overline{X} looks like X); give them room. */
 math mover[accent="true"] > mo[stretchy="true"]:last-child{padding-bottom:.18em}
 math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18em}

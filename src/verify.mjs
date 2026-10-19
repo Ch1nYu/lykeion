@@ -260,13 +260,22 @@ async function renderGate(htmlPath) {
       : `skip link is not a working first Tab stop: first Tab focused ${firstStop.tag}${firstStop.cls ? '.' + firstStop.cls.split(' ')[0] : ''}${firstStop.isSkip ? ' (not visible while focused)' : ''}, Enter left focus on ${landed.tag}${landed.id ? '#' + landed.id : ''}${landed.inMain ? '' : ' (outside main)'}`);
 
     const stats = await page.evaluate(() => {
+      // Maths that stayed as text anywhere the reader can see it: the prose, but also every label the
+      // runtime derives from a heading — the sidebar, the top bar, the drawer, the pager, a toast.
+      // KaTeX's own MathML is skipped: its <annotation> holds the TeX on purpose.
+      const TEX_RESIDUE = /\$[^$\s][^$]*\$|\\[A-Za-z]{2,}|_\{|\^\{/;
+      const regionOf = (el) => (el.closest('#nav, #side, #topbar, .pager, #toast, .hero') ? 'a label' : 'body text');
       const unrendered = [];
-      const walker = document.createTreeWalker(document.querySelector('main'), NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) => (n.parentElement.closest('code,pre,script,style,math,.lab-params') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => {
+          if (n.parentElement.closest('code,pre,script,style,math,.lab-params,.sr-only')) return NodeFilter.FILTER_REJECT;
+          return n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
       });
       while (walker.nextNode()) {
-        const t = walker.currentNode.textContent;
-        if (/\$[^$\s][^$]*\$|\\(frac|times|sum|text|mathrm|alpha|beta|sigma|le|ge|cdot)\b/.test(t)) unrendered.push(t.trim().slice(0, 80));
+        const n = walker.currentNode;
+        const m = TEX_RESIDUE.exec(n.nodeValue);
+        if (m) unrendered.push(`${regionOf(n.parentElement)}: “${n.nodeValue.trim().replace(/\s+/g, ' ').slice(0, 60)}” (${m[0]})`);
       }
       const badLinks = [...document.querySelectorAll('a[href^="#"]')].map((a) => a.getAttribute('href')).filter((h) => h.length > 1 && !document.getElementById(decodeURIComponent(h.slice(1))));
       return {
@@ -280,7 +289,7 @@ async function renderGate(htmlPath) {
       };
     });
     add(stats.texErrors === 0, `${stats.math} formulas rendered as MathML; ${stats.texErrors} TeX errors`);
-    add(stats.unrendered.length === 0, stats.unrendered.length ? `unrendered TeX in text: ${stats.unrendered.slice(0, 5).map((s) => `“${s}”`).join(', ')}` : 'no unrendered TeX in body text');
+    add(stats.unrendered.length === 0, stats.unrendered.length ? `TeX shown as text: ${[...new Set(stats.unrendered)].slice(0, 5).join('; ')}` : 'no TeX residue in any visible text (prose, sidebar, top bar, pager, toast)');
     add(stats.badLinks.length === 0, stats.badLinks.length ? `broken in-page links: ${[...new Set(stats.badLinks)].join(', ')}` : 'all in-page links resolve');
     add(stats.shown.length === 1, `${stats.views.length} views (${stats.views.map((v) => v.id).join(', ')}), exactly one shown at a time (${stats.shown.join(', ') || 'none'})`);
 
@@ -427,7 +436,62 @@ async function renderGate(htmlPath) {
           if (!why.length) continue;
           parts.push({ label: f.dataset.label || name(f), why: why.slice(0, 2).join('; ') });
         }
-        return { id, fonts, owners, rhythm, paragraphs, stacks, parts, partBlocks, pieces };
+        // Inline maths must read as part of the sentence: a formula set larger than the body makes its
+        // line taller than the paragraph's own rhythm, so the text either side sits on uneven lines.
+        // Each line's height is the union of the ink boxes on it (text runs and the maths itself),
+        // measured with Ranges — a display-style fraction is the one shape allowed to be taller.
+        const inline = [];
+        let inlineParas = 0;
+        for (const p of view.querySelectorAll('.prose p')) {
+          const maths = [...p.querySelectorAll('math:not([display="block"])')];
+          if (!maths.length || !p.getClientRects().length) continue;
+          inlineParas++;
+          const cs = getComputedStyle(p);
+          const normal = cs.lineHeight === 'normal' ? (parseFloat(cs.fontSize) || 16) * 1.2 : parseFloat(cs.lineHeight);
+          const boxes = [];
+          const range = document.createRange();
+          range.selectNodeContents(p);
+          for (const r of range.getClientRects()) boxes.push({ top: r.top, bottom: r.bottom });
+          for (const m of maths) for (const r of m.getClientRects()) boxes.push({ top: r.top, bottom: r.bottom });
+          boxes.sort((a, b) => a.top - b.top || a.bottom - b.bottom);
+          const lines = [];
+          for (const b of boxes) {
+            const line = lines.find((l) => b.top < l.bottom - 1 && b.bottom > l.top + 1);
+            if (line) { line.top = Math.min(line.top, b.top); line.bottom = Math.max(line.bottom, b.bottom); }
+            else lines.push({ ...b });
+          }
+          const tall = Math.max(0, ...lines.map((l) => l.bottom - l.top));
+          const fraction = !!p.querySelector('math mfrac');
+          const limit = normal * (fraction ? 2.2 : 1.15);
+          if (tall <= limit) continue;
+          inline.push({ sel: name(p), tall: Math.round(tall * 10) / 10, normal: Math.round(normal * 10) / 10, ratio: Math.round((tall / normal) * 100) / 100, fraction, text: (p.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 28) });
+        }
+
+        // A heading with maths must reach its label as rendered maths: the sidebar copies the heading,
+        // and reading its textContent would paste the TeX source and the flattened marks into the link.
+        // Both kinds of label are checked — a section's own title and a `###` sub-heading.
+        const mathsTitles = [];
+        const probeTitle = (titleEl, kind, id) => {
+          if (!titleEl || !titleEl.querySelector('math')) return;
+          const link = document.querySelector(`#nav a[href="#${id}"]`);
+          mathsTitles.push({ id, kind, link: !!link, rendered: !!link && !!link.querySelector('math'), text: link ? (link.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) : '' });
+        };
+        for (const sec of view.querySelectorAll('.sec')) {
+          // The sidebar lists a section's sub-headings only while the reader is in that section, so the
+          // probe walks in the way a reader does: click the section's link and let the scroll land.
+          const heads = [...sec.querySelectorAll('h3[id],h4[id],h5[id]')].filter((h) => h.parentElement !== sec || h.tagName !== 'H3');
+          const own = sec.querySelector('.t');
+          if (!(own && own.querySelector('math')) && !heads.some((h) => h.querySelector('math'))) continue;
+          const link = document.querySelector(`#nav a[href="#${sec.id}"]`);
+          if (link) {
+            link.click();
+            for (let k = 0; k < 12 && !heads.every((h) => document.querySelector(`#nav a[href="#${h.id}"]`)); k++) await new Promise((r) => setTimeout(r, 50));
+          }
+          probeTitle(own, 'section', sec.id);
+          for (const h of heads) probeTitle(h, 'sub', h.id);
+        }
+
+        return { id, fonts, owners, rhythm, paragraphs, stacks, parts, partBlocks, pieces, inline, inlineParas, mathsTitles };
       }, v.id));
     }
 
@@ -460,6 +524,19 @@ async function renderGate(htmlPath) {
     add(partBad.length === 0, partBad.length
       ? `${partBad.length} formula-parts blocks move or show the wrong number of explanations: ${partBad.slice(0, 5).map((p) => `${p.view} “${p.label}” ${p.why}`).join('; ')}`
       : `${partBlocks} formula-parts blocks keep their height across ${pieceCount} pieces and show exactly one explanation each`);
+
+    // Inline maths — the paragraph's line boxes stay level, and a maths title reaches the sidebar as maths.
+    const inlineBad = perView.flatMap((t) => t.inline.map((p) => ({ ...p, view: t.id })));
+    const inlineParas = perView.reduce((n, t) => n + t.inlineParas, 0);
+    add(inlineBad.length === 0, inlineBad.length
+      ? `${inlineBad.length} paragraphs grow around their inline maths: ${inlineBad.slice(0, 5).map((p) => `${p.view} ${p.sel} “${p.text}” tallest line ${p.tall}px (×${p.ratio} of the ${p.normal}px line${p.fraction ? ', display-style fraction' : ''})`).join('; ')}`
+      : `${inlineParas} paragraphs with inline maths keep their line spacing`);
+
+    const titles = perView.flatMap((t) => t.mathsTitles);
+    const titlesBad = titles.filter((t) => !t.link || !t.rendered || /[\\$]/.test(t.text));
+    add(titlesBad.length === 0, titlesBad.length
+      ? `${titlesBad.length} headings with maths do not reach the sidebar as rendered maths: ${titlesBad.slice(0, 5).map((t) => `#${t.id} (${t.kind}) ${t.link ? (t.rendered ? `shows “${t.text}”` : `shows “${t.text}” without the formula`) : 'has no sidebar link'}`).join('; ')}`
+      : titles.length ? `${titles.length} headings with maths render as maths in the sidebar` : 'no heading carries maths');
     for (const lab of stats.labs) {
       await showView(lab.view);
       const res = await page.evaluate(async (id) => {

@@ -15,9 +15,10 @@ export const LEXICON_PATH = join(ROOT, 'references', 'style-lexicon.json');
 
 // Block kinds that carry prose the reader reads as sentences.
 export const PROSE = new Set(['p', 'list']);
-// Kinds whose text the lexicon and the page-reference check read. The build imports this, so the
-// two sides cannot disagree about which blocks carry sentences.
-export const TEXTY = new Set(['p', 'list', 'note', 'callout', 'analogy', 'takeaway']);
+// Kinds whose text the lexicon, the page-reference and the plain-maths rules read. A Lab counts by its
+// `lab:` prefix: its `hint`, `text`, `note` and verdict lines are sentences the reader reads.
+export const TEXTY = new Set(['p', 'list', 'note', 'callout', 'analogy', 'takeaway', 'formula-parts', 'erratum']);
+export const isTexty = (kind) => TEXTY.has(kind) || String(kind || '').startsWith('lab:');
 // The kinds `minBlockKinds` counts, with `lab:<type>` folded to `lab` so a Lab is one kind.
 const kindFamily = (kind) => (kind.startsWith('lab:') ? 'lab' : kind);
 export const BLOCK_KINDS = ['analogy', 'takeaway', 'note', 'callout', 'formula', 'formula-parts', 'lab', 'table', 'code'];
@@ -107,7 +108,7 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
 
   const where = (s) => `${s.file}${s.num ? ` §${s.num}` : ''}`;
   const blocksOf = (s) => s.blocks || [];
-  const textBlocks = (s) => blocksOf(s).filter((b) => TEXTY.has(b.kind) && b.text);
+  const textBlocks = (s) => blocksOf(s).filter((b) => isTexty(b.kind) && b.text);
   // Spec: every failure names file, section and a short excerpt. A rule that fires on a block with no
   // words of its own (a formula, a heading, a Lab) quotes the prose nearest to it instead — the
   // sentence before it, else the section's first sentence, else the section title.
@@ -262,6 +263,52 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
       }
     }
     report('lexicon', failures, `no entry of style-lexicon.json matches (${lexicon.length} entries)`);
+  }
+
+  // 9. plainMath — maths typed as text: it renders with its underscores and carets showing, so the
+  //    reader sees `√d_k` where the site shows `√(d_k)`. The patterns are data (every subject types
+  //    maths differently); anything inside `$…$` has already been lifted out of `text`, which is why
+  //    only the typed-in-plain form is left to find.
+  const plainMathRule = rules.plainMath;
+  const plainMath = plainMathRule && plainMathRule !== false ? compile(plainMathRule.patterns, plainMathRule.flags || '') : [];
+  {
+    const failures = [];
+    const scan = (text, label, s) => {
+      // One failure per field: a sentence that types `√d_k` matches both the radical and the subscript
+      // pattern, and reporting it twice sends the agent to the same line twice.
+      for (const re of plainMath) {
+        re.lastIndex = 0;
+        const m = re.exec(text);
+        if (!m) continue;
+        failures.push({ msg: `${label}: “${excerpt(text, m.index)}” types the maths in plain text (“${m[0]}”) — write it as $…$ so it renders${s ? quote(s) : ''}` });
+        return;
+      }
+    };
+    for (const s of sections) for (const b of textBlocks(s)) scan(b.text, `${where(s)} ${b.kind}`, s);
+    for (const q of quiz) {
+      scan(q.q || '', `${q.where} question`);
+      (q.o || []).forEach((o, i) => scan(o, `${q.where} option ${i + 1}`));
+      scan(q.ex || '', `${q.where} explanation`);
+    }
+    report('plainMath', failures, plainMath.length ? 'no maths typed as plain text' : 'rule disabled');
+  }
+
+  // 10. numericMath — a lone number set as maths. It inherits the maths font, the maths size and the
+  //     maths baseline, so it sits in the sentence like a foreign word: `0.5` typed as text matches
+  //     the body, `$0.5$` does not. Numbers inside a real expression are maths and pass.
+  const numericRule = rules.numericMath;
+  const numericIgnore = numericRule && numericRule !== false ? new RegExp(String(numericRule.ignore || ''), 'g') : null;
+  if (numericIgnore) {
+    const failures = [];
+    const scan = (srcs, label, s) => {
+      for (const src of [].concat(srcs || [])) {
+        if (String(src).replace(numericIgnore, '').length) continue;
+        failures.push({ msg: `${label}: “$${src}$” is a lone number set as maths — write it as plain text so it matches the body${s ? quote(s) : ''}` });
+      }
+    };
+    for (const s of sections) for (const b of blocksOf(s)) scan(b.math, `${where(s)} ${b.kind}`, s);
+    for (const q of quiz) scan(q.math, q.where);
+    report('numericMath', failures, 'every number in maths is part of an expression');
   }
 
   const bad = items.filter((i) => i.ok === false).length;

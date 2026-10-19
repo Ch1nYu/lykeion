@@ -308,6 +308,120 @@ test('a list is one block, so a page reference inside it is reported once', asyn
   assert.match(refs[0].msg, /§1\.1 list:/, 'the block that owns the text is named as a list');
 });
 
+// ---------- plainMath ----------
+// Each entry is one shape of maths typed as text: the rule's whole job is to find all five, so one
+// test per pattern is only worth its name if the gate fails on that shape and passes the same
+// sentence with the maths set properly.
+test('plainMath fails every shape of maths typed as plain text and passes the same words set as maths', async () => {
+  const shapes = [
+    ['注意力用 √d_k 縮放。', /d_k/],
+    ['寫成 \\sqrt{d} 才是根號。', /\\sqrt/],
+    ['答案 x^2 是平方。', /x\^2/],
+    ['矩陣 QKᵀ 乘上 V。', /Kᵀ/],
+    ['第 x_{i} 項。', /x_\{/],
+  ];
+  for (const [text, hit] of shapes) {
+    const g = run([sec([para(text)])]);
+    assert.equal(g.status, 'fail', `expected a failure for “${text}”`);
+    const fails = ruleFailures(g, 'plainMath');
+    assert.equal(fails.length, 1, `one failure for “${text}”, got: ${fails.map((f) => f.msg).join(' | ')}`);
+    assert.match(fails[0].msg, hit);
+    // The fix instruction: name the block, quote the sentence, say what to write instead.
+    assert.match(fails[0].msg, /01-a\.md §1\.1 p:/);
+    assert.match(fails[0].msg, /write it as \$…\$/);
+  }
+
+  // The same words with the maths in `$…$` are already rendered, so the record carries no maths and the
+  // rule has nothing to report. (The build strips maths out of `text`; this is that contract.)
+  const ok = run([sec([para('注意力用縮放讓內積不要太大。'), para('答案是一個平方。')])]);
+  assert.equal(ok.status, 'pass');
+  assert.match(ruleItems(ok, 'plainMath')[0].msg, /no maths typed as plain text/);
+
+  // Quiz stems, options and explanations are body text, so a typed-in vector is caught there too.
+  const quiz = run([sec([para('正常的一段。')])], { quiz: [{ where: '01-a.md §1.1 quiz #1', q: '算 √d_k', o: ['1', 'QKᵀ'], ex: '記得 x^2。' }] });
+  const qFails = ruleFailures(quiz, 'plainMath');
+  assert.equal(qFails.length, 3, `one failure per quiz field, got: ${qFails.map((f) => f.msg).join(' | ')}`);
+  assert.match(qFails.map((f) => f.msg).join(' '), /question/);
+  assert.match(qFails.map((f) => f.msg).join(' '), /option 2/);
+  assert.match(qFails.map((f) => f.msg).join(' '), /explanation/);
+});
+
+// ---------- numericMath ----------
+// A lone number set as maths inherits the maths face, size and baseline, so it reads as a foreign word
+// in the sentence. A number inside a real expression is maths and must pass.
+test('numericMath fails a lone number set as maths and passes numbers inside an expression', async () => {
+  const lone = ['0', '0.5', '-1', '1{,}000', '90\\%'];
+  for (const src of lone) {
+    const g = run([sec([{ kind: 'p', chars: 4, text: '機率是這樣。', math: [src] }])]);
+    assert.equal(g.status, 'fail', `expected a failure for $${src}$`);
+    const fails = ruleFailures(g, 'numericMath');
+    assert.equal(fails.length, 1, `one failure for $${src}$, got: ${fails.map((f) => f.msg).join(' | ')}`);
+    assert.match(fails[0].msg, /is a lone number set as maths/);
+    assert.match(fails[0].msg, /§1\.1 p:/);
+  }
+
+  const expressions = ['1 - 1/n_c', '\\binom{n}{k}', 'E[X] = np', '2^{k-1}', 'P(A \\mid B)'];
+  const g = run([sec([{ kind: 'p', chars: 4, text: '每一個都是真的式子。', math: expressions }])]);
+  assert.equal(g.status, 'pass', g.items.filter((i) => i.ok === false).map((i) => i.msg).join('\n'));
+  assert.match(ruleItems(g, 'numericMath')[0].msg, /every number in maths is part of an expression/);
+});
+
+// Both rules are configuration, not code: a project can switch one off or change what counts as a
+// number without touching the gate.
+test('a project can switch plainMath off and widen what numericMath ignores', async () => {
+  const typed = [sec([para('注意力用 √d_k 縮放。')])];
+  const off = await loadTeachingConfig({ plainMath: false });
+  const g = run(typed, { config: off });
+  assert.equal(g.status, 'pass');
+  assert.match(ruleItems(g, 'plainMath')[0].msg, /rule disabled/);
+
+  // Ignoring a letter makes `np` a “number” too — the point is that the list lives in JSON, so a
+  // subject that writes numbers differently can say so.
+  const wide = await loadTeachingConfig({ numericMath: { ignore: '\\s|\\d|[+\\-.,%$]|[{}]|[A-Za-z]' } });
+  const num = run([sec([{ kind: 'p', chars: 4, text: '式子。', math: ['np'] }])], { config: wide });
+  assert.equal(num.status, 'fail');
+  assert.match(ruleFailures(num, 'numericMath')[0].msg, /\$np\$/);
+});
+
+// ---------- what the record carries for these two rules ----------
+test('the teaching record keeps each block’s words and the maths it sets, and leaves Lab labels alone', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Maths probe', output: 'probe.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  await mkdir(join(dir, 'labs', 'grow'), { recursive: true });
+  await writeFile(join(dir, 'labs', 'grow', 'lab.js'), 'export function mount(el, api, p) { el.textContent = p.hint || ""; }\n');
+  const body = [
+    '---', 'chapter: 1', 'title: Maths', 'short: maths', 'source: sample.pdf', '---', '',
+    '## 1.1 式子 {pages=1}', '',
+    '這一段有 $0.5$ 與 $1 - 1/n_c$ 兩個數字。', '',
+    '```formula GINI', "tex: 'G = 1'", 'parts:', "  - { tex: 'G', say: '左邊是 $0$ 的化身。' }", "  - { tex: ' = 1', say: '右邊是 $1 - 1/n_c$。' }", '```', '',
+    '```lab grow', 'tag: LAB A', 'title: 一個 Lab', 'hint: 看 $E[X]$ 怎麼動。', 'label: d_k', '', 'note: 記得 QKᵀ 不對稱。', '```', '',
+  ].join('\n');
+  await writeFile(join(dir, 'content', '01-maths.md'), body);
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const blocks = checks.teaching.sections[0].blocks;
+  const p = blocks.find((b) => b.kind === 'p');
+  const parts = blocks.find((b) => b.kind === 'formula-parts');
+  const lab = blocks.find((b) => b.kind === 'lab:grow');
+  // `text` is the prose with the maths taken out — a rule that reads it must not see rendered formulas.
+  assert.equal(p.text, '這一段有 與 兩個數字。');
+  assert.deepEqual(p.math, ['0.5', '1 - 1/n_c']);
+  // A parts formula carries its `say` sentences, and the maths inside them stays visible to the rules.
+  assert.match(parts.text, /左邊是 的化身。/);
+  assert.deepEqual(parts.math, ['0', '1 - 1/n_c']);
+  // A Lab's `hint` and `note` are sentences the rules read; its `label` is a label by design.
+  assert.match(lab.text, /看 怎麼動。/);
+  assert.match(lab.text, /記得 QKᵀ 不對稱。/);
+  assert.doesNotMatch(lab.text, /d_k/);
+  assert.deepEqual(lab.math, ['E[X]']);
+
+  // Which is exactly what the gate then says about it.
+  const g = teachingGate(checks.teaching, {}, defaults);
+  assert.match(ruleFailures(g, 'plainMath')[0].msg, /QKᵀ/);
+  assert.match(ruleFailures(g, 'numericMath')[0].msg, /\$0\.5\$/);
+});
+
 // ---------- end to end ----------
 test('the sample project builds and its teaching gate passes', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));

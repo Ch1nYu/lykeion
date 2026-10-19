@@ -92,6 +92,10 @@ Section body in Markdown.
 
 The build rejects a parts formula whose pieces, joined with whitespace removed, do not spell `tex`, one with fewer than `formulaParts.minExplained` explained parts, and any piece that is not valid TeX — so a breakdown can never drift from the formula it explains.
 
+- Maths in a heading (`## 3.1 縮放用 $\sqrt{d_k}$`, `### 除以 $\sqrt{d_k}$`) reaches the sidebar, the top bar and the pager as rendered maths: a label copies the heading's markup, not its text, so the TeX source never appears next to the marks. The plain-text label the runtime keeps for toasts and `Lykeion.views()` flattens the formula to marks (`√(dk)`), never `dk\sqrt{d_k}`.
+- A number is not a formula: `$0.5$` inherits the maths face and baseline and reads as a word from another language, so write numbers as text and keep `$…$` for expressions. The `teaching` gate enforces this (`numericMath`), and also fails maths typed as plain text (`√d_k`, `\sqrt`, `x^2`, `QKᵀ`, `x_{i}`) — `plainMath`.
+- Inline maths that is much taller than its line would stretch line boxes and break the reading rhythm, so `.prose math` is set at `font-size:.92em` with `line-height:1` and the line box keeps its pitch. The render gate measures it (`inline maths` check).
+
 ## Code listings
 
 A plain fenced block (any info string that does not name a block below) is a runnable code listing.
@@ -314,9 +318,12 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `minBlockKinds` | `{ "minChars": 900, "kinds": 2 }` | a long section uses fewer than that many kinds of non-prose block |
 | `stepperShare` | `{ "share": 0.34, "minLabs": 3 }` | with `minLabs` or more Labs, more than `share` of them are steppers |
 | `lexicon` | `references/style-lexicon.json` | a `level: "fail"` phrase appears; `level: "warn"` is reported with ⚠ and does not fail |
+| `plainMath` | five patterns: an identifier with an underscore (`[A-Za-zα-ωΑ-Ω][A-Za-z0-9]*_[{A-Za-z0-9]`), `\\[A-Za-z]+` (a backslash command), `[A-Za-z0-9}]\s*\^\s*\{?\w`, `[A-Za-z0-9)]\s*[ᵀᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]`, and the math marks `[√∑∏∫≈≠≤≥→↦∈∉⊆⊂∪∩∞±×÷·∇∂Δ]` | an underscore, a backslash command, a `^`, a superscript or a maths mark is typed as plain text instead of `$…$` — the reader sees `√d_k` where the lecture means a formula |
+| `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
 
 - Every failure names the file, the section and a short excerpt.
 - `formulaParts` is not a gate rule but the same kind of constant: `{ "minParts": 2, "minExplained": 2 }` decides how many pieces a `formula` block needs and how many of them must carry a `say`. The build and the gate read the same file, so a project that overrides it changes both.
 - `lexicon` entries are `{ pattern, why, level: "fail"|"warn", lang: "zh"|"en"|"any" }`. A project's entries are appended to the shipped ones; `lexiconOff` lists patterns to switch off. `lang` only decides whether an entry applies to a project (`lang: "zh"` applies to `zh-Hant-TW`); the rules themselves are language-neutral.
+- `plainMath` and `numericMath` are `false` to switch them off, and `numericMath.ignore` is a regex source, not a pattern list: the parts of a formula that do not make it an expression.
 - An unknown key under `teaching` is a gate failure, so a typo cannot silently do nothing.
 - A `teaching review` gate reads `teaching-review.md` (written by the teaching reviewer) exactly like the source gate reads `source-check.md`: `STATUS: pass|fail` decides, a missing file stays pending, and a self-review is reported with ⚠.
