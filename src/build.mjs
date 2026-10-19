@@ -242,6 +242,8 @@ function renderHero(project, chapters, errors) {
 
 function collectBlocks(tokens) {
   const blocks = [];
+  // How many list levels deep the walk is; a paragraph at depth > 0 belongs to a list item.
+  let listDepth = 0;
   const push = (kind, text = '') => {
     const t = TEXTY.has(kind) ? plainText(text) : '';
     const b = { kind, chars: charCount(text) };
@@ -281,10 +283,17 @@ function collectBlocks(tokens) {
       // The gate's vocabulary stops at h4; a deeper heading still breaks a prose run, so it counts as one.
       case 'heading_open': push(t.tag === 'h3' ? 'h3' : 'h4', inlineText(tokens[i + 1])); break;
       case 'table_open': push('table', tableText(i)); break;
-      case 'paragraph_open': push('p', inlineText(tokens[i + 1])); break;
+      // A paragraph inside a list item is part of that list: the list block already carries its words,
+      // so recording it again would report the same sentence twice (once as `list`, once as `p`).
+      case 'paragraph_open': if (!listDepth) push('p', inlineText(tokens[i + 1])); break;
       case 'bullet_list_open':
       case 'ordered_list_open':
         push('list', listText(tokens, i));
+        listDepth++;
+        break;
+      case 'bullet_list_close':
+      case 'ordered_list_close':
+        listDepth = Math.max(0, listDepth - 1);
         break;
       default: break;
     }
@@ -313,9 +322,15 @@ function inlineText(t) {
 // A list is one block: every item's text, so the gate can read it as a sentence run.
 function listText(tokens, at) {
   const parts = [];
-  for (let i = at + 1; i < tokens.length; i++) {
-    if (tokens[i].type === 'inline') parts.push(inlineText(tokens[i]));
-    if (tokens[i].type === 'bullet_list_close' || tokens[i].type === 'ordered_list_close') break;
+  // Count nesting so a sub-list inside an item does not end the outer list early.
+  let depth = 0;
+  for (let i = at; i < tokens.length; i++) {
+    const type = tokens[i].type;
+    if (type === 'bullet_list_open' || type === 'ordered_list_open') depth++;
+    else if (type === 'bullet_list_close' || type === 'ordered_list_close') {
+      depth--;
+      if (!depth) break;
+    } else if (type === 'inline') parts.push(inlineText(tokens[i]));
   }
   return parts.join(' ');
 }

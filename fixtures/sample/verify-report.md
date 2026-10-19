@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-18T17:10:19.777Z
-- Verified: 2026-10-18T17:10:43.792Z
+- Built: 2026-10-19T01:25:02.242Z
+- Verified: 2026-10-19T01:25:26.425Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |

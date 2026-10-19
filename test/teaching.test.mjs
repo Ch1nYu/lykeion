@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, cp, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +52,23 @@ test('pageRefs fails body text and quiz items that point at a page, and passes p
   // body text, so neither may trip the rule.
   const cited = run([sec([{ kind: 'erratum', chars: 12 }, { kind: 'p', chars: 4, text: '如上。' }])]);
   assert.equal(cited.status, 'pass');
+});
+
+// The excerpt in the message is what a writing agent searches the source file for, so a reference has
+// to be reported whole: “p.1” for `p.10` would send the agent to a line that does not say it.
+test('pageRefs reports the whole reference, not its first digit', async () => {
+  const cases = [
+    ['這個推論在講義 p.10 出現過。', 'p.10'],
+    ['課本 p.14–15 有推導。', 'p.14–15'],
+    ['請看 pp. 3-5 的圖。', 'pp. 3-5'],
+    ['講義 12 那頁有例題。', '講義 12'],
+    ['投影片 120 是總結。', '投影片 120'],
+  ];
+  for (const [text, ref] of cases) {
+    const g = run([sec([para(text)])]);
+    const msg = ruleFailures(g, 'pageRefs')[0]?.msg || '';
+    assert.ok(msg.includes(`page reference “${ref}”`), `${text} → expected “${ref}”, got: ${msg}`);
+  }
 });
 
 // ---------- maxParagraphChars ----------
@@ -264,6 +281,31 @@ test('teaching review and source review share one mechanism', async () => {
   assert.equal(teaching.headline, source.headline.replace('source-check.md', 'teaching-review.md'));
   assert.match(teaching.headline, /reviewer "sub-agent" not recognised/);
   assert.equal(teaching.items[0].warn, true);
+});
+
+// A list item's paragraph is the list, not a second block: recording both reported the same sentence
+// twice in the report (once as `list`, once as `p`), which reads as two problems to fix.
+test('a list is one block, so a page reference inside it is reported once', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'List probe', output: 'probe.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  const body = [
+    '---', 'chapter: 1', 'title: List', 'short: list', 'source: sample.pdf', '---', '',
+    '## 1.1 清單 {pages=1}', '',
+    '- 第一個要點，講義 p.10 有圖。',
+    '',
+    '- 第二個要點。', '',
+  ].join('\n');
+  await writeFile(join(dir, 'content', '01-list.md'), body);
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const kinds = checks.teaching.sections[0].blocks.map((b) => b.kind);
+  assert.deepEqual(kinds, ['list'], 'the list is one block and its items are not paragraphs');
+  const g = await teachingGate(checks.teaching, {}, defaults);
+  const refs = ruleFailures(g, 'pageRefs');
+  assert.equal(refs.length, 1, `the reference is reported once, got: ${refs.map((r) => r.msg).join(' | ')}`);
+  assert.match(refs[0].msg, /page reference “p\.10”/);
+  assert.match(refs[0].msg, /§1\.1 list:/, 'the block that owns the text is named as a list');
 });
 
 // ---------- end to end ----------

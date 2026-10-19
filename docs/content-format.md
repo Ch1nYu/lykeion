@@ -306,7 +306,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 
 | rule | default | fails when |
 | --- | --- | --- |
-| `pageRefs` | `\bpp?\.\s*\d`, `第\s*\d+\s*頁`, `講義\s*(第\s*)?\d`, `(投影片|slide)\s*#?\d` | prose or a quiz item points at a page — the page is not in the reader's hands |
+| `pageRefs` | `\bpp?\.\s*\d+(?:\s*[–—-]\s*\d+)?`, `第\s*\d+\s*頁`, `講義\s*(第\s*)?\d+(?:\s*[–—-]\s*\d+)?`, `(投影片|slide)\s*#?\d+(?:\s*[–—-]\s*\d+)?` | prose or a quiz item points at a page — the page is not in the reader's hands. A pattern must capture the whole reference (`p.10`, `pp. 3-5`): the report quotes the match, so a pattern that stops at `\d` reports `p.1` and the author cannot find it |
 | `maxParagraphChars` | `160` | one paragraph is longer |
 | `maxProseRun` | `520` | a run of paragraphs and lists between two blocks is longer |
 | `formulaExplained` | `true` | a formula or display formula is followed by another formula, a heading or the section end before any prose |

@@ -342,7 +342,10 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
 .tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--paper); font-size:.82rem; font-family:var(--f-body); line-height:1.5; padding:6px 10px; border-radius:8px; transform:translate(-50%,-110%); white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5; font-variant-numeric:tabular-nums}
 .tip.show{opacity:1}
 .ctab{border-collapse:collapse; font-family:var(--f-body); font-variant-numeric:tabular-nums}
-.ctab th,.ctab td{border:1px solid var(--rule-strong); padding:6px 12px; text-align:center}
+/* Cells never wrap: with wrapping allowed, the table's width follows its widest cell, so a header
+   label re-wraps as soon as a number gains or loses a digit and the whole box jumps a line. Labels
+   stay on one line and a wide table scrolls sideways in its .tablewrap instead. */
+.ctab th,.ctab td{border:1px solid var(--rule-strong); padding:6px 12px; text-align:center; white-space:nowrap}
 .ctab th{font-weight:600; font-size:.85rem; background:var(--paper-deep)}
 .ctab td.m{color:var(--muted)}
 .ctab input{width:4.4em}

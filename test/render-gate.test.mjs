@@ -128,3 +128,35 @@ test('E6 fails a sidebar link whose target lands under the sticky bar', async (t
   // the section link and its sub-heading link lands first is an ordering detail of the sidebar.
   assert.match(bad.msg, /“[^”]+” → target top y=0px, top bar bottom y=\d+px/);
 });
+
+// The table Lab is the one built-in Lab whose content is a grid of numbers, and a grid's column
+// widths follow its widest cell: allowed to wrap, a header label re-wraps whenever a number gains or
+// loses a digit, and the whole Lab jumps a line while the reader drags a value down to 0. This is a
+// positive probe on the built-in Lab — the heights must not move at either width.
+test('E3 keeps the built-in table Lab steady at both widths', async (t) => {
+  const table = [
+    '```lab table',
+    'names: [[tp, fp], [fn, tn]]',
+    'rows: [實際確診且已完成追蹤, 實際未確診但完成追蹤]',
+    'cols: [檢出陽性, 檢出陰性]',
+    'values: [[1240, 3], [5, 40]]',
+    'margins: true',
+    'outputs:',
+    '  - { label: 敏感度（真陽性率）, expr: "tp / (tp + fn)", digits: 3 }',
+    '  - { label: 陽性預測值, expr: "tp / (tp + fp)", digits: 3 }',
+    'verdict:',
+    '  - { when: "tp + fp == 0", text: 沒有任何人驗出陽性，陽性預測值未定義，要先確認檢驗流程。 }',
+    '  - { when: "1", text: 陽性預測值偏低，盛行率低時尤其明顯，值得先看盛行率再決定怎麼用。 }',
+    '```',
+  ].join('\n');
+  const dir = await tiny(`這張表把受檢者依檢驗與診斷分格，邊際次數與檢定統計量會跟著更新。\n\n${table}\n`);
+  const items = await renderItems(t, dir);
+  if (!items) return;
+  const swings = items.filter((i) => /\(table\)/.test(i.msg) && /swing/.test(i.msg));
+  assert.deepEqual(swings, [], `the table Lab must not resize:\n${swings.map((i) => i.msg).join('\n')}`);
+  for (const width of ['1280px', '375px']) {
+    const ok = find(items, new RegExp(`every Lab keeps its height while its controls move at ${width}`));
+    assert.ok(ok, `expected the ${width} stability item, got:\n${items.map((i) => i.msg).join('\n')}`);
+    assert.equal(ok.ok, true, ok.msg);
+  }
+});
