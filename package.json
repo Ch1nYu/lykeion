@@ -1,6 +1,6 @@
 {
   "name": "lykeion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Turn lecture slides into a verified, interactive single-file teaching site.",
   "type": "module",
   "license": "MIT",
