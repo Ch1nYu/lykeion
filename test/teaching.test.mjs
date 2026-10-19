@@ -208,6 +208,27 @@ test('lexicon skips an entry written for another language', async () => {
   assert.equal(enProject.status, 'fail');
 });
 
+test('lexicon skips a term that a parenthesised Latin gloss follows, and still reports plain filler', async () => {
+  // A translated term with its English gloss is a term, not filler.
+  const glossed = run([sec([para('從資料中萃取非顯而易見（non-trivial）的資訊。')])]);
+  assert.equal(glossed.status, 'pass');
+  assert.match(ruleItems(glossed, 'lexicon')[0].msg, /no entry of style-lexicon\.json matches/);
+  assert.equal(run([sec([para('非顯而易見(non-trivial)的資訊。')])]).status, 'pass', 'ASCII parentheses count too');
+
+  // Plain 顯而易見 is still a warning, and so is one followed by a parenthesis with no Latin in it.
+  const plain = run([sec([para('這一步顯而易見，不必證明。')])]);
+  assert.match(plain.items.find((i) => i.warn).msg, /uses “顯而易見”/);
+  const cjk = run([sec([para('這一步顯而易見（很明白）。')])]);
+  assert.match(cjk.items.find((i) => i.warn).msg, /uses “顯而易見”/);
+});
+
+test('lexicon names an entry whose exception is not defined instead of ignoring it', async () => {
+  const config = await loadTeachingConfig({ lexicon: [{ pattern: '眾所周知', why: 'x', level: 'warn', except: ['glosed'] }] });
+  const g = run([sec([para('分母不能是零。')])], { config });
+  assert.equal(g.status, 'fail');
+  assert.match(failing(g)[0].msg, /names exception “glosed”, which lexiconExceptions does not define/);
+});
+
 // ---------- project override ----------
 test('the marketing lexicon fails a fail phrase and only warns on a warn phrase', async () => {
   const bad = run([sec([para('這三劍客各司其職，讀者一看就懂。')])]);
@@ -475,6 +496,26 @@ test('plainMath fails every shape of maths typed as plain text and passes the sa
   assert.match(qFails.map((f) => f.msg).join(' '), /explanation/);
 });
 
+// ---------- plainMath in Lab labels ----------
+// A Lab's labels are plain text by design, so the gate reads them on their own, with the same patterns as
+// prose and one exception: a lone letter with digits (`x1`, `p2`) is a name, not maths.
+const lab = (labels) => ({ kind: 'lab:slider-calc', chars: 0, labels });
+test('plainMath holds Lab labels to the prose patterns and says how to write them instead', () => {
+  const g = run([sec([lab(['向量維度 d_k', '除以 √d 後', 'QKᵀ'])])]);
+  assert.equal(g.status, 'fail');
+  const fails = ruleFailures(g, 'plainMath');
+  assert.equal(fails.length, 3, `one failure per label, got: ${fails.map((f) => f.msg).join(' | ')}`);
+  assert.match(fails[0].msg, /01-a\.md §1\.1 lab:slider-calc: label “向量維度 d_k” types the maths in plain text/);
+  assert.match(fails[0].msg, /labels are plain text: write 「維度 d」 or 「除以根號 d」 instead of `d_k` \/ `√d`/);
+  assert.match(fails[2].msg, /QKᵀ/);
+});
+
+test('plainMath lets a lone letter with digits stand in a label, but not with a subscript after it', () => {
+  assert.equal(run([sec([lab(['x1', 'p2', '第 2 組'])])]).status, 'pass');
+  assert.equal(run([sec([lab(['x1_k'])])]).status, 'fail', 'x1_k is still an underscore subscript');
+  assert.equal(run([sec([lab(['x1^2'])])]).status, 'fail', 'x1^2 is still a caret');
+});
+
 // ---------- numericMath ----------
 // A lone number set as maths inherits the maths face, size and baseline, so it reads as a foreign word
 // in the sentence. A number inside a real expression is maths and must pass.
@@ -611,7 +652,7 @@ test('sayConnects threshold is a project override, and the override keeps the st
 });
 
 // ---------- what the record carries for these two rules ----------
-test('the teaching record keeps each block’s words and the maths it sets, and leaves Lab labels alone', async () => {
+test('the teaching record keeps each block’s words and the maths it sets, and keeps Lab labels apart from its prose', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
   await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Maths probe', output: 'probe.html', scope: [] }));
   await mkdir(join(dir, 'content'), { recursive: true });
@@ -642,10 +683,13 @@ test('the teaching record keeps each block’s words and the maths it sets, and 
   assert.match(lab.text, /記得 QKᵀ 不對稱。/);
   assert.doesNotMatch(lab.text, /d_k/);
   assert.deepEqual(lab.math, ['E[X]']);
+  // The labels are recorded on their own, as typed, for the plainMath gate.
+  assert.deepEqual(lab.labels, ['d_k']);
 
   // Which is exactly what the gate then says about it.
   const g = teachingGate(checks.teaching, {}, defaults);
   assert.match(ruleFailures(g, 'plainMath')[0].msg, /QKᵀ/);
+  assert.match(ruleFailures(g, 'plainMath').map((f) => f.msg).join(' '), /label “d_k” types the maths in plain text/);
   assert.match(ruleFailures(g, 'numericMath')[0].msg, /\$0\.5\$/);
 });
 

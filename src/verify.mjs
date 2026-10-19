@@ -115,15 +115,32 @@ export function coverageGate(scope, sections) {
   for (const s of sections) if (!s.pages) items.push({ ok: false, msg: `§${s.num} ${s.title} (${s.file}) declares no pages` });
   for (const sc of scope) {
     const want = parsePages(sc.pages);
+    // Pages the scope leaves out on purpose (`exclude`): not required, and no section may cite them.
+    const excluded = new Map(); // page → reason
+    for (const ex of sc.exclude || []) {
+      let pages;
+      try { pages = parsePages(ex.pages); } catch { pages = new Set(); }
+      if (!pages.size) { items.push({ ok: false, msg: `${sc.file}: exclude has no readable pages (“${ex.pages ?? ''}”)` }); continue; }
+      const reason = String(ex.reason ?? '').trim();
+      if (!reason) items.push({ ok: false, msg: `${sc.file}: exclude p.${ranges(pages)} has no reason — say why these pages are left out` });
+      const outside = [...pages].filter((p) => !want.has(p));
+      if (outside.length) items.push({ ok: false, msg: `${sc.file}: exclude p.${ranges(outside)} is outside the scope p.${sc.pages}` });
+      for (const p of pages) if (want.has(p)) excluded.set(p, reason);
+      items.push({ ok: true, msg: `${sc.file}: excluded on purpose: p.${ranges(pages).replace(/-/g, '–')} — ${reason || '(no reason given)'}` });
+    }
     const have = new Set();
     for (const s of sections) {
       const src = s.source ? basename(s.source) : single;
       if (src !== basename(sc.file) || !s.pages) continue;
-      for (const p of parsePages(s.pages)) have.add(p);
+      const cited = parsePages(s.pages);
+      const hit = [...cited].filter((p) => excluded.has(p));
+      if (hit.length) items.push({ ok: false, msg: `§${s.num} cites p.${ranges(hit)}, which lykeion.json excludes` });
+      for (const p of cited) have.add(p);
     }
-    const missing = [...want].filter((p) => !have.has(p));
+    const need = [...want].filter((p) => !excluded.has(p));
+    const missing = need.filter((p) => !have.has(p));
     const extra = [...have].filter((p) => !want.has(p));
-    items.push({ ok: missing.length === 0, msg: `${sc.file} p.${sc.pages}: ${want.size - missing.length}/${want.size} pages cited${missing.length ? `; uncited: ${ranges(missing)}` : ''}` });
+    items.push({ ok: missing.length === 0, msg: `${sc.file} p.${sc.pages}: ${need.length - missing.length}/${need.length} pages cited${missing.length ? `; uncited: ${ranges(missing)}` : ''}` });
     if (extra.length) items.push({ ok: true, msg: `${sc.file}: sections also cite pages outside the scope: ${ranges(extra)} (note)` });
   }
   const bad = items.filter((i) => i.ok === false).length;

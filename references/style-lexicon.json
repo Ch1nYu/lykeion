@@ -45,7 +45,8 @@
     "pattern": "顯而易見|不難看出",
     "why": "「顯而易見」對第一次學的人並不顯然；把推論的每一步寫出來。",
     "level": "warn",
-    "lang": "zh"
+    "lang": "zh",
+    "except": ["glossed"]
   },
   {
     "pattern": "總而言之",

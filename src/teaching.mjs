@@ -97,6 +97,19 @@ const compile = (patterns, flags = '') => []
   .map((p) => { try { return new RegExp(p, flags); } catch { return null; } })
   .filter(Boolean);
 
+// The first match of a global `re` in `text` that no exception accepts. An exception reads the text
+// right after the match, so `顯而易見（non-trivial）` is accepted and `顯而易見，` is not.
+function firstUnexcepted(re, text, except) {
+  re.lastIndex = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    const after = text.slice(m.index + m[0].length);
+    if (!except.some((ex) => ex.test(after))) return m;
+    if (!m[0].length) re.lastIndex++;
+  }
+  return null;
+}
+
 // A lexicon entry applies to a project when it names no language, the project names none, or the
 // project's language starts with the entry's (`zh` covers `zh-Hant-TW`).
 const langApplies = (entry, projectLang) => {
@@ -313,13 +326,21 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
   if (lexicon.length) {
     const failures = [];
     let matched = 0;
+    const exceptions = rules.lexiconExceptions || {};
     for (const entry of lexicon) {
       if (!langApplies(entry, projectLang)) continue;
-      const re = compile([entry.pattern], entry.flags || '')[0];
+      const re = compile([entry.pattern], `${(entry.flags || '').replace('g', '')}g`)[0];
       if (!re) { items.push({ ok: false, msg: `lexicon: pattern “${entry.pattern}” is not a valid regular expression` }); continue; }
+      // `except` names exceptions from `lexiconExceptions`: a match one of them accepts is a term, not filler.
+      const except = [];
+      for (const name of [].concat(entry.except || [])) {
+        const src = exceptions[name];
+        const ex = src ? compile([src])[0] : null;
+        if (!ex) { items.push({ ok: false, msg: `lexicon: pattern “${entry.pattern}” names exception “${name}”, which lexiconExceptions does not define` }); continue; }
+        except.push(ex);
+      }
       for (const s of sections) for (const b of textBlocks(s)) {
-        re.lastIndex = 0;
-        const m = re.exec(b.text);
+        const m = firstUnexcepted(re, b.text, except);
         if (!m) continue;
         matched++;
         failures.push({ warn: entry.level !== 'fail', msg: `${where(s)}: “${excerpt(b.text, m.index)}” uses “${m[0]}” — ${entry.why || 'rewrite it as a plain sentence'}` });
@@ -334,6 +355,9 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
   //    only the typed-in-plain form is left to find.
   const plainMathRule = rules.plainMath;
   const plainMath = plainMathRule && plainMathRule !== false ? compile(plainMathRule.patterns, plainMathRule.flags || '') : [];
+  // Lab labels are plain text by design, so they are held to the same patterns as prose, except a lone
+  // letter with digits (`x1`, `p2`), which `labelAllow` removes before the patterns run.
+  const labelAllow = plainMathRule?.labelAllow ? compile([plainMathRule.labelAllow], 'gu')[0] : null;
   {
     const failures = [];
     const scan = (text, label, s) => {
@@ -347,7 +371,18 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
         return;
       }
     };
+    const scanLabel = (label, loc, s) => {
+      const plain = labelAllow ? label.replace(labelAllow, ' ') : label;
+      for (const re of plainMath) {
+        re.lastIndex = 0;
+        const m = re.exec(plain);
+        if (!m) continue;
+        failures.push({ msg: `${loc}: label “${excerpt(label)}” types the maths in plain text (“${m[0]}”) — labels are plain text: write 「維度 d」 or 「除以根號 d」 instead of \`d_k\` / \`√d\`${s ? quote(s) : ''}` });
+        return;
+      }
+    };
     for (const s of sections) for (const b of textBlocks(s)) scan(b.text, `${where(s)} ${b.kind}`, s);
+    for (const s of sections) for (const b of blocksOf(s)) for (const label of b.labels || []) scanLabel(label, `${where(s)} ${b.kind}`, s);
     for (const q of quiz) {
       scan(q.q || '', `${q.where} question`);
       (q.o || []).forEach((o, i) => scan(o, `${q.where} option ${i + 1}`));
