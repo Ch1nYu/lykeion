@@ -20,8 +20,8 @@ source: sample.pdf
 ```formula BAYES
 tex: "P(A \\mid B) = \\frac{P(A \\cap B)}{P(B)}"
 parts:
-  - { tex: "P(A \\mid B)", say: "左邊是「已經知道 B 之後」的機率。" }
-  - { tex: "=", say: "等號右邊把它拆成兩個可以分別量測的量。" }
+  - { tex: "P(A \\mid B)", say: "左邊是「已知 B 之後」的機率，也就是只低頭看桌布以內的 A。" }
+  - { tex: "=", say: "等號右邊把它換成兩個可以量的面積：重疊的那塊，除以桌布本身。" }
   - frac:
       num: [ { tex: "P(A \\cap B)", say: "分子是 A 與 B 同時發生的機率，也就是桌布上那一塊。" } ]
       den: [ { tex: "P(B)", say: "分母是桌布本身的大小。" } ]

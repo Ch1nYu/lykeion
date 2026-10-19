@@ -68,11 +68,29 @@ export async function loadTeachingConfig(override = {}) {
   const { lexicon = [], lexiconOff = [], ...rest } = override || {};
   const unknown = Object.keys(rest).filter((k) => !(k in base));
   const rules = { ...base, ...rest };
-  const off = new Set([].concat(lexiconOff || []).map(String));
+  // `sayConnects` is one object of two keys: a project that sets only `minShare` keeps the stop terms.
+  if (rest.sayConnects && typeof rest.sayConnects === 'object') rules.sayConnects = { ...base.sayConnects, ...rest.sayConnects };
+  const off =new Set([].concat(lexiconOff || []).map(String));
   const added = [].concat(lexicon || []).filter((e) => e && e.pattern);
   const entries = [...baseLexicon, ...added].filter((e) => e && e.pattern && !off.has(String(e.pattern)));
   return { rules, lexicon: entries, unknown, known: Object.keys(base) };
 }
+
+// The words two passages can share: a CJK bigram or a Latin word of three letters or more. Stop terms
+// are removed first, so a generic word (的, 機率, the) never links two passages by itself, and a bigram
+// cannot span a removed word.
+export function termsOf(src, stopTerms = []) {
+  let text = ` ${plainText(src)} `;
+  for (const stop of stopTerms) {
+    const word = escapeRe(stop);
+    text = text.replace(new RegExp(/[A-Za-z]/.test(stop) ? `(?<![A-Za-z])${word}(?![A-Za-z])` : word, 'gi'), ' ');
+  }
+  const terms = new Set();
+  for (const [w] of text.matchAll(/[A-Za-z]{3,}/g)) terms.add(w.toLowerCase());
+  for (const [run] of text.matchAll(/\p{Script=Han}+/gu)) for (let i = 0; i + 1 < run.length; i++) terms.add(run.slice(i, i + 2));
+  return terms;
+}
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const compile = (patterns, flags = '') => []
   .concat(patterns || [])
@@ -457,6 +475,39 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
       scan(src, `${q.where} explanation`, expects(sections.find((s) => s.id === q.sec)));
     }
     report('proseNumbers', failures, 'every decimal and percentage matches a calc or a Lab readout at its default, or is quoted');
+  }
+
+  // 13. sayConnects — a piece of a parts formula must tie to the lesson: what it is in the analogy, or
+  //     what number it takes in the example. A `say` that only restates the definition ("轉換為…機率分布")
+  //     connects to nothing and fails. A `say` connects when it shares a term with the section's analogy,
+  //     when it contains a digit, or when it shares a term with the worked example (the paragraphs and
+  //     lists before the formula that contain digits, recorded by the build as `example`).
+  const sc = rules.sayConnects;
+  if (sc) {
+    const minShare = Number(sc.minShare ?? 0.5);
+    const stop = sc.stopTerms || [];
+    const failures = [];
+    for (const s of sections) {
+      const bs = blocksOf(s);
+      const analogy = bs.filter((b) => b.kind === 'analogy');
+      const analogyTerms = termsOf(analogy.map((b) => `${b.title || ''} ${b.text || ''}`).join(' '), stop);
+      const formulas = bs.filter((b) => b.kind === 'formula-parts' && b.says?.length);
+      formulas.forEach((b, k) => {
+        const name = `formula ${b.label || `#${k + 1}`}`;
+        const example = termsOf(b.example || '', stop);
+        if (!analogy.length && !b.example) {
+          failures.push({ warn: true, msg: `${where(s)}: ${name} has no analogy and no worked numbers before it — cannot judge whether its explanations tie to the lesson${quote(s)}` });
+          return;
+        }
+        const tied = (say) => /\d/.test([say.text, ...(say.math || [])].join(' '))
+          || [...termsOf(say.text, stop)].some((t) => analogyTerms.has(t) || example.has(t));
+        const loose = b.says.filter((say) => !tied(say));
+        if (b.says.length - loose.length >= minShare * b.says.length) return;
+        const listed = loose.map((say) => `“${excerpt(say.text)}”`).join(', ');
+        failures.push({ msg: `${where(s)}: ${name} has ${loose.length} of ${b.says.length} explanations that do not tie to the analogy or the example (need ${Math.round(minShare * 100)}%): ${listed} — tie each piece to the analogy or the example: what it is in the analogy, or what number it takes in the example${quote(s)}` });
+      });
+    }
+    report('sayConnects', failures, 'every formula piece ties to the analogy or the example');
   }
 
   const bad = items.filter((i) => i.ok === false).length;

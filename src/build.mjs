@@ -4,7 +4,7 @@ import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { createMarkdown, tex, fenceInfo, headingIds } from './markdown.mjs';
-import { plainText, charCount, isTexty, loadTeachingConfig, markedText, unmark } from './teaching.mjs';
+import { plainText, charCount, isTexty, loadTeachingConfig, markedText, unmark, PROSE } from './teaching.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
 import { projectMathSource, loadMath } from './mathlib.mjs';
 import { parsePages } from './verify.mjs';
@@ -356,11 +356,14 @@ function collectBlocks(tokens) {
         // A formula's own characters are maths, not prose; only a parts formula carries words, and a
         // Lab's words live in its params rather than in its body.
         if (kind === 'erratum') { const txt = String(parseYamlText(t.content).text || ''); push(kind, txt, txt, mathsIn(txt)); }
-        else if (kind === 'formula-parts') { const txt = formulaPartsText(t.content); push(kind, txt, txt, mathsIn(txt)); }
+        else if (kind === 'formula-parts') { const txt = formulaPartsText(t.content); push(kind, txt, txt, mathsIn(txt)); Object.assign(blocks[blocks.length - 1], partsSource(t, blocks)); }
         else if (kind && kind.startsWith('lab:')) { const txt = labText(parseYamlText(t.content)); push(kind, '', txt, mathsIn(txt)); }
         else if (kind === 'formula') push(kind, '', '');
         else if (kind === 'code') { push(kind, t.content, null, mathsIn(t.content)); Object.assign(blocks[blocks.length - 1], listingSource(t)); }
-        else if (kind) push(kind, t.content, null, mathsIn(t.content));
+        else if (kind) {
+          push(kind, t.content, null, mathsIn(t.content));
+          if (kind === 'analogy') blocks[blocks.length - 1].title = plainText(fenceInfo(t.info).words.slice(1).join(' '));
+        }
         break;
       }
       case 'math_block': push('display-math'); break;
@@ -405,6 +408,20 @@ function parseYamlText(src) {
 function formulaPartsText(src) {
   const v = parseYamlText(src);
   return [...partSays(v.parts), String(v.hint || '')].join(' ');
+}
+
+// What the `sayConnects` rule reads of a parts formula: its label, each explanation in order (plain text,
+// with the maths it carries kept apart so `$0.4$` still counts as a number), and the worked-example text
+// before it — the paragraphs and lists of this section that contain a digit. `before` is the section's
+// blocks so far.
+function partsSource(t, before) {
+  const { words } = fenceInfo(t.info);
+  const says = partSays(parseYamlText(t.content).parts).filter((s) => s.trim()).map((s) => ({ text: plainText(s), math: mathsIn(s) }));
+  const example = before
+    .filter((b) => PROSE.has(b.kind) && /\d/.test([b.text || '', ...(b.math || [])].join(' ')))
+    .map((b) => b.text || '')
+    .join(' ');
+  return { label: words.slice(1).join(' ') || null, says, example };
 }
 
 // Every `say` in a parts list, a fraction's numerator and denominator included: they are prose too.
