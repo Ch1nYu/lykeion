@@ -33,6 +33,9 @@
   "numericMath": {
     "ignore": "\\s|\\d|[+\\-\u2212.,%$]|\\\\[,;:!]|\\\\%|[{}]|~~"
   },
+  "proseNumbers": {
+    "ignore": ["\\d+(?:\\.\\d+){2,}", "\u00a7\\s*\\d+(?:\\.\\d+)*"]
+  },
   "codeSource": {
     "exampleLabel": "\u793a\u7bc4",
     "minIdentifierShare": 0.5,

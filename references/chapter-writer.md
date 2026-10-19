@@ -38,6 +38,7 @@ Write natural Traditional Chinese (Taiwan), the way a good teacher talks — not
 - Every number your prose states as a result gets a `calc` entry recomputing it from its inputs (`0.9*0.01/(0.9*0.01+0.1*0.99)`, not `0.083`).
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
+- Every decimal or percentage in your prose is a `calc` expect or a Lab readout at its default inputs in the same section, at the precision written (`99.95 %` for a readout of 0.9995). A figure the slides state that this site does not compute is quoted as `<q>90%</q>`, with the true value said in the prose if it differs; the `proseNumbers` rule fails the rest.
 
 ## Code listings
 

@@ -4,9 +4,9 @@ import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as yaml from 'js-yaml';
 import { createMarkdown, tex, fenceInfo, headingIds } from './markdown.mjs';
-import { plainText, charCount, isTexty, loadTeachingConfig } from './teaching.mjs';
+import { plainText, charCount, isTexty, loadTeachingConfig, markedText, unmark } from './teaching.mjs';
 import { loadPalette, paletteCss } from './palette.mjs';
-import { projectMathSource, applyProjectMath } from './mathlib.mjs';
+import { projectMathSource, loadMath } from './mathlib.mjs';
 import { parsePages } from './verify.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -56,6 +56,9 @@ export async function build(dir, opts = {}) {
   // many of them must explain something), so it reads the same JSON the gate does — plus the
   // project's own override, so a project that relaxes a rule relaxes it in both places.
   const { rules: teachingRules } = await loadTeachingConfig(project.teaching || {});
+  // The same maths the page runs (runtime/mathlib.js plus the project's math.js): Lab readouts are
+  // evaluated here at their default inputs for the `proseNumbers` rule, so they must agree with the page.
+  const maths = await loadMath(dir);
   // What the `teaching` gate reads back: each section's blocks in document order, and the plain text
   // of every quiz item (a page reference in a question is as bad as one in a paragraph).
   const teachingSections = [];
@@ -71,7 +74,7 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, secs: sections, allSectionNums, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 } };
+      const ctx = { errors, where, sec, secs: sections, allSectionNums, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [] } };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const tokens = md.parse(sec.body, {});
@@ -81,7 +84,7 @@ export async function build(dir, opts = {}) {
       const body = sec.id && sec.num ? headingIds(rendered, sec.id) : rendered;
       for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
-      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens) });
+      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts });
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
       const titleHtml = inlineTitle(sec.title, errors, where);
@@ -124,11 +127,8 @@ export async function build(dir, opts = {}) {
   const palette = opts.paletteObj || await loadPalette(opts.palette || project.palette || 'desk-teal');
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   const [shell, baseCss, mathJs, runtimeJs] = await Promise.all(['shell.html', 'base.css', 'mathlib.js', 'runtime.js'].map((f) => readFile(join(ROOT, 'runtime', f), 'utf8')));
+  // loadMath (above) already applied math.js, so a broken file fails the build naming it.
   const projectMath = await projectMathSource(dir);
-  if (projectMath.trim()) {
-    // Fail here, at build time, naming math.js — not later inside the reader's browser.
-    applyProjectMath(new Function(`${mathJs}\nreturn LykeionMath;`)(), projectMath);
-  }
   const data = { key: project.key || `lykeion:${project.title}`, strings: project.strings || {}, levels };
   const hero = project.hero ? `<div class="view" id="home">${renderHero(project, chapters, errors)}</div>` : '';
   // The pager closes every chapter view with the previous and the next one, so a reader can keep
@@ -316,8 +316,12 @@ function collectBlocks(tokens) {
   // are words the reader reads, but they are not prose of the section and must not count as a run).
   const push = (kind, text = '', gateText = null, maths = []) => {
     const b = { kind, chars: charCount(text) };
-    const t = isTexty(kind) ? plainText(gateText ?? text) : '';
+    // `marked` is the same words with the `<q>` quotation marks kept, and only when there are any: the
+    // `proseNumbers` rule skips a quoted number, every other rule reads `text`.
+    const marked = isTexty(kind) ? markedText(gateText ?? text) : '';
+    const t = unmark(marked);
     if (t) b.text = t;
+    if (t && marked !== t) b.marked = marked;
     const m = [...new Set(maths.filter(Boolean))];
     if (m.length) b.math = m;
     blocks.push(b);
@@ -478,6 +482,8 @@ function renderFence(token, ctx, countLab) {
       for (const c of [].concat(list || [])) {
         if (c.expr === undefined || c.expect === undefined) { ctx.errors.push(`${ctx.where}: calc entries need "expr" and "expect"`); continue; }
         ctx.checks.push({ where: ctx.where, kind: 'calc', expr: String(c.expr), expect: Number(c.expect), tol: Number(c.tol ?? 0.0015), note: c.note || '' });
+        // The section's own record: the `proseNumbers` rule accepts a number in its prose only if a calc gives it.
+        ctx.teach.calc.push({ expr: String(c.expr), expect: Number(c.expect), note: c.note || '' });
       }
       return '';
     }
@@ -651,8 +657,12 @@ function addQuiz(items, levelArg, ctx, md) {
     const inl = (s) => { const c = { ...ctx, where: w }; return createMarkdown(c).renderInline(String(s)); };
     // The gate reads quiz text as body text: a page reference or a filler phrase is as bad in a
     // question as in a paragraph, and this is the only place the plain strings still exist.
-    ctx.quizText.push({ where: w, q: plainText(q.q), o: (Array.isArray(q.o) ? q.o : []).map(plainText), ex: plainText(q.ex), math: [...mathsIn(q.q), ...(Array.isArray(q.o) ? q.o : []).flatMap(mathsIn), ...mathsIn(q.ex)] });
-    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: quizSection(q, ctx, w), pages: q.pages || ctx.sec.pages || '' };
+    // The explanation's `<q>` marks are kept (`exMarked`, only when there are any) for the `proseNumbers` rule,
+    // which checks the explanation against the calc and Lab numbers of the section the item links to.
+    const secId = quizSection(q, ctx, w);
+    const ex = plainText(q.ex), exMarked = markedText(q.ex);
+    ctx.quizText.push({ where: w, q: plainText(q.q), o: (Array.isArray(q.o) ? q.o : []).map(plainText), ex, exMarked: exMarked !== ex ? exMarked : undefined, sec: secId, math: [...mathsIn(q.q), ...(Array.isArray(q.o) ? q.o : []).flatMap(mathsIn), ...mathsIn(q.ex)] });
+    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: secId, pages: q.pages || ctx.sec.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);
     ctx.levels[li].qs.push(item);
@@ -694,6 +704,7 @@ function renderLab(type, p, ctx) {
     if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, (k === 'text' || k === 'note') && typeof x === 'string' ? md.renderInline(x) : walk(x)]));
     return v;
   };
+  ctx.teach.readouts.push(...labReadouts(type, p, ctx));
   p = walk(p);
   ctx.labUses.push({ type, params: p, where: ctx.where });
   ctx.labSeq.n++;
@@ -701,6 +712,41 @@ function renderLab(type, p, ctx) {
   const params = JSON.stringify(p).replace(/</g, '\\u003c');
   // Labs break out of the 44rem reading column.
   return `</div>\n<div class="lab" id="${esc(id)}" data-lab="${esc(type)}"><div class="lab-head"><span class="tag">${esc(p.tag || 'LAB')}</span><b>${esc(p.title || '')}</b>${p.hint ? `<span class="hint">${esc(p.hint)}</span>` : ''}</div><div class="lab-body"></div><script type="application/json" class="lab-params">${params}</script></div>\n<div class="prose">`;
+}
+
+// The readouts a built-in Lab shows at its default inputs, evaluated with the page's own maths. The
+// `proseNumbers` rule accepts a prose decimal only when a readout (or a calc) gives it, so this is what
+// the reader sees on arrival. A custom Lab type's outputs are its own code, so the build cannot evaluate
+// them: a number from one must be quoted with <q> (or moved into a calc).
+function labReadouts(type, p, ctx) {
+  const tag = p.tag || type;
+  const out = [];
+  const readout = (label, expr, names, state) => {
+    try {
+      const value = ctx.maths.compile(String(expr), names)(state);
+      if (Number.isFinite(value)) out.push({ lab: tag, label: String(label ?? ''), value });
+    } catch (e) {
+      ctx.errors.push(`${ctx.where}: Lab "${type}" "${label}" fails at its default inputs: ${e.message.split('\n')[0]}`);
+    }
+  };
+  const inputs = Array.isArray(p.inputs) ? p.inputs : [];
+  const ids = inputs.map((i) => i.id);
+  const inputState = Object.fromEntries(inputs.map((i) => [i.id, Number(i.value)]));
+  if (type === 'slider-calc') {
+    for (const o of [...(p.outputs || []), ...(p.bars || [])]) readout(o.label, o.expr, ids, inputState);
+  } else if (type === 'table') {
+    // The table's cells are the variables; they open on `values`, read the way the Lab reads them.
+    const names = p.names || [];
+    const state = {};
+    names.forEach((row, r) => row.forEach((n, c) => { state[n] = Number(p.values?.[r]?.[c]) || 0; }));
+    for (const o of p.outputs || []) readout(o.label, o.expr, [].concat(...names), state);
+  } else if (type === 'curve' && p.marker) {
+    // The curve Lab reads its curves at the marker, which opens on `marker.value` (or the middle of x).
+    const X = p.x || { min: 0, max: 1 };
+    const x = Number(p.marker.value ?? (X.min + X.max) / 2);
+    for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
+  }
+  return out;
 }
 
 async function findLab(type, dir) {

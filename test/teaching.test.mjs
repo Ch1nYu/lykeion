@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { teachingGate, loadTeachingConfig, plainText, charCount } from '../src/teaching.mjs';
+import { teachingGate, loadTeachingConfig, plainText, charCount, markedText, unmark } from '../src/teaching.mjs';
 import { teachingReviewGate, sourceGate, verify, loadSlideText } from '../src/verify.mjs';
 import { build } from '../src/build.mjs';
 
@@ -13,7 +13,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The gate reads the `teaching` object the build writes into checks.json. These helpers build the
 // smallest object that exercises one rule, so a failure names the rule and nothing else.
 const para = (text) => ({ kind: 'p', chars: charCount(text), text });
-const sec = (blocks, extra = {}) => ({ id: 's1-1', num: '1.1', title: 'A section', file: '01-a.md', blocks, ...extra });
+const sec = (blocks, extra = {}) => ({ id: 's1-1', num: '1.1', title: 'A section', file: '01-a.md', blocks, calc: [], readouts: [], ...extra });
 const defaults = await loadTeachingConfig();
 
 function run(sections, { quiz = [], project = {}, config = defaults, slideText = null } = {}) {
@@ -549,6 +549,137 @@ test('the teaching record keeps each block’s words and the maths it sets, and 
   const g = teachingGate(checks.teaching, {}, defaults);
   assert.match(ruleFailures(g, 'plainMath')[0].msg, /QKᵀ/);
   assert.match(ruleFailures(g, 'numericMath')[0].msg, /\$0\.5\$/);
+});
+
+// ---------- proseNumbers ----------
+// A prose paragraph whose `<q>…</q>` marks are kept, as the build records it (`marked`) when there are any.
+const quoted = (src) => {
+  const marked = markedText(src);
+  return { kind: 'p', chars: charCount(src), text: unmark(marked), marked };
+};
+// The section's own numbers: its calc expects and its Lab readouts at their defaults.
+const withNumbers = ({ calc = [], readouts = [] } = {}) => ({ calc: calc.map((expect) => ({ expr: String(expect), expect, note: '' })), readouts });
+const calcOf = (expect) => ({ calc: [{ expr: String(expect), expect, note: '' }] });
+const readout = (value, lab = 'LAB A', label = 'P(A∩B)') => ({ lab, label, value });
+
+test('proseNumbers passes a decimal that a calc gives at the precision written', () => {
+  const g = run([sec([para('後驗機率約為 0.083，比盛行率高很多。')], calcOf(0.083))]);
+  assert.equal(g.status, 'pass', failing(g).map((i) => i.msg).join('\n'));
+  assert.match(ruleItems(g, 'proseNumbers')[0].msg, /matches a calc or a Lab readout/);
+  // The same sentence with a different figure is a contradiction the gate must name.
+  const off = run([sec([para('後驗機率約為 0.084，比盛行率高很多。')], calcOf(0.083))]);
+  assert.equal(ruleFailures(off, 'proseNumbers').length, 1);
+  assert.match(ruleFailures(off, 'proseNumbers')[0].msg, /0\.084/);
+});
+
+test('proseNumbers passes a percentage that a Lab readout gives, as a percentage or as a fraction', () => {
+  // 0.42 at its default input is 42.0 %; the prose says it in the same form.
+  const g = run([sec([para('在預設值下，權重是 42.0%。')], withNumbers({ readouts: [readout(0.42)] }))]);
+  assert.equal(g.status, 'pass', failing(g).map((i) => i.msg).join('\n'));
+  // A Lab readout also reads as a percentage when the prose writes the fraction's percent form.
+  const pct = run([sec([para('權重是 42%。')], withNumbers({ readouts: [readout(0.4201)] }))]);
+  assert.equal(pct.status, 'pass', failing(pct).map((i) => i.msg).join('\n'));
+});
+
+test('proseNumbers fails the 90 % paragraph and names the closest Lab readout', () => {
+  // The incident: the slide's 90 / 7 / 3 % were copied, while the Lab opened on the slide's scores and showed 99.954 %.
+  const text = '轉換後給予蘋果 90%、它自己 7%、好吃 3%。';
+  const g = run([sec([para(text)], withNumbers({ readouts: [readout(0.99954, 'LAB B', '給「蘋果」的權重')] }))]);
+  assert.equal(g.status, 'fail');
+  const msgs = ruleFailures(g, 'proseNumbers').map((i) => i.msg);
+  assert.equal(msgs.length, 3, 'each of the three figures is reported once');
+  assert.match(msgs[0], /§1\.1 p: “90%” in “[^”]*轉換後給予蘋果 90%/);
+  assert.match(msgs[0], /closest Lab readout at default: 99\.954 % \(LAB B 給「蘋果」的權重\)/);
+  assert.match(msgs[0], /compute it with a `calc`, show it in the Lab, or mark the slide's figure with <q>/);
+});
+
+test('proseNumbers exempts a number inside <q> and never exempts the words around it', () => {
+  const quotedOnly = run([sec([quoted('講義寫 <q>90%</q>，我們算的是 0.5。')], calcOf(0.5))]);
+  assert.equal(quotedOnly.status, 'pass', failing(quotedOnly).map((i) => i.msg).join('\n'));
+  // Without the marks the same figure is an unsupported claim.
+  const bare = run([sec([para('講義寫 90%，我們算的是 0.5。')], calcOf(0.5))]);
+  assert.equal(ruleFailures(bare, 'proseNumbers').length, 1);
+  assert.match(ruleFailures(bare, 'proseNumbers')[0].msg, /“90%”/);
+  // A decimal outside the quotation still has to be computed.
+  const outside = run([sec([quoted('講義寫 <q>90%</q>，我們算的是 0.6。')], calcOf(0.5))]);
+  assert.match(ruleFailures(outside, 'proseNumbers')[0].msg, /“0\.6”/);
+});
+
+test('proseNumbers ignores integers, years and versions, and the project can ignore more', async () => {
+  const g = run([sec([para('第 2 步有 3 個分支，2024 年的版本是 0.2.1，見 §3.1。')])]);
+  assert.equal(g.status, 'pass', failing(g).map((i) => i.msg).join('\n'));
+
+  // A decimal that is not a calc is still caught when no ignore pattern covers it.
+  const plain = run([sec([para('在第 3.1 節說明。')])]);
+  assert.match(ruleFailures(plain, 'proseNumbers')[0].msg, /“3\.1”/);
+  const override = await loadTeachingConfig({ proseNumbers: { ignore: ['3\\.1 節'] } });
+  assert.equal(run([sec([para('在第 3.1 節說明。')])], { config: override }).status, 'pass');
+  assert.deepEqual(override.unknown, []);
+  // Switched off, the rule says nothing at all.
+  const off = await loadTeachingConfig({ proseNumbers: false });
+  assert.equal(ruleItems(run([sec([para('後驗機率約為 0.084。')])], { config: off }), 'proseNumbers').length, 0);
+});
+
+test('proseNumbers reads a decimal at the precision written, rounded or truncated', () => {
+  // 0.4449 truncates to 0.444 (the slide's style) and rounds to 0.445: both readings are accepted.
+  const truncated = run([sec([para('權重為 0.444。')], calcOf(0.4449))]);
+  assert.equal(truncated.status, 'pass', failing(truncated).map((i) => i.msg).join('\n'));
+  // 0.4444 at two places is 0.44, but 0.45 is not a reading of it.
+  assert.equal(run([sec([para('權重為 0.44。')], calcOf(0.4444))]).status, 'pass');
+  assert.equal(run([sec([para('權重為 0.45。')], calcOf(0.4444))]).status, 'fail');
+  // A percentage's precision is the percent's: 44.4% reads 0.4444 and 0.4449 alike.
+  assert.equal(run([sec([para('占 44.4%。')], calcOf(0.4449))]).status, 'pass');
+});
+
+test('proseNumbers asks for a build, not a list of failures, when checks.json predates the numeric record', () => {
+  const old = sec([para('後驗機率約為 0.084。')]);
+  delete old.calc;
+  delete old.readouts;
+  const g = run([old]);
+  assert.equal(g.status, 'pass');
+  assert.equal(ruleFailures(g, 'proseNumbers').length, 0);
+  assert.match(ruleItems(g, 'proseNumbers')[0].msg, /run "lykeion build" again/);
+});
+
+test('proseNumbers checks a quiz explanation against the section the item links to', () => {
+  const quiz = [{ where: '01-a.md §1.2 quiz #1', q: '承上', o: ['a', 'b'], ex: '事後機率只有約 8.3%。', sec: 's1-1' }];
+  // The linked section's calc gives 8.3 %.
+  const linked = run([sec([para('正文。')], calcOf(0.083))], { quiz });
+  assert.equal(ruleFailures(linked, 'proseNumbers').length, 0);
+  // Nothing in the linked section gives it, even though another section's calc does.
+  const other = run([sec([para('正文。')], { id: 's1-2', num: '1.2', ...calcOf(0.083) }), sec([para('正文。')])], { quiz });
+  assert.match(ruleFailures(other, 'proseNumbers')[0].msg, /quiz #1 explanation: “8\.3%”/);
+});
+
+test('the teaching record holds each built-in Lab readout at its default inputs and each calc expect', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Readouts probe', output: 'probe.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  const body = [
+    '---', 'chapter: 1', 'title: Readouts', 'short: readouts', 'source: sample.pdf', '---', '',
+    '## 1.1 讀數 {pages=1}', '',
+    '講義寫 <q>90%</q>，我們算出 0.12。', '',
+    '```calc', '- { expr: "0.3*0.4", expect: 0.12 }', '```', '',
+    '```lab slider-calc', 'tag: LAB A', 'title: 滑桿', 'inputs:', '  - { id: pa, label: "P(A|B)", min: 0, max: 1, step: 0.05, value: 0.3 }',
+    'outputs:', '  - { label: "P(A∩B)", expr: "pa * 0.4" }', '```', '',
+    '```lab table', 'tag: LAB B', 'title: 表', 'names: [[k, nk], [x, y]]', 'rows: [成功, 失敗]', 'cols: [次數, 補數]', 'values: [[2, 8], [0, 0]]',
+    'outputs: [{ label: "P(X=k)", expr: "k / (k + nk)" }]', '```', '',
+    '```lab curve', 'tag: LAB C', 'title: 曲線', 'x: { label: k, min: 0, max: 20 }', 'curves: [{ label: "p = 0.5", expr: "x / 10" }]', 'marker: { label: k, value: 4 }', '```', '',
+  ].join('\n');
+  await writeFile(join(dir, 'content', '01-readouts.md'), body);
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const s = checks.teaching.sections[0];
+  assert.deepEqual(s.calc.map((c) => c.expect), [0.12]);
+  assert.deepEqual(s.readouts.map((r) => [r.lab, r.label, Math.round(r.value * 1000) / 1000]), [
+    ['LAB A', 'P(A∩B)', 0.12], ['LAB B', 'P(X=k)', 0.2], ['LAB C', 'p = 0.5', 0.4],
+  ]);
+  // The quotation keeps its marks for the rule, and the words every other rule reads have none.
+  const p = s.blocks.find((b) => b.kind === 'p');
+  assert.equal(p.text, '講義寫 90%，我們算出 0.12。');
+  assert.match(p.marked, /90%/);
+  const g = teachingGate(checks.teaching, {}, defaults);
+  assert.equal(ruleFailures(g, 'proseNumbers').length, 0, ruleFailures(g, 'proseNumbers').map((i) => i.msg).join('\n'));
 });
 
 // ---------- end to end ----------

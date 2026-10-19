@@ -160,6 +160,8 @@ p{margin:0 0 1.15em; max-width:var(--measure)}
 .prose li::marker{color:var(--muted)}
 strong{font-weight:700}
 mark{background:linear-gradient(transparent 55%, var(--hl) 55%); color:inherit; padding:0 .1em}
+/* A number quoted from the slides (`<q>`): the quotation marks and a dotted underline say it is not computed here. */
+q{quotes:"「" "」"; color:var(--ink-2); text-decoration:underline dotted; text-underline-offset:.25em}
 .en{color:var(--ink-2); font-size:.9em}
 code{font-family:var(--f-mono); font-size:.86em; background:var(--paper-deep); padding:.1em .35em; border-radius:4px}
 .mono{font-variant-numeric:tabular-nums}
