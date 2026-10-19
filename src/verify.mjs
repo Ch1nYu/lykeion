@@ -38,7 +38,7 @@ export async function verify(dir, { render = true } = {}) {
   gates.push(numericGate(checksFile.checks, await loadMath(dir)));
   gates.push(coverageGate(project.scope || [], checksFile.sections));
   gates.push(quizReviewGate(checksFile.levels || []));
-  gates.push(teachingGate(checksFile.teaching, project, await loadTeachingConfig(project.teaching || {})));
+  gates.push(teachingGate(checksFile.teaching, project, await loadTeachingConfig(project.teaching || {}), await loadSlideText(dir, checksFile.teaching?.sections || [])));
   gates.push(render ? await renderGate(htmlPath) : { name: 'render', status: 'skipped', items: [{ ok: null, msg: 'skipped by --no-render — NOT render-verified' }] });
   gates.push(await sourceGate(dir));
   gates.push(await teachingReviewGate(dir));
@@ -79,6 +79,29 @@ export function parsePages(spec) {
   }
   return out;
 }
+
+// The slide text a section's code listings are checked against: `<project>/pages/<pdf stem>/p-NNN.txt`
+// for the section's `pages`, found through `pages/index.json` by the chapter's `source` file name.
+// Returns section id → text. A section with no text here is reported as not checkable by the gate,
+// not as a failure: the pages may simply not have been extracted yet.
+export async function loadSlideText(dir, sections) {
+  const out = new Map();
+  const index = await readFile(join(dir, 'pages', 'index.json'), 'utf8').then(JSON.parse, () => null);
+  if (!index) return out;
+  for (const s of sections) {
+    const entry = s.source && s.pages && (index.sources || []).find((e) => basename(e.pdf || '') === basename(s.source));
+    if (!entry) continue;
+    let nums;
+    try { nums = parsePages(s.pages); } catch { continue; }
+    let text = '';
+    for (const n of nums) {
+      text += await readFile(join(dir, 'pages', entry.stem, `p-${String(n).padStart(3, '0')}.txt`), 'utf8').catch(() => '') + '\n';
+    }
+    if (text.trim()) out.set(s.id, text);
+  }
+  return out;
+}
+
 const ranges = (nums) => {
   const s = [...nums].sort((a, b) => a - b), out = [];
   for (let i = 0; i < s.length; i++) { let j = i; while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++; out.push(i === j ? `${s[i]}` : `${s[i]}-${s[j]}`); i = j; }

@@ -80,7 +80,8 @@ const langApplies = (entry, projectLang) => {
 // `teaching` is the `teaching` object written into checks.json:
 //   { sections: [{ id, num, title, file, blocks: [{ kind, chars, text? }] }],
 //     quiz:     [{ where, q, o, ex }] }
-export function teachingGate(teaching, project = {}, config = { rules: {}, lexicon: [] }) {
+// `slideText` is a Map of section id → the slide text of its pages (loadSlideText in verify.mjs).
+export function teachingGate(teaching, project = {}, config = { rules: {}, lexicon: [] }, slideText = null) {
   const { rules = {}, lexicon = [], unknown = [], known = [] } = config;
   const items = [];
   const sections = teaching?.sections || [];
@@ -309,6 +310,59 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
     for (const s of sections) for (const b of blocksOf(s)) scan(b.math, `${where(s)} ${b.kind}`, s);
     for (const q of quiz) scan(q.math, q.where);
     report('numericMath', failures, 'every number in maths is part of an expression');
+  }
+
+  // 11. codeSource — a listing says where its code comes from. Invented code with invented numbers is
+  //     what this rule stops: `from="slides"` must use identifiers the slides really print, a reference
+  //     must be one the site cites, and an illustration the author wrote must say so in its title.
+  //     Output blocks are exempt. `slideText` is the page text per section id (see verify.mjs); without it
+  //     a slides listing is reported as not checkable, never as a failure.
+  const codeRule = rules.codeSource;
+  if (codeRule) {
+    const outputTitles = new Set(codeRule.outputTitles || []);
+    const keywords = new Set(codeRule.keywords || []);
+    const label = codeRule.exampleLabel || '示範';
+    const minShare = Number(codeRule.minIdentifierShare ?? 0.5);
+    const cited = [].concat(project.references || []);
+    const failures = [];
+    for (const s of sections) for (const b of blocksOf(s)) {
+      if (b.kind !== 'code' || outputTitles.has(b.title)) continue;
+      const loc = where(s);
+      const shown = b.title ? `“${b.title}”` : 'a listing';
+      const from = String(b.from ?? '').trim();
+      if (!from) {
+        failures.push({ msg: `${loc}: ${shown} has no from — say where this code comes from (from="slides", a reference, or from="example" with 「${label}」 in the title)${quote(s)}` });
+        continue;
+      }
+      if (from === 'slides') {
+        const ids = (b.ids || []).filter((w) => !keywords.has(w));
+        const text = slideText?.get(s.id);
+        if (!text) {
+          failures.push({ warn: true, msg: `${loc}: ${shown} is from="slides", but the slide text of pages ${s.pages || '(none)'} is not extracted — not checkable` });
+          continue;
+        }
+        if (!ids.length) {
+          failures.push({ warn: true, msg: `${loc}: ${shown} is from="slides", but it has no identifiers to check — not checkable` });
+          continue;
+        }
+        const missing = ids.filter((w) => !new RegExp(`(?<![A-Za-z0-9_])${w}(?![A-Za-z0-9_])`).test(text));
+        const share = (ids.length - missing.length) / ids.length;
+        if (share < minShare) {
+          failures.push({ msg: `${loc}: ${shown} is from="slides", but ${Math.round(share * 100)}% of its identifiers appear on pages ${s.pages} (need ${Math.round(minShare * 100)}%); not on the slides: ${missing.slice(0, 6).join(', ')}${quote(s)}` });
+        }
+        continue;
+      }
+      if (from === 'example') {
+        if (!String(b.title || '').includes(label)) {
+          failures.push({ msg: `${loc}: ${shown} is from="example", but its title has no 「${label}」 — the reader must see that it is an illustration, not the course's code` });
+        }
+        continue;
+      }
+      const lower = from.toLowerCase();
+      if (cited.some((r) => String(r).toLowerCase().startsWith(lower))) continue;
+      failures.push({ msg: `${loc}: ${shown} is from="${from}", which is none of "slides", "example" or a reference in lykeion.json (${cited.join(' / ') || 'no references'})` });
+    }
+    report('codeSource', failures, 'every code listing says where it comes from');
   }
 
   const bad = items.filter((i) => i.ok === false).length;
