@@ -88,7 +88,7 @@ a{color:var(--accent); text-underline-offset:3px}
 .nav a .num{font-family:var(--f-body); font-size:.74rem; color:var(--muted)}
 /* Sub-headings of the section being read: only the current section carries them. */
 .nav .subs ol{gap:0}
-.nav a.sub{grid-template-columns:1fr; padding-left:32px; font-size:.86rem; color:var(--muted)}
+.nav a.sub{display:block; padding-left:32px; font-size:.86rem; color:var(--muted)}
 .nav a.sub.current{background:none; box-shadow:none; color:var(--accent); font-weight:700}
 /* On the home view the list is the chapter index; a section list belongs to the chapter being read. */
 .dot{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--rule-strong); display:grid; place-items:center; transition:all .3s}
@@ -225,6 +225,9 @@ math{font-family:var(--f-math)}
    either side; display maths keeps its own size. */
 math:not([display="block"]){font-size:.94em; line-height:1; margin-inline:.08em; vertical-align:baseline}
 math[display="block"]{margin-inline:0}
+/* A label (sidebar, top bar, pager) sets its maths at the label's own size: the .94em that suits body
+   text reads as a smaller word beside the link text, so the maths takes the label's size. */
+.nav math, .topbar math, .pager math{font-size:1em}
 /* Chromium sets stretchy over/underlines flush against the glyph (\overline{X} looks like X); give them room. */
 math mover[accent="true"] > mo[stretchy="true"]:last-child{padding-bottom:.18em}
 math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18em}

@@ -82,15 +82,16 @@ Section body in Markdown.
   tex: '\mathrm{Gini} = 1 - \sum_{i} p_{i}^{2}'
   parts:
     - { tex: '\mathrm{Gini}', say: '左邊是我們要的純度指標。' }
-    - { tex: '=', say: '右邊把它算出來。' }
-    - { tex: '1 - \sum_{i} p_{i}^{2}', say: '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。' }
+    - { tex: '=' }
+    - { tex: '1 - \sum_{i}', say: '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。' }
+    - { tex: 'p_{i}^{2}', say: '求和的每一項是某一類的機率平方，把它們全部加起來。' }
   hint: 點每一段看它在做什麼
   ```
   ````
 
   Each part with a `say` becomes a button; pressing it shows that one explanation in a fixed-height area under the formula, and the first explained part is already selected. Parts without a `say` are rendered but not clickable (use them for operators and spacing). `hint` is optional prose under the card. Single-quoted YAML scalars keep TeX literal (`tex: '\frac{P(A)}{P(B)}'`); in a double-quoted scalar every backslash must be doubled (`tex: "\\frac{P(A)}{P(B)}"`), because YAML reads `\f` as an escape.
 
-The build rejects a parts formula whose pieces, joined with whitespace removed, do not spell `tex`, one with fewer than `formulaParts.minExplained` explained parts, and any piece that is not valid TeX — so a breakdown can never drift from the formula it explains.
+The build rejects a parts formula whose pieces, joined with whitespace removed, do not spell `tex`, one with fewer than `formulaParts.minExplained` explained parts, a clickable piece longer than `formulaParts.maxPartShare` of the whole `tex` (whitespace removed; default 0.5, so no single explained piece may be more than half the formula), and any piece that is not valid TeX — so a breakdown can never drift from the formula it explains.
 
 - Maths in a heading (`## 3.1 縮放用 $\sqrt{d_k}$`, `### 除以 $\sqrt{d_k}$`) reaches the sidebar, the top bar and the pager as rendered maths: a label copies the heading's markup, not its text, so the TeX source never appears next to the marks. The plain-text label the runtime keeps for toasts and `Lykeion.views()` flattens the formula to marks (`√(dk)`), never `dk\sqrt{d_k}`.
 - A number is not a formula: `$0.5$` inherits the maths face and baseline and reads as a word from another language, so write numbers as text and keep `$…$` for expressions. The `teaching` gate enforces this (`numericMath`), and also fails maths typed as plain text (`√d_k`, `\sqrt`, `x^2`, `QKᵀ`, `x_{i}`) — `plainMath`.
@@ -322,7 +323,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
 
 - Every failure names the file, the section and a short excerpt.
-- `formulaParts` is not a gate rule but the same kind of constant: `{ "minParts": 2, "minExplained": 2 }` decides how many pieces a `formula` block needs and how many of them must carry a `say`. The build and the gate read the same file, so a project that overrides it changes both.
+- `formulaParts` is not a gate rule but the same kind of constant: `{ "minParts": 2, "minExplained": 2, "maxPartShare": 0.5 }` decides how many pieces a `formula` block needs, how many of them must carry a `say`, and how large an explained piece may be relative to the whole formula. The build and the gate read the same file, so a project that overrides it changes both.
 - `lexicon` entries are `{ pattern, why, level: "fail"|"warn", lang: "zh"|"en"|"any" }`. A project's entries are appended to the shipped ones; `lexiconOff` lists patterns to switch off. `lang` only decides whether an entry applies to a project (`lang: "zh"` applies to `zh-Hant-TW`); the rules themselves are language-neutral.
 - `plainMath` and `numericMath` are `false` to switch them off, and `numericMath.ignore` is a regex source, not a pattern list: the parts of a formula that do not make it an expression.
 - An unknown key under `teaching` is a gate failure, so a typo cannot silently do nothing.

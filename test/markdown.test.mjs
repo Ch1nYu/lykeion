@@ -207,15 +207,16 @@ test('the teaching record counts visible words, not maths or YAML keys', async (
   // The expected count is derived from the same strings that build the block, so the assertion
   // cannot drift when a `say` is reworded: a hand-retyped expectation is exactly how this test went
   // wrong once already.
-  const says = ['左邊是我們要的純度指標。', '右邊把它算出來。', '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。'];
+  const says = ['左邊是我們要的純度指標。', '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。', '求和的每一項是某一類的機率平方，把它們全部加起來。'];
   const hint = '點每一段看它在做什麼';
   const parts = [
     '```formula GINI',
     "tex: '\\mathrm{Gini} = 1 - \\sum_{i} p_{i}^{2}'",
     'parts:',
     "  - { tex: '\\mathrm{Gini}', say: '" + says[0] + "' }",
-    "  - { tex: '=', say: '" + says[1] + "' }",
-    "  - { tex: '1 - \\sum_{i} p_{i}^{2}', say: '" + says[2] + "' }",
+    "  - { tex: '=' }",
+    "  - { tex: '1 - \\sum_{i}', say: '" + says[1] + "' }",
+    "  - { tex: 'p_{i}^{2}', say: '" + says[2] + "' }",
     'hint: ' + hint,
     '```',
     '',
@@ -253,8 +254,9 @@ const PARTS = [
   "tex: '\\mathrm{Gini} = 1 - \\sum_{i} p_{i}^{2}'",
   'parts:',
   "  - { tex: '\\mathrm{Gini}', say: '左邊是我們要的純度指標。' }",
-  "  - { tex: '=', say: '右邊把它算出來。' }",
-  "  - { tex: '1 - \\sum_{i} p_{i}^{2}', say: '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。' }",
+  "  - { tex: '=' }",
+  "  - { tex: '1 - \\sum_{i}', say: '一減掉每一類機率的平方和：越集中，平方和越大，Gini 越小。' }",
+  "  - { tex: 'p_{i}^{2}', say: '求和的每一項是某一類的機率平方，把它們全部加起來。' }",
   'hint: 點每一段看它在做什麼',
   '```',
   '',
@@ -268,9 +270,9 @@ test('a formula with parts renders clickable pieces, one explanation area, and t
   const buttons = sec.match(/<button type="button" class="piece" data-part="\d" aria-pressed="(?:true|false)">/g) || [];
   assert.equal(buttons.length, 3);
   assert.match(buttons[0], /data-part="0" aria-pressed="true"/);
-  assert.match(buttons[1], /data-part="1" aria-pressed="false"/);
+  assert.match(buttons[1], /data-part="2" aria-pressed="false"/);
   // Each piece is real MathML, not a TeX string, and the whole formula is rendered once more for AT.
-  assert.equal((sec.match(/<math /g) || []).length, 4, 'three pieces plus the hidden whole formula');
+  assert.equal((sec.match(/<math /g) || []).length, 5, 'four pieces plus the hidden whole formula');
   // ONE explanation area, every `say` pre-rendered inside it, exactly one visible at the start.
   const say = /<div class="say stack" id="s3-1-f0-say">([\s\S]*?)<\/div>\n<\/div>/.exec(sec);
   assert.ok(say, 'the explanation area is a stack');
@@ -289,7 +291,8 @@ test('a part with no say is rendered but is not a button', async () => {
     'parts:',
     "  - { tex: 'a', say: '第一個量。' }",
     "  - { tex: ' + ' }",
-    "  - { tex: 'b = c', say: '結果。' }",
+    "  - { tex: 'b', say: '第二個量。' }",
+    "  - { tex: ' = c' }",
     '```',
     '',
   ].join('\n'));
@@ -335,4 +338,36 @@ test('build rejects a parts formula with fewer than two parts at all', async () 
   await writeFile(join(dir, 'content', '03-one.md'), chapter(3, 'One',
     partsFormula('a', ["{ tex: 'a', say: '只有一段。' }"])));
   await assert.rejects(build(dir), /03-one\.md §3\.1: formula with parts needs at least 2 parts/);
+});
+
+// A clickable piece that is most of the formula teaches nothing the reader can take apart. The share
+// is of the whole `tex` with whitespace removed: `abcdefgh` is 8 of the 10 characters of `x=abcdefgh`.
+const COARSE = partsFormula('x = abcdefgh', ["{ tex: 'x', say: '左邊。' }", "{ tex: ' = ' }", "{ tex: 'abcdefgh', say: '右邊很長。' }"]);
+const FINER = partsFormula('x = abcdefgh', ["{ tex: 'x', say: '左邊。' }", "{ tex: ' = ' }", "{ tex: 'abcd', say: '前半。' }", "{ tex: 'efgh', say: '後半。' }"]);
+
+test('build rejects a clickable part that is more than half the formula, and says how to split it', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-coarse.md'), chapter(3, 'Coarse', COARSE));
+  await assert.rejects(build(dir), /03-coarse\.md §3\.1: formula part "abcdefgh" is 80 % of the formula \(limit 50 %\) — split it into smaller pieces, each with its own say/);
+});
+
+test('build accepts the same formula split into pieces that are each at most half of it', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-finer.md'), chapter(3, 'Finer', FINER));
+  await build(dir);
+});
+
+test('a part with no say is exempt from the share limit', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-static.md'), chapter(3, 'Static', partsFormula('x = abcdefgh', ["{ tex: 'x', say: '左邊。' }", "{ tex: ' = ', say: '等號。' }", "{ tex: 'abcdefgh' }"])));
+  await build(dir);
+});
+
+test('a project can raise maxPartShare in lykeion.json, and the coarse part then builds', async () => {
+  const dir = await sampleCopy();
+  const config = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8'));
+  config.teaching = { formulaParts: { maxPartShare: 0.8 } };
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify(config));
+  await writeFile(join(dir, 'content', '03-coarse.md'), chapter(3, 'Coarse', COARSE));
+  await build(dir);
 });

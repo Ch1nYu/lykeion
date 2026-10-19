@@ -22,8 +22,9 @@ const BLOCKS = [
   "tex: '\\mathrm{Gini} = 1 - \\sum_{i} p_{i}^{2}'",
   'parts:',
   "  - { tex: '\\mathrm{Gini}', say: '左邊是我們要的純度指標。' }",
-  "  - { tex: '=', say: '右邊把它算出來。' }",
-  "  - { tex: '1 - \\sum_{i} p_{i}^{2}', say: '一減掉每一類機率的平方和。' }",
+  "  - { tex: '=' }",
+  "  - { tex: '1 - \\sum_{i}', say: '一減掉每一類機率的平方和。' }",
+  "  - { tex: 'p_{i}^{2}', say: '求和的每一項是某一類的機率平方，把它們全部加起來。' }",
   'hint: 點每一段看它在做什麼',
   '```',
   '',
@@ -109,7 +110,7 @@ test('the explanation area keeps one height as pieces change, so the page does n
   const { browser, page: p } = await page();
   try {
     const heights = [];
-    for (const i of [0, 1, 2, 0]) {
+    for (const i of [0, 2, 3, 0]) {
       await p.click(`#s3-1 .formula.parts .eq button.piece[data-part="${i}"]`);
       await p.waitForTimeout(80);
       heights.push(await p.evaluate(() => document.querySelector('#s3-1 .formula.parts .say').getBoundingClientRect().height));
@@ -189,6 +190,49 @@ test('the sidebar lists the ### headings of a section under it', async () => {
     assert.deepEqual(subs.map((s) => s.text), ['第一個問題', '第二個問題']);
     assert.deepEqual(subs.map((s) => s.href), ['#s3-1-1', '#s3-1-2']);
     assert.ok(subs.every((s) => s.resolves), 'every sub-link resolves to a heading');
+  } finally {
+    await browser.close();
+  }
+});
+
+// Maths in a sidebar label is set at the label's own size and stays on the line of its words. A label
+// that is a `###` heading (`.nav a.sub`) used to break after the words and let its maths drop to a line
+// of its own, and the `.94em` that suits body text left the maths visibly smaller than the link text.
+test('maths in a sidebar label is the label size and sits on the line with its words', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+  await writeFile(join(dir, 'content', '03-labels.md'), chapter(3, '縮放 $\\sqrt{d_k}$', '### 除以 $\\sqrt{d_k}$\n\n這一段。\n'));
+  await build(dir);
+  const browser = await launchBrowser();
+  assert.ok(browser, 'needs a browser for the label check');
+  try {
+    const p = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
+    await p.route(/^https?:\/\//, (route) => route.abort());
+    await p.goto(pathToFileURL(join(dir, 'sample.html')).href, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(500);
+    await p.evaluate(() => window.Lykeion.show('ch3', { noScroll: true }));
+    await p.waitForTimeout(100);
+    const m = await p.evaluate(() => {
+      const size = (el) => parseFloat(getComputedStyle(el).fontSize);
+      const main = document.querySelector('#nav a[href="#s3-1"]');
+      const sub = document.querySelector('#nav a.sub');
+      return {
+        mainMath: size(main.querySelector('math')),
+        mainLabel: size(main.querySelector(':scope > span:last-child')),
+        subMath: size(sub.querySelector('math')),
+        subLink: size(sub),
+        // The link's own padding is not text: count only the box between it, in line-heights.
+        subLines: (() => {
+          const cs = getComputedStyle(sub);
+          const text = sub.getBoundingClientRect().height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+          return text / parseFloat(cs.lineHeight);
+        })(),
+      };
+    });
+    assert.equal(m.mainMath, m.mainLabel, `main label maths ${m.mainMath}px, label ${m.mainLabel}px`);
+    assert.equal(m.subMath, m.subLink, `sub-heading maths ${m.subMath}px, link ${m.subLink}px`);
+    // One line of text is one line-height; a label that wrapped would be two.
+    assert.ok(m.subLines < 1.5, `sub-heading wrapped onto ${m.subLines.toFixed(2)} lines`);
   } finally {
     await browser.close();
   }

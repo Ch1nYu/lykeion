@@ -32,5 +32,10 @@
   },
   "numericMath": {
     "ignore": "\\s|\\d|[+\\-\u2212.,%$]|\\\\[,;:!]|\\\\%|[{}]|~~"
+  },
+  "formulaParts": {
+    "minParts": 2,
+    "minExplained": 2,
+    "maxPartShare": 0.5
   }
 }
