@@ -260,14 +260,63 @@ test('teaching review reads STATUS, and warns when the writing agent reviewed it
   assert.equal(pass.items[0].ok, true);
   assert.equal(pass.items[0].warn, undefined);
 
-  const self = await reviewGateWith(review('self'));
+  const self = await reviewGateWith(review('self (no sub-agent tool in this host)'));
   assert.equal(self.status, 'pass', 'a self-review still passes when its STATUS says pass');
-  assert.equal(self.headline, 'self-review, not independent (from teaching-review.md)');
+  assert.equal(self.headline, 'self-review, not independent (no sub-agent tool in this host) (from teaching-review.md)');
   assert.equal(self.items[0].warn, true, 'but it is painted ⚠, not ✓');
+  assert.equal(self.selfReview, true);
 
   const fail = await reviewGateWith(review('independent', 'fail'));
   assert.equal(fail.status, 'fail');
   assert.equal(fail.items[0].ok, false);
+});
+
+// A self-review without a stated reason is not accepted: the writer must either get an independent
+// reviewer or say why none was available.
+test('teaching review fails a self-review that gives no reason', async () => {
+  const g = await reviewGateWith(review('self'));
+  assert.equal(g.status, 'fail');
+  assert.equal(g.items[0].ok, false);
+  assert.match(g.items[0].msg, /Reviewer "self" needs a reason/);
+  assert.equal(g.selfReview, true);
+});
+
+test('teaching review with an independent reviewer is not a self-review', async () => {
+  const g = await reviewGateWith(review('independent'));
+  assert.equal(g.selfReview, false);
+});
+
+test('teaching review warns when the Reviewer line is missing', async () => {
+  const g = await reviewGateWith(review(undefined));
+  assert.equal(g.status, 'pass');
+  assert.equal(g.headline, 'reviewer not stated (from teaching-review.md)');
+  assert.equal(g.items[0].warn, true);
+});
+
+test('teaching review reads an independent fail and a self-review with reason', async () => {
+  const self = await reviewGateWith(review('self (no sub-agent tool in this host)', 'fail'));
+  assert.equal(self.status, 'fail');
+  assert.equal(self.headline, 'self-review, not independent (no sub-agent tool in this host) (from teaching-review.md)');
+  assert.equal(self.items[0].warn, true);
+});
+
+test('teaching review names the reason once in the headline', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'teaching-review.md'), review('self (no sub-agent tool in this host)'));
+  const g = await teachingReviewGate(dir);
+  assert.equal(g.headline.split('no sub-agent tool in this host').length - 1, 1);
+});
+
+test('teaching review still warns for a self-review when the STATUS is a pass', async () => {
+  const g = await reviewGateWith(review('self (no sub-agent tool in this host)', 'pass'));
+  assert.equal(g.items[0].ok, true);
+  assert.equal(g.items[0].warn, true);
+  assert.equal(g.items[0].msg, 'reviewed by the writing agent, not independently — see teaching-review.md');
+});
+
+test('teaching review still pending is not a self-review', async () => {
+  const g = await reviewGateWith(null);
+  assert.equal(g.selfReview, undefined);
 });
 
 // The two review gates must be one mechanism: if a future change teaches the source gate a new

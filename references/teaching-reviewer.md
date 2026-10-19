@@ -4,7 +4,7 @@ You review how well a built Lecture Site **teaches**, after the source check has
 
 The machine gates already catch what can be counted: page references in body text, paragraphs and prose runs that are too long, formulas left without words, formulas with no analogy before them, sections built from one kind of block, too many stepper Labs, Lab boxes that change height, fonts outside the three tokens, and listed filler phrases (`lykeion verify`, gates **teaching** and **render**). Do not repeat them. Your job is what a counter cannot judge: whether a student who missed the lecture would understand.
 
-Ideally you did not write the content. When the host gives you no reviewer with fresh context, the writing agent may review itself: re-read this file from the top first and say so in the `Reviewer:` line.
+You did not write the content. If you can start another agent with fresh context (a sub-agent tool, or another agent session), that agent does the review, given only the files listed under Inputs — never the writer's conversation. Only when the host has no way to start another agent may the writing agent review itself: re-read this file from the top first and give the reason in the `Reviewer:` line.
 
 ## Inputs
 
@@ -43,6 +43,6 @@ Reviewer: independent
 - 03-classification.md: §3.1–3.11, 11 sections, 6 formulas, 4 Labs
 ```
 
-The header (above the first `##`) carries `STATUS:` and `Reviewer:` (`independent`, or `self` with a reason in a few words). `STATUS: pass` only when no **must-fix** finding is left.
+The header (above the first `##`) carries `STATUS:` and `Reviewer:` (`independent`, or `self (reason)`; a `self` without a reason fails the gate). `STATUS: pass` only when no **must-fix** finding is left.
 
 Done when every section of every chapter is listed under **Checked**.

@@ -131,8 +131,16 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
   // about who did the checking. A missing line is not a failure either — projects written before the
   // line existed still verify — so both unknowns warn instead of failing.
   const head = txt.split(/^##\s/m)[0];
-  const rev = /^Reviewer:\s*([^\s(]+)/im.exec(head);
+  const rev = /^Reviewer:\s*([^\s(]+)\s*(?:\(([^)]*)\))?/im.exec(head);
   const reviewer = rev ? rev[1].toLowerCase() : null;
+  const reason = rev?.[2]?.trim() || '';
+  // A self-review must say why no independent reviewer was available; without that reason it fails.
+  if (reviewer === 'self' && !reason) {
+    return {
+      name, status: 'fail', selfReview: true, headline: `self-review without a reason (from ${file})`,
+      items: [{ ok: false, msg: `Reviewer "self" needs a reason: get an independent reviewer, or write Reviewer: self (reason), e.g. Reviewer: self (no sub-agent tool in this host) — see ${file}` }],
+    };
+  }
   const r = REVIEWERS[reviewer] || {
     how: reviewer ? `reviewer "${reviewer}" not recognised (use independent or self)` : 'reviewer not stated',
     msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see {file}` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see {file}',
@@ -141,7 +149,8 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
   return {
     name,
     status,
-    headline: `${r.how}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from ${file})`,
+    selfReview: reviewer === 'self',
+    headline: `${r.how}${reason ? ` (${reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from ${file})`,
     items: [{ ok: status === 'pass', warn: r.warn, msg: r.msg.replace('{file}', file) }],
   };
 }
@@ -1016,6 +1025,8 @@ function formatReport(project, checksFile, gates, ok) {
     ...gates.map((g) => `| ${g.name} | ${icon(g.status)} ${g.status} | ${g.headline || ''} |`),
     '',
   ];
+  const selfReviews = gates.filter((g) => g.selfReview).length;
+  if (selfReviews) lines.push(`⚠ ${selfReviews} review(s) by the writing agent itself — not an independent check.`, '');
   for (const g of gates) {
     lines.push(`## ${g.name}`, '');
     const sorted = [...g.items].sort((a, b) => (a.ok === false ? -1 : 0) - (b.ok === false ? -1 : 0));

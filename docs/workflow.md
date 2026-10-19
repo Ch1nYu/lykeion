@@ -74,9 +74,9 @@ The **render** gate also checks the reading experience: only the three font toke
 
 Have the built content compared with the cited pages and the References, and record the result in `<project>/source-check.md`.
 
-Prefer a reviewer with fresh context: a sub-agent, or another agent session the host provides. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format, then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
+The review **must** be done by a reviewer with fresh context whenever the host can start one: a sub-agent, or another agent session the host provides. That reviewer is given only the files `references/source-checker.md` lists — never the writer's conversation. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format, then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
 
-When no such reviewer exists, review it yourself: re-read `references/source-checker.md` from the top first, and record that — `source-check.md` states its reviewer in the header (`Reviewer: independent`, or `Reviewer: self (no sub-agent available)`), and `lykeion verify` repeats which one in the source gate, as ⚠ for a self-review. A self-review is allowed; passing it off as an independent one is not.
+A self-review is allowed only when the host has no way to start another agent. Then re-read `references/source-checker.md` from the top first, and state the reason in the header: `Reviewer: self (no sub-agent tool in this host)`. `source-check.md` must carry `Reviewer: independent` or `Reviewer: self (reason)`; a `self` line without a reason fails the source gate. `lykeion verify` repeats the reviewer in its source gate, and a self-review shows as ⚠ with a count under the gate table. A self-review is allowed when it says why; passing it off as an independent one is not.
 
 Fix every finding marked **certain**, rebuild, and re-run steps 6–7. Leave **disputed** findings unchanged for the user.
 
@@ -86,7 +86,7 @@ Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 
 ## 8. Teaching review
 
-Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md`. As with the source check, prefer a reviewer with fresh context, and state `Reviewer: independent` or `Reviewer: self (…)` in the header; `lykeion verify` shows a self-review as ⚠.
+Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md`. As with the source check, a reviewer with fresh context is required whenever the host can start one, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent. A `self` line without a reason fails the teaching-review gate; a self-review with a reason shows as ⚠ in `lykeion verify`.
 
 Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains.
 

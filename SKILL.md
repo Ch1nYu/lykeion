@@ -12,5 +12,5 @@ Follow `docs/workflow.md` from step 1, in order; it points to every other file y
 Claude Code specifics:
 
 - Read PDFs' page images (`pages/<pdf>/p-NNN.png`) with the Read tool; it shows figures and formulas.
-- Steps 4, 7 and 8 can use sub-agents here, since Claude Code provides them; `docs/workflow.md` says what to do when a host does not.
+- Step 4 can use sub-agents here, since Claude Code provides them. Steps 7 and 8 always use a sub-agent here, since Claude Code can start one; `docs/workflow.md` says what a host without sub-agents does.
 - Ask the Depth and the Outline approval as questions to the user, and wait for the answers.
