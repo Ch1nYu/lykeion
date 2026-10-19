@@ -18,13 +18,14 @@ source: sample.pdf
 已知事件 $B$ 發生時，事件 $A$ 的<mark>條件機率</mark>定義為
 
 ```formula BAYES
-tex: "P(A \\mid B) = P(A \\cap B) / P(B)"
+tex: "P(A \\mid B) = \\frac{P(A \\cap B)}{P(B)}"
 parts:
   - { tex: "P(A \\mid B)", say: "左邊是「已經知道 B 之後」的機率。" }
   - { tex: "=", say: "等號右邊把它拆成兩個可以分別量測的量。" }
-  - { tex: "P(A \\cap B)", say: "分子是 A 與 B 同時發生的機率，也就是桌布上那一塊。" }
-  - { tex: "/" }
-  - { tex: "P(B)", say: "分母是桌布本身的大小。相除就是把世界縮小到桌布以內。" }
+  - frac:
+      num: [ { tex: "P(A \\cap B)", say: "分子是 A 與 B 同時發生的機率，也就是桌布上那一塊。" } ]
+      den: [ { tex: "P(B)", say: "分母是桌布本身的大小。" } ]
+    say: "整個分數：相除就是把世界縮小到桌布以內，剩下的比例就是答案。"
 hint: 點式子裡的每一段，看它在做什麼
 ```
 

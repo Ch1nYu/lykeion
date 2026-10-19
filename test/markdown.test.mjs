@@ -371,3 +371,96 @@ test('a project can raise maxPartShare in lykeion.json, and the coarse part then
   await writeFile(join(dir, 'content', '03-coarse.md'), chapter(3, 'Coarse', COARSE));
   await build(dir);
 });
+
+// ---------- a fraction as one part (fractions in parts) ----------
+// A `frac` part is written as a one-line flow mapping so partsFormula can list it with the others.
+const FRAC_OK = partsFormula('x = \\frac{ab}{cd}', [
+  "{ tex: 'x', say: '左邊。' }",
+  "{ tex: ' = ', say: '等號。' }",
+  "{ frac: { num: [ { tex: 'ab', say: '分子。' } ], den: [ { tex: 'cd', say: '分母。' } ] }, say: '整個分數。' }",
+]);
+
+test('a fraction part with an explained numerator and denominator builds, and every piece is a button', async () => {
+  const { sec } = await buildPage(FRAC_OK);
+  // The numerator piece, the fraction bar (which is the fraction's own target) and the denominator piece.
+  assert.match(sec, /<span class="frac"><span class="frac-num"><button type="button" class="piece" data-part="2" aria-pressed="false">/);
+  assert.match(sec, /<button type="button" class="piece frac-bar" data-part="3" aria-pressed="false" aria-label="整個分數"><\/button><span class="frac-den"><button type="button" class="piece" data-part="4" aria-pressed="false">/);
+  // Five explained parts (x, =, the numerator, the bar, the denominator): five buttons, and one stack
+  // entry for each in reading order, with the first one selected.
+  assert.equal((sec.match(/<button type="button" class="piece/g) || []).length, 5);
+  const say = /<div class="say stack"[\s\S]*?<\/div>/.exec(sec);
+  assert.deepEqual([...say[0].matchAll(/data-part="(\d)"/g)].map((m) => m[1]), ['0', '1', '2', '3', '4']);
+  assert.match(say[0], /<span data-part="0" class="on">/);
+});
+
+test('a fraction part whose spelling differs from tex fails the build, and says what it spells', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-frac-typo.md'), chapter(3, 'FracTypo', partsFormula('x = \\frac{ab}{cd}', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ', say: '等號。' }",
+    "{ frac: { num: [ { tex: 'ab', say: '分子。' } ], den: [ { tex: 'ce', say: '分母。' } ] }, say: '整個分數。' }",
+  ])));
+  await assert.rejects(build(dir), /03-frac-typo\.md §3\.1: formula parts do not spell its tex — parts give "x=\\frac\{ab\}\{ce\}", tex is "x=\\frac\{ab\}\{cd\}"/);
+});
+
+test('\\dfrac in tex is the same fraction as \\frac in the parts', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-dfrac.md'), chapter(3, 'Dfrac', partsFormula('x = \\dfrac{ab}{cd}', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ', say: '等號。' }",
+    "{ frac: { num: [ { tex: 'ab', say: '分子。' } ], den: [ { tex: 'cd', say: '分母。' } ] } }",
+  ])));
+  await build(dir);
+});
+
+test('a nested fraction spells correctly and each of its pieces is a button', async () => {
+  const { sec } = await buildPage(partsFormula('x = \\frac{\\frac{a}{b}}{c}', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ' }",
+    "{ frac: { num: [ { frac: { num: [ { tex: 'a', say: '內分子。' } ], den: [ { tex: 'b', say: '內分母。' } ] } } ], den: [ { tex: 'c', say: '外分母。' } ] } }",
+  ]));
+  // x, a, b and c are the four buttons: the inner fraction has no say of its own, so it has no bar button.
+  assert.equal((sec.match(/<button type="button" class="piece/g) || []).length, 4);
+});
+
+test('a fraction with no explanation inside is one piece, and fails the share rule when it is most of the formula', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-bigfrac.md'), chapter(3, 'BigFrac', partsFormula('x = \\frac{abcdefgh}{ij}', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ', say: '等號。' }",
+    "{ frac: { num: [ { tex: 'abcdefgh' } ], den: [ { tex: 'ij' } ] } }",
+  ])));
+  await assert.rejects(build(dir), /03-bigfrac\.md §3\.1: formula part "\\frac\{abcdefgh\}\{ij\}" is 90 % of the formula \(limit 50 %\)/);
+});
+
+test('a fraction explained inside is measured by its parts, not as one piece', async () => {
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-finefrac.md'), chapter(3, 'FineFrac', partsFormula('x = \\frac{abcdefgh}{ij}', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ', say: '等號。' }",
+    "{ frac: { num: [ { tex: 'abcdefgh', say: '分子。' } ], den: [ { tex: 'ij', say: '分母。' } ] } }",
+  ])));
+  await build(dir);
+});
+
+test('a fraction\'s own say counts toward minExplained, and a fraction without one does not', async () => {
+  const withSay = partsFormula('x = \\frac{a}{b} + cdefghijklmn', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ' }",
+    "{ frac: { num: [ { tex: 'a' } ], den: [ { tex: 'b' } ] }, say: '整個分數。' }",
+    "{ tex: ' + cdefghijklmn' }",
+  ]);
+  const dir = await sampleCopy();
+  await writeFile(join(dir, 'content', '03-fracsay.md'), chapter(3, 'FracSay', withSay));
+  await build(dir);
+
+  const bare = partsFormula('x = \\frac{a}{b} + cdefghijklmn', [
+    "{ tex: 'x', say: '左邊。' }",
+    "{ tex: ' = ' }",
+    "{ frac: { num: [ { tex: 'a' } ], den: [ { tex: 'b' } ] } }",
+    "{ tex: ' + cdefghijklmn' }",
+  ]);
+  const dir2 = await sampleCopy();
+  await writeFile(join(dir2, 'content', '03-fracbare.md'), chapter(3, 'FracBare', bare));
+  await assert.rejects(build(dir2), /03-fracbare\.md §3\.1: formula parts need at least 2 parts with "say" \(found 1\)/);
+});

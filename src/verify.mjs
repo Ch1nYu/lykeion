@@ -434,7 +434,8 @@ async function renderGate(htmlPath) {
         }
 
         // E4 formula parts: pressing a piece must neither resize the card nor leave two explanations
-        // visible. Every piece is clicked, so a card that only looks stable on one piece is caught.
+        // visible. Every piece is clicked, so a card that only looks stable on one piece is caught. A
+        // fraction's numerator, its bar and its denominator are buttons inside `.eq`, so they are clicked too.
         const parts = [];
         let partBlocks = 0, pieces = 0;
         for (const f of view.querySelectorAll('.formula.parts')) {

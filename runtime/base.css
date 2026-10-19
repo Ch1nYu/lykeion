@@ -247,6 +247,16 @@ math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18
 .formula.parts .eq .piece.static{cursor:default}
 .formula.parts .say{border-top:1px dashed var(--rule-strong); margin-top:14px; padding-top:12px; font-size:.98rem; line-height:1.8; color:var(--ink-2)}
 .formula.parts .hint{font-family:var(--f-body); font-size:.82rem; color:var(--muted); margin:8px 0 0; text-align:left}
+/* A fraction part is one cell of the row: numerator, bar, denominator, stacked. It is centred like any
+   cell, which puts the bar near the maths axis. The bar is drawn as a gradient line so that a button
+   keeps its whole width as the hit area. These rules come after the `.piece` rules and match their
+   specificity, so they win where both apply (the bar is a `.piece` when it has a say). */
+.formula.parts .frac{display:inline-flex; flex-direction:column; align-items:stretch; text-align:center; margin-inline:.12em}
+.formula.parts .frac-num,.formula.parts .frac-den{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.1em; padding-inline:.15em}
+.formula.parts .frac > .frac-bar{display:block; width:100%; height:.9em; margin:0; padding:0; border:0; border-radius:6px; font:inherit; color:inherit; background:linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat; transition:background .2s}
+.formula.parts .frac > button.frac-bar{cursor:pointer}
+.formula.parts .frac > button.frac-bar:hover{background:linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat, var(--hl-soft)}
+.formula.parts .frac > button.frac-bar[aria-pressed="true"]{background:linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat, var(--hl)}
 .deriv{display:flex; flex-direction:column; gap:6px; align-items:flex-start; text-align:left; font-size:1.1rem; line-height:1.9}
 .deriv .why{font-family:var(--f-body); font-size:.95rem; color:var(--muted); margin-left:.8em}
 
