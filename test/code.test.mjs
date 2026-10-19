@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, cp } from 'node:fs/promises';
+import { mkdtemp, writeFile, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -122,4 +122,21 @@ test('a 3-line listing renders exactly 3 lines, with no extra blank rows', async
   } finally {
     await browser.close();
   }
+});
+
+// The teaching record is what the `codeSource` gate reads, so it must carry each listing's `from`,
+// caption and identifiers, and the section's pages and source. No browser needed.
+test('a listing records its from, caption and identifiers in the teaching record', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+  await writeFile(join(dir, 'content', '03-code.md'), chapter(3, 'Code', '```python from="slides" title="二項 pmf"\nfrom math import comb\npmf = comb(4, 2)\n```\n'));
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const s = checks.teaching.sections.find((x) => x.id === 's3-1');
+  assert.equal(s.source, 'sample.pdf');
+  assert.equal(s.pages, '1');
+  const [b] = s.blocks.filter((x) => x.kind === 'code');
+  assert.equal(b.from, 'slides');
+  assert.equal(b.title, '二項 pmf');
+  assert.deepEqual(b.ids, ['from', 'math', 'import', 'comb', 'pmf']);
 });

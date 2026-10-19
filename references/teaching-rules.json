@@ -32,5 +32,19 @@
   },
   "numericMath": {
     "ignore": "\\s|\\d|[+\\-\u2212.,%$]|\\\\[,;:!]|\\\\%|[{}]|~~"
+  },
+  "codeSource": {
+    "exampleLabel": "\u793a\u7bc4",
+    "minIdentifierShare": 0.5,
+    "outputTitles": ["\u8f38\u51fa"],
+    "keywords": [
+      "and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else",
+      "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
+      "or", "pass", "raise", "return", "try", "while", "with", "yield", "True", "False", "None", "print",
+      "range", "len", "str", "int", "float", "list", "dict", "set", "tuple", "bool", "round", "sum", "max",
+      "min", "abs", "const", "let", "var", "function", "new", "this", "null", "undefined", "true", "false",
+      "typeof", "instanceof", "console", "log", "switch", "case", "default", "throw", "catch", "export",
+      "extends", "super", "static", "void", "delete", "do"
+    ]
   }
 }

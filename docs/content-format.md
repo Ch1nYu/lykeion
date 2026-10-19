@@ -102,7 +102,7 @@ A plain fenced block (any info string that does not name a block below) is a run
 Name the language first, then an optional `title="…"` caption; anything else in the info string is ignored:
 
 ````markdown
-```python title="二項 pmf：公平硬幣十次中兩次正面"
+```python from="example" title="示範：二項 pmf，公平硬幣十次中兩次正面"
 from math import comb
 
 n, k, p = 10, 2, 0.5
@@ -111,6 +111,12 @@ print(round(pmf, 3))  # 0.044
 ```
 ````
 
+- Every listing says where its code comes from with `from="…"`, and the `teaching` gate (`codeSource`) checks the claim:
+  - `from="slides"`: the code is on the cited slides. At least half of its distinctive identifiers (Latin words of three or more characters that are not language keywords) must appear in the text of the section's pages (`<project>/pages/<pdf stem>/p-NNN.txt`, found through `pages/index.json`). If the page text is not extracted, the gate reports ⚠ (not checkable), not ✗.
+  - `from="<text>"`: a case-insensitive prefix of one of `lykeion.json` `references`, for code taken from a cited book or source.
+  - `from="example"`: an illustration the author wrote. Its `title` must contain 「示範」, so the reader sees it is not from the course.
+  - No `from` fails the gate.
+  - Output blocks (`title="輸出"`) are exempt.
 - The block renders `<pre><code class="language-python">` with indentation kept and HTML escaped; a `title` renders as a caption above the block. Unknown attributes (`start=`, `linenos`, …) are ignored.
 - The block names below (`quiz`, `lab`, `calc`, `note`, `formula`, `erratum`, `callout`, `analogy`, `takeaway`) always win: ```` ```note title="x" ```` is a note, not a listing.
 - There is no syntax highlighting (Lecture Sites work offline): listings use the mono font and Palette tokens in light and dark, scroll horizontally inside their own box on narrow screens, and each gets a keyboard-accessible copy button with a toast.
@@ -319,6 +325,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `stepperShare` | `{ "share": 0.34, "minLabs": 3 }` | with `minLabs` or more Labs, more than `share` of them are steppers |
 | `lexicon` | `references/style-lexicon.json` | a `level: "fail"` phrase appears; `level: "warn"` is reported with ⚠ and does not fail |
 | `plainMath` | five patterns: an identifier with an underscore (`[A-Za-zα-ωΑ-Ω][A-Za-z0-9]*_[{A-Za-z0-9]`), `\\[A-Za-z]+` (a backslash command), `[A-Za-z0-9}]\s*\^\s*\{?\w`, `[A-Za-z0-9)]\s*[ᵀᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]`, and the math marks `[√∑∏∫≈≠≤≥→↦∈∉⊆⊂∪∩∞±×÷·∇∂Δ]` | an underscore, a backslash command, a `^`, a superscript or a maths mark is typed as plain text instead of `$…$` — the reader sees `√d_k` where the lecture means a formula |
+| `codeSource` | `{ "exampleLabel": "示範", "minIdentifierShare": 0.5, "outputTitles": ["輸出"], "keywords": [...] }` | a code listing has no `from`, or its `from` is none of `slides`, a `references` prefix or `example` (with 「示範」 in the title); a `from="slides"` listing shares fewer than `minIdentifierShare` of its identifiers with its section's pages. Missing page text is ⚠ (not checkable). `outputTitles` are exempt, and `keywords` are not counted as identifiers |
 | `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
 
 - Every failure names the file, the section and a short excerpt.

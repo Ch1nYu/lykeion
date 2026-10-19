@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { teachingGate, loadTeachingConfig, plainText, charCount } from '../src/teaching.mjs';
-import { teachingReviewGate, sourceGate, verify } from '../src/verify.mjs';
+import { teachingReviewGate, sourceGate, verify, loadSlideText } from '../src/verify.mjs';
 import { build } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,8 +16,8 @@ const para = (text) => ({ kind: 'p', chars: charCount(text), text });
 const sec = (blocks, extra = {}) => ({ id: 's1-1', num: '1.1', title: 'A section', file: '01-a.md', blocks, ...extra });
 const defaults = await loadTeachingConfig();
 
-function run(sections, { quiz = [], project = {}, config = defaults } = {}) {
-  return teachingGate({ sections, quiz }, project, config);
+function run(sections, { quiz = [], project = {}, config = defaults, slideText = null } = {}) {
+  return teachingGate({ sections, quiz }, project, config, slideText);
 }
 
 const failing = (g) => g.items.filter((i) => i.ok === false);
@@ -209,6 +209,86 @@ test('lexicon skips an entry written for another language', async () => {
 });
 
 // ---------- project override ----------
+test('the marketing lexicon fails a fail phrase and only warns on a warn phrase', async () => {
+  const bad = run([sec([para('這三劍客各司其職，讀者一看就懂。')])]);
+  assert.equal(bad.status, 'fail');
+  assert.match(failing(bad)[0].msg, /uses “三劍客”/);
+
+  const warn = run([sec([para('這個做法算是破局。')])]);
+  assert.equal(warn.status, 'pass');
+  assert.match(warn.items.find((i) => i.warn).msg, /uses “破局”/);
+});
+
+// ---------- codeSource ----------
+// A listing as the build records it: its `from`, caption and identifiers, with no keyword filtered yet.
+const listing = (over = {}) => ({ kind: 'code', chars: 10, from: null, title: null, ids: ['comb', 'pmf'], ...over });
+const slidesSec = (blocks) => sec(blocks, { pages: '1' });
+
+test('codeSource fails a listing with no from and passes one that cites a reference', () => {
+  const none = run([sec([listing({ title: '計算' })])]);
+  assert.equal(none.status, 'fail');
+  assert.match(ruleFailures(none, 'codeSource')[0].msg, /no from — say where this code comes from/);
+
+  const project = { references: ['Ross, *A First Course in Probability*, 10th ed.'] };
+  const cited = run([sec([listing({ from: 'ross', title: '計算' })])], { project });
+  assert.equal(cited.status, 'pass');
+
+  const unknown = run([sec([listing({ from: 'Knuth', title: '計算' })])], { project });
+  assert.match(ruleFailures(unknown, 'codeSource')[0].msg, /from="Knuth", which is none of/);
+});
+
+test('codeSource checks a slides listing against its section pages', () => {
+  const slideText = new Map([['s1-1', 'from math import comb\npmf = comb(n, k)']]);
+  const ok = run([slidesSec([listing({ from: 'slides', title: '二項' })])], { slideText });
+  assert.equal(ok.status, 'pass');
+
+  // `from` and `import` are keywords and do not count, so only `comb` and `pmf` are checked.
+  const keywords = run([slidesSec([listing({ from: 'slides', ids: ['from', 'import', 'comb'] })])], { slideText });
+  assert.equal(keywords.status, 'pass');
+
+  const missing = run([slidesSec([listing({ from: 'slides', title: '二項', ids: ['comb', 'pmf', 'numpy'] })])], { slideText: new Map([['s1-1', 'comb pmf']]) });
+  assert.equal(missing.status, 'pass', 'two of three identifiers is above half');
+
+  const wrong = run([slidesSec([listing({ from: 'slides', title: '二項', ids: ['numpy', 'sklearn', 'comb'] })])], { slideText: new Map([['s1-1', 'comb']]) });
+  assert.equal(wrong.status, 'fail');
+  assert.match(ruleFailures(wrong, 'codeSource')[0].msg, /but 33% of its identifiers appear on pages 1 \(need 50%\); not on the slides: numpy, sklearn/);
+});
+
+test('codeSource reports a slides listing as not checkable when its page text is missing', () => {
+  const g = run([slidesSec([listing({ from: 'slides', title: '二項' })])]);
+  assert.equal(g.status, 'pass');
+  const w = ruleItems(g, 'codeSource').find((i) => i.warn);
+  assert.equal(w.ok, null);
+  assert.match(w.msg, /not extracted — not checkable/);
+});
+
+test('codeSource requires 「示範」 in the title of an example listing', () => {
+  const bare = run([sec([listing({ from: 'example', title: '二項 pmf' })])]);
+  assert.equal(bare.status, 'fail');
+  assert.match(ruleFailures(bare, 'codeSource')[0].msg, /from="example", but its title has no 「示範」/);
+
+  const labelled = run([sec([listing({ from: 'example', title: '示範：二項 pmf' })])]);
+  assert.equal(labelled.status, 'pass');
+});
+
+test('codeSource exempts output blocks', () => {
+  const g = run([sec([listing({ title: '輸出', from: null, ids: ['0'] })])]);
+  assert.equal(g.status, 'pass');
+  assert.equal(ruleItems(g, 'codeSource').length, 1);
+  assert.match(ruleItems(g, 'codeSource')[0].msg, /every code listing says where it comes from/);
+});
+
+test('loadSlideText reads the pages a section cites, found by the chapter source', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await mkdir(join(dir, 'pages', 'sample'), { recursive: true });
+  await writeFile(join(dir, 'pages', 'index.json'), JSON.stringify({ sources: [{ pdf: 'C:/course/sample.pdf', stem: 'sample' }] }));
+  await writeFile(join(dir, 'pages', 'sample', 'p-001.txt'), 'comb pmf');
+  await writeFile(join(dir, 'pages', 'sample', 'p-002.txt'), 'more');
+  const map = await loadSlideText(dir, [{ id: 's1-1', source: 'sample.pdf', pages: '1-2' }, { id: 's2-1', source: 'other.pdf', pages: '1' }]);
+  assert.match(map.get('s1-1'), /comb pmf[\s\S]*more/);
+  assert.equal(map.has('s2-1'), false);
+});
+
 test('a project overrides a rule, appends lexicon entries and switches shipped ones off', async () => {
   const override = await loadTeachingConfig({
     maxParagraphChars: 20,

@@ -33,7 +33,7 @@ hint: 先點「幾種排法」，再點最後一段
 ```
 
 同樣的計算寫成 Python 只要三行，變數與數字都和上面同一題（$n = 10$、$k = 2$、$p = 0.5$）：
-```python title="二項 pmf：公平硬幣十次中兩次正面"
+```python from="example" title="示範：二項 pmf，公平硬幣十次中兩次正面"
 from math import comb
 
 n, k, p = 10, 2, 0.5

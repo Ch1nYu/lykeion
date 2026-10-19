@@ -81,7 +81,7 @@ export async function build(dir, opts = {}) {
       const body = sec.id && sec.num ? headingIds(rendered, sec.id) : rendered;
       for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
-      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, blocks: collectBlocks(tokens) });
+      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens) });
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
       const titleHtml = inlineTitle(sec.title, errors, where);
@@ -299,6 +299,15 @@ function labText(params) {
   return out.join(' ');
 }
 
+// A code listing records where its code claims to come from (`from`), its caption (`title`) and the
+// identifiers it uses, so the `codeSource` gate can check the code against the slides without re-parsing
+// the Markdown. Keywords are filtered by the gate, which owns the keyword list.
+function listingSource(t) {
+  const { attrs } = fenceInfo(t.info);
+  const ids = [...new Set([...t.content.matchAll(/[A-Za-z][A-Za-z0-9_]{2,}/g)].map((m) => m[0]))];
+  return { from: attrs.from ?? null, title: attrs.title ?? null, ids };
+}
+
 function collectBlocks(tokens) {
   const blocks = [];
   // How many list levels deep the walk is; a paragraph at depth > 0 belongs to a list item.
@@ -346,6 +355,7 @@ function collectBlocks(tokens) {
         else if (kind === 'formula-parts') { const txt = formulaPartsText(t.content); push(kind, txt, txt, mathsIn(txt)); }
         else if (kind && kind.startsWith('lab:')) { const txt = labText(parseYamlText(t.content)); push(kind, '', txt, mathsIn(txt)); }
         else if (kind === 'formula') push(kind, '', '');
+        else if (kind === 'code') { push(kind, t.content, null, mathsIn(t.content)); Object.assign(blocks[blocks.length - 1], listingSource(t)); }
         else if (kind) push(kind, t.content, null, mathsIn(t.content));
         break;
       }
