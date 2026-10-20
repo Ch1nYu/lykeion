@@ -15,6 +15,7 @@ const COMMANDS = {
   extract: () => import('../src/extract.mjs'),
   build: () => import('../src/build.mjs'),
   verify: () => import('../src/verify.mjs'),
+  shots: () => import('../src/shots.mjs'),
   palette: () => import('../src/palette.mjs'),
 };
 
@@ -25,6 +26,7 @@ commands:
   extract   PDF → per-page text + images
   build     content Markdown → single-file Lecture Site
   verify    run the verification gates on a built Lecture Site
+  shots     capture the built Lecture Site as full-page PNGs (chapter × theme × viewport)
   palette   check Palettes / render the Palette Specimen
 
 Run "lykeion <command> --help" for details.`;

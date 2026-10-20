@@ -6,10 +6,12 @@
 //   5 teaching        (the writing teaches: formulas explained, no walls of prose, no filler)
 //   6 source          (agent review against the Primary Source; read from source-check.md when present)
 //   7 teaching review (agent review of the teaching; read from teaching-review.md when present)
+//   8 visual review   (agent review of the rendered page; read from visual-review.md when present)
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { launchBrowser } from './browser.mjs';
+import { measureVisual, loadVisualConfig } from './visual.mjs';
 import { loadMath } from './mathlib.mjs';
 import { teachingGate, loadTeachingConfig } from './teaching.mjs';
 
@@ -39,9 +41,10 @@ export async function verify(dir, { render = true } = {}) {
   gates.push(coverageGate(project.scope || [], checksFile.sections));
   gates.push(quizReviewGate(checksFile.levels || []));
   gates.push(teachingGate(checksFile.teaching, project, await loadTeachingConfig(project.teaching || {}), await loadSlideText(dir, checksFile.teaching?.sections || [])));
-  gates.push(render ? await renderGate(htmlPath) : { name: 'render', status: 'skipped', items: [{ ok: null, msg: 'skipped by --no-render — NOT render-verified' }] });
+  gates.push(render ? await renderGate(htmlPath, await loadVisualConfig(project.visual || {})) : { name: 'render', status: 'skipped', items: [{ ok: null, msg: 'skipped by --no-render — NOT render-verified' }] });
   gates.push(await sourceGate(dir));
   gates.push(await teachingReviewGate(dir));
+  gates.push(await visualReviewGate(dir));
 
   const ok = gates.every((g) => g.status !== 'fail');
   const report = formatReport(project, checksFile, gates, ok);
@@ -51,7 +54,7 @@ export async function verify(dir, { render = true } = {}) {
   return { ok, gates, summary, reportPath };
 }
 
-const icon = (s) => ({ pass: '✓', fail: '✗', skipped: '–', pending: '…' }[s] || '?');
+const icon = (s) => ({ pass: '✓', fail: '✗', warn: '⚠', skipped: '–', pending: '…' }[s] || '?');
 
 // ---------- gate: numeric ----------
 export function numericGate(checks, M) {
@@ -159,10 +162,11 @@ const REVIEWERS = {
   self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see {file}', warn: true },
 };
 
-async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false }) {
+async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending' }) {
   let txt;
   try { txt = await readFile(join(dir, file), 'utf8'); } catch {
-    return { name, status: 'pending', headline: awaiting, items: [{ ok: null, msg: missing }] };
+    const warn = missingStatus === 'warn';
+    return { name, status: missingStatus, headline: awaiting, items: [{ ok: null, warn: warn || undefined, msg: missing }] };
   }
   const m = /^STATUS:\s*(pass|fail)/im.exec(txt);
   const status = m ? m[1].toLowerCase() : 'fail';
@@ -208,6 +212,16 @@ export function teachingReviewGate(dir) {
     name: 'teaching review', dir, file: 'teaching-review.md',
     awaiting: 'awaiting agent review (references/teaching-reviewer.md)',
     missing: 'teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md',
+  });
+}
+
+// Deliberate first-release choice, approved by the user: the visual review is new, so a project that
+// has not done one yet is warned about (⚠) instead of failed — the headline says how to do it.
+export function visualReviewGate(dir) {
+  return reviewGate({
+    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn',
+    awaiting: 'visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md)',
+    missing: 'visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md',
   });
 }
 
@@ -274,11 +288,26 @@ export function quizReviewGate(levels) {
   return { name: 'quiz review', status: bad ? 'fail' : 'pass', headline: bad ? `${bad} level(s) with a guessable key` : 'no level has a guessable key', items };
 }
 // ---------- gate: render ----------
-async function renderGate(htmlPath) {
+async function renderGate(htmlPath, visual = null) {
   const browser = await launchBrowser();
   if (!browser) return { name: 'render', status: 'skipped', headline: 'no browser available — NOT render-verified', items: [{ ok: null, msg: 'neither system Chrome nor Playwright Chromium could be launched' }] };
   const items = [];
   const add = (ok, msg) => items.push({ ok, msg });
+  // Visual rules report warnings (⚠ in verify-report.md) without failing the gate, exactly the way
+  // the teaching gate does: `ok: null, warn: true` is the report's existing warning shape.
+  const warn = (msg) => items.push({ ok: null, warn: true, msg });
+  // Runs the visual rules over one view of one page and files every finding under its rule.
+  const visualAt = async (pg, view, where) => {
+    if (!visual) return;
+    await pg.evaluate((id) => window.Lykeion.show(id, { noScroll: true }), view);
+    await pg.waitForTimeout(30);
+    const { failures, warnings } = await measureVisual(pg, visual.rules);
+    for (const f of failures) add(false, `${f.rule}: ${view} (${where}) ${f.msg}`);
+    for (const w of warnings) warn(`${w.rule}: ${view} (${where}) ${w.msg}`);
+  };
+  if (visual?.unknown?.length) {
+    for (const key of visual.unknown) add(false, `lykeion.json "visual" has no rule "${key}" (allowed: ${visual.known.join(', ')})`);
+  }
   const url = pathToFileURL(htmlPath).href;
   const html = await readFile(htmlPath, 'utf8').catch(() => '');
   try {
@@ -992,9 +1021,12 @@ async function renderGate(htmlPath) {
       badHash.shown.length === 1
         ? `a malformed hash (#%) still shows exactly one view (${badHash.shown[0]})`
         : `malformed hash shows ${badHash.shown.length} views at once (${badHash.shown.join(', ')}): the router threw`);
+    // Visual rules, desktop: the same measurement the shots command captures, taken per view so a
+    // hole or a card wall is attributed to the chapter that has it.
+    for (const v of stats.views) await visualAt(page, v.id, 'desktop 1280');
+
     add(errors.length === 0, errors.length ? `desktop errors: ${errors.slice(0, 5).join(' | ')}` : 'no console or page errors (desktop)');
     await page.close();
-
     // Mobile, dark.
     const { page: m, errors: mErrors } = await openPage(browser, url, { viewport: { width: 375, height: 760 }, colorScheme: 'dark' });
     const mob = await m.evaluate(() => {
@@ -1016,6 +1048,8 @@ async function renderGate(htmlPath) {
     add(opened && closed, `mobile drawer opens and closes with Esc${opened && closed ? '' : ' — FAILED'}`);
     const lum = luminanceOf(mob.bg);
     add(lum !== null && lum < 0.2, `dark theme applies (body background ${mob.bg})`);
+    // Visual rules again at 375px: a gap that is fine at 900px tall can be most of a phone screen.
+    for (const v of stats.views) await visualAt(m, v.id, 'mobile 375');
     add(mErrors.length === 0, mErrors.length ? `mobile errors: ${mErrors.slice(0, 5).join(' | ')}` : 'no console or page errors (mobile, dark)');
     await m.close();
   } catch (e) {
@@ -1024,7 +1058,13 @@ async function renderGate(htmlPath) {
     await browser.close();
   }
   const bad = items.filter((i) => i.ok === false).length;
-  return { name: 'render', status: bad ? 'fail' : 'pass', headline: bad ? `${bad} problem(s)` : `${items.length} checks passed`, items };
+  const warns = items.filter((i) => i.warn).length;
+  return {
+    name: 'render',
+    status: bad ? 'fail' : 'pass',
+    headline: bad ? `${bad} problem(s)` : warns ? `${items.length} checks passed, ${warns} warning(s)` : `${items.length} checks passed`,
+    items,
+  };
 }
 
 // Verification must not depend on the network: external web fonts are blocked and pages are

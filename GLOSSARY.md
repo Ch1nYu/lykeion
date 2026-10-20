@@ -68,6 +68,14 @@ _Avoid_: Breakdown, annotation
 The check that a Lecture Site explains rather than transcribes: no page references, no wall of prose, every formula followed by words, an analogy before the formalism, a mix of block kinds.
 _Avoid_: Style check, lint
 
+**Shots**:
+Full-page PNGs of a built Lecture Site, one per chapter, theme and viewport, written by `lykeion shots`; what the Visual Review looks at.
+_Avoid_: Screenshots folder, previews
+
+**Visual Review**:
+An agent's judgement of the Shots — focal point, hierarchy, whether each figure belongs to its topic, mobile and dark-theme reading — recorded in `visual-review.md`; the counted visual rules belong to the render gate, not to this review.
+_Avoid_: Design review, UI check
+
 **Acceptance Fixture**:
 A fixed Scope whose regenerated Lecture Site must reach a known score; the regression test for every runtime change.
 _Avoid_: Test data, sample, benchmark

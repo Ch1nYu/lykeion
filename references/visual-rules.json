@@ -1,0 +1,8 @@
+{
+  "hole": { "maxGapVh": 0.5 },
+  "emojiIcon": true,
+  "gradientText": true,
+  "cardWall": { "minRun": 4 },
+  "leftEdges": { "max": 5 },
+  "typeScale": { "min": 2, "max": 6 }
+}

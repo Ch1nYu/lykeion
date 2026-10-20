@@ -5,7 +5,7 @@ The agent-neutral procedure for turning lecture slides into a verified Lecture S
 Two modes:
 
 - **New** — no `lykeion.json` yet for these slides.
-- **Incremental** — a project exists and the user wants a chapter added or rewritten. Run steps 2–8 for the affected chapters only; steps 6–7 always cover the whole site.
+- **Incremental** — a project exists and the user wants a chapter added or rewritten. Run steps 2–9 for the affected chapters only; steps 6–7 always cover the whole site.
 
 The Primary Source is the factual baseline. Content follows the slides; where a Reference disagrees, the slide's claim stays and an `erratum` beside it gives the Reference's account with its citation.
 
@@ -92,11 +92,21 @@ Fix every **must-fix** finding, rebuild and re-verify (the machine gates must st
 
 Done when `lykeion verify` shows teaching review ✓ (or 2 rounds are spent).
 
-## 9. Report
+## 9. Visual review
+
+Once the content teaches, have the rendered page judged for how it looks. Run `lykeion shots <project>`: it writes one full-page PNG per chapter, theme and viewport to `<project>/shots/`. Then follow `references/visual-reviewer.md` and record the result in `<project>/visual-review.md`. The reviewer judges the images, not the code. As with the other reviews, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent.
+
+The render gate already measures what a counter can: holes taller than half a screen, emoji used as icons, gradient text, walls of identical cards, too many left edges, and a type scale that is too wide or too flat (thresholds in `references/visual-rules.json`; a project may change one under `"visual"` in `lykeion.json` only for a reason the user agreed to). The visual review covers what it cannot: focal point, hierarchy, whether a figure belongs to its topic, mobile and dark-theme reading.
+
+A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for now; a `STATUS: fail` or a `self` line without a reason does. Fix every **must-fix** finding, rebuild, re-run `lykeion shots` and re-verify. At most **2 rounds**; then report what remains.
+
+Done when `lykeion verify` shows visual review ✓ (or 2 rounds are spent, or the user chose to skip it — then report it as ⚠, never as passed).
+
+## 10. Report
 
 Tell the user, briefly:
 
 - the Lecture Site path (and offer to open it);
-- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, and whether the source check and the teaching review were independent or self-reviews;
+- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, visual-rule warnings (⚠), and whether the source check, the teaching review and the visual review were independent, self-reviews or (visual review only) not done;
 - every **disputed** finding, quoted with its page and Reference, for the user to decide;
 - the Palette used.
