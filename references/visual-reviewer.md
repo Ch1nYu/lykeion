@@ -31,6 +31,13 @@ Classify each finding:
 - **must-fix** — a reader would be confused, misled or blocked: no focal point, a cut-off or overlapping element on mobile, unreadable dark-theme text, a figure that shows the wrong thing, a half-empty row that reads as a broken layout.
 - **suggestion** — it works but the page could look and read better.
 
+Then say where the cause lives, because the fix goes to a different place:
+
+- **[runtime]** — the shared page template causes it, so it would recur in every Lecture Site (a table or formula box that clips at 375px with no scroll cue, a Lab layout that stacks every readout). It is fixed once in lykeion, not in this project's content.
+- **[content]** — this project's chapters cause it (a figure the text refers to but never shows, a table with more columns than its content needs).
+
+Write the tag after the class, e.g. `- [must-fix][runtime] …`. When you cannot tell, write `[content]` and say what made you unsure.
+
 Record each finding with the chapter, the theme and viewport you saw it in, the file it comes from, and a concrete change — "give §2.3's figure the full column and move the caption under it" beats "spacing feels off".
 
 ## Output: `visual-review.md`
@@ -40,10 +47,10 @@ STATUS: fail
 Reviewer: independent
 
 ## Findings
-- [must-fix] 02-bayes.md, dark/desktop — §2.4 the posterior bars are #2A2A2A on #1E1E1E; the 9% bar is invisible. Use the accent colour for the posterior series, or add a light outline.
-- [must-fix] 03-entropy.md, mobile — §3.5 the two-column comparison keeps its 2-col grid at 375px and the right column is cut off. Stack it below 640px.
-- [suggestion] 01-conditional.md, light/desktop — the chapter head is a title plus three equal cards, so nothing leads. Make the chapter question the focal point and drop one card.
-- [suggestion] 04-rag.md, light/desktop — §4.6 ends in a row with one card in a three-column grid; the empty two-thirds reads as a bug.
+- [must-fix][content] 02-bayes.md, dark/desktop — §2.4 the posterior bars are #2A2A2A on #1E1E1E; the 9% bar is invisible. Use the accent colour for the posterior series, or add a light outline.
+- [must-fix][runtime] 03-entropy.md, mobile — §3.5 the two-column comparison keeps its 2-col grid at 375px and the right column is cut off. Stack it below 640px.
+- [suggestion][content] 01-conditional.md, light/desktop — the chapter head is a title plus three equal cards, so nothing leads. Make the chapter question the focal point and drop one card.
+- [suggestion][runtime] 04-rag.md, light/desktop — §4.6 ends in a row with one card in a three-column grid; the empty two-thirds reads as a bug.
 
 ## Checked
 - 01-conditional.md: light+mobile, light+desktop, dark+mobile, dark+desktop
