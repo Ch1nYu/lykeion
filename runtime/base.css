@@ -9,7 +9,15 @@
   /* MathML needs a maths face: without one Chrome draws stretched delimiters (\binom parentheses)
      at their unstretched size. This token is used by `math` elements and by nothing else. */
   --f-math:"STIX Two Math","Latin Modern Math","Cambria Math",math;
+  /* One type scale (ADR A2): three small steps below body text, then body and the headings. Small
+     text used to be set ad hoc (.7-.92rem in six different values, 1.02/1.05/1.08rem just above body),
+     which left 15.7/16.3/17.3px side by side — under 2px apart, so it read as drift, not as a scale.
+     Every literal size below is now the NEAREST token to it, ties going up, and no size shrank by
+     more than a pixel: .9/.92rem sits on --fs-md (not --fs-sm), 1.02-1.05rem on --fs-body. */
+  --fs-xs:.72rem; --fs-sm:.85rem; --fs-md:.95rem;
   --fs-body:1.125rem; --fs-h3:1.3rem; --fs-h2:1.8rem; --fs-h1:clamp(2.2rem,4.2vw,3.2rem);
+  --fs-lg:1.5rem; --fs-ch:clamp(3rem,7vw,4.6rem); --fs-title:clamp(1.8rem,3.4vw,2.4rem);
+  --fs-stars:2.6rem;
   --side:300px;
   /* reading rhythm: one measure for prose, two gaps for block spacing */
   --measure:34em;
@@ -35,7 +43,7 @@ a{color:var(--accent); text-underline-offset:3px}
    It stays in the tab order (no display:none) and is clipped away until it has focus. */
 .skip{position:fixed; z-index:90; top:max(14px,env(safe-area-inset-top,0px)); left:max(14px,env(safe-area-inset-left,0px));
   padding:10px 18px; border:1px solid var(--rule-strong); border-radius:12px; background:var(--card); color:var(--ink);
-  font-size:.95rem; line-height:1.4; text-decoration:none; white-space:nowrap; box-shadow:var(--shadow);
+  font-size:var(--fs-md); line-height:1.4; text-decoration:none; white-space:nowrap; box-shadow:var(--shadow);
   clip-path:inset(50%); opacity:0; pointer-events:none}
 .skip:focus{clip-path:none; opacity:1; pointer-events:auto}
 
@@ -47,14 +55,14 @@ a{color:var(--accent); text-underline-offset:3px}
 .topbar{position:sticky; top:0; z-index:50; background:var(--paper); border-bottom:1px solid var(--rule)}
 .topbar .in{display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; padding:10px max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px)); max-width:1400px; margin:0 auto}
 .topbar .menu{display:none; flex:none; white-space:nowrap}
-.topbar .tname{font-family:var(--f-display); font-weight:900; font-size:1.02rem; flex:none; max-width:22ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.topbar .tname{font-family:var(--f-display); font-weight:900; font-size:var(--fs-body); flex:none; max-width:22ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .chaps{display:flex; gap:6px; flex:1 1 auto; min-width:0; overflow-x:auto; scrollbar-width:none}
 .chaps::-webkit-scrollbar{display:none}
-.chaps button{flex:none; font:inherit; font-size:.9rem; border:1px solid transparent; background:none; color:var(--muted); padding:4px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; transition:background .2s, color .2s}
+.chaps button{flex:none; font:inherit; font-size:var(--fs-md); border:1px solid transparent; background:none; color:var(--muted); padding:4px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; transition:background .2s, color .2s}
 .chaps button:hover{color:var(--ink); background:var(--card)}
 .chaps button[aria-current="true"]{background:var(--accent-soft); color:var(--accent); font-weight:700}
-.topbar .now{display:none; font-size:.92rem; color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.topbar .pct{flex:none; font-size:.88rem; color:var(--muted); font-variant-numeric:tabular-nums}
+.topbar .now{display:none; font-size:var(--fs-md); color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.topbar .pct{flex:none; font-size:var(--fs-sm); color:var(--muted); font-variant-numeric:tabular-nums}
 /* The drawer carries its own copy of the chapter tabs on a phone; on a wide screen the top bar does. */
 .chaps-side{display:none}
 
@@ -68,27 +76,27 @@ a{color:var(--accent); text-underline-offset:3px}
 .side{position:sticky; top:var(--top-h); height:calc(100vh - var(--top-h)); overflow-y:auto; overscroll-behavior:contain; border-right:1px solid var(--rule);
   background:var(--paper-deep); padding:28px 20px 24px max(20px,env(safe-area-inset-left,0px)); display:flex; flex-direction:column; gap:22px}
 .brand{display:flex; flex-direction:column; gap:2px}
-.brand small{font-family:var(--f-body); font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
-.brand b{font-family:var(--f-display); font-weight:900; font-size:1.45rem; line-height:1.3}
+.brand small{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.brand b{font-family:var(--f-display); font-weight:900; font-size:var(--fs-lg); line-height:1.3}
 .meter{display:grid; grid-template-columns:64px 1fr; gap:14px; align-items:center; background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:12px 14px}
 .ring{width:64px; height:64px}
 .ring circle{fill:none; stroke-width:7}
 .ring .track{stroke:var(--rule)}
 .ring .val{stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); transform:rotate(-90deg); transform-origin:50% 50%}
 .ring text{font-family:var(--f-body); font-size:15px; font-weight:600; fill:var(--ink); text-anchor:middle; dominant-baseline:central; font-variant-numeric:tabular-nums}
-.meter-txt{font-size:.88rem; line-height:1.5; color:var(--ink-2)}
-.meter-txt b{display:block; color:var(--ink); font-size:1rem}
+.meter-txt{font-size:var(--fs-sm); line-height:1.5; color:var(--ink-2)}
+.meter-txt b{display:block; color:var(--ink); font-size:var(--fs-md)}
 .nav{display:flex; flex-direction:column; gap:18px}
-.nav-ch{font-family:var(--f-display); font-weight:700; font-size:1.02rem; display:flex; gap:8px; align-items:baseline; margin-bottom:4px}
-.nav-ch .n{font-family:var(--f-body); font-size:.72rem; color:var(--muted); letter-spacing:.08em}
+.nav-ch{font-family:var(--f-display); font-weight:700; font-size:var(--fs-body); display:flex; gap:8px; align-items:baseline; margin-bottom:4px}
+.nav-ch .n{font-family:var(--f-body); font-size:var(--fs-xs); color:var(--muted); letter-spacing:.08em}
 .nav ol{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1px}
-.nav a{display:grid; grid-template-columns:18px 2.6em 1fr; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; color:var(--ink-2); text-decoration:none; font-size:.92rem; line-height:1.4; transition:background .2s, color .2s, transform .2s}
+.nav a{display:grid; grid-template-columns:18px 2.6em 1fr; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; color:var(--ink-2); text-decoration:none; font-size:var(--fs-md); line-height:1.4; transition:background .2s, color .2s, transform .2s}
 .nav a:hover{background:var(--card); color:var(--ink); transform:translateX(2px)}
 .nav a.current{background:var(--card); color:var(--ink); box-shadow:inset 0 0 0 1px var(--rule)}
-.nav a .num{font-family:var(--f-body); font-size:.74rem; color:var(--muted)}
+.nav a .num{font-family:var(--f-body); font-size:var(--fs-xs); color:var(--muted)}
 /* Sub-headings of the section being read: only the current section carries them. */
 .nav .subs ol{gap:0}
-.nav a.sub{display:block; padding-left:32px; font-size:.86rem; color:var(--muted)}
+.nav a.sub{display:block; padding-left:32px; font-size:var(--fs-sm); color:var(--muted)}
 .nav a.sub.current{background:none; box-shadow:none; color:var(--accent); font-weight:700}
 /* On the home view the list is the chapter index; a section list belongs to the chapter being read. */
 .dot{width:14px; height:14px; border-radius:50%; border:1.5px solid var(--rule-strong); display:grid; place-items:center; transition:all .3s}
@@ -97,12 +105,12 @@ a{color:var(--accent); text-underline-offset:3px}
 .nav a.read .dot{background:var(--accent); border-color:var(--accent)}
 .nav a.read .dot svg{opacity:1; transform:scale(1)}
 .dot svg path{stroke:var(--accent-ink); stroke-width:3; fill:none}
-.nav .stars{font-size:.8rem; letter-spacing:1px; color:var(--star)}
+.nav .stars{font-size:var(--fs-sm); letter-spacing:1px; color:var(--star)}
 .nav a.locked{opacity:.55}
 .side-foot{margin-top:auto; display:flex; gap:8px; flex-wrap:wrap}
-.chipbtn{font:inherit; font-size:.82rem; padding:6px 12px; border-radius:999px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink-2); cursor:pointer; transition:all .2s}
+.chipbtn{font:inherit; font-size:var(--fs-sm); padding:6px 12px; border-radius:999px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink-2); cursor:pointer; transition:all .2s}
 .chipbtn:hover{border-color:var(--accent); color:var(--ink)}
-.confirm{font-size:.85rem; background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px}
+.confirm{font-size:var(--fs-sm); background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px}
 .confirm div{display:flex; gap:8px}
 .scrim{display:none}
 main{min-width:0; padding-block:40px 120px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -127,31 +135,31 @@ html.theme-fade,html.theme-fade *{transition:background-color .35s ease, color .
 
 /* ---------- hero ---------- */
 .hero{padding:24px 0 40px; border-bottom:1px solid var(--rule); margin-bottom:28px}
-.hero .eyebrow{font-family:var(--f-body); font-size:.8rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+.hero .eyebrow{font-family:var(--f-body); font-size:var(--fs-sm); letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
 .hero h1{font-family:var(--f-display); font-weight:900; font-size:var(--fs-h1); line-height:1.25; margin:.3em 0 .4em; text-wrap:balance; animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
 .hero h1 em{font-style:normal; background:linear-gradient(transparent 62%, var(--hl) 62%) no-repeat; background-size:100% 100%; animation:sweep 1.2s .5s cubic-bezier(.6,.1,.2,1) both}
 .hero p{max-width:40rem; color:var(--ink-2); margin:0}
 .toc{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:28px}
 .toc a{display:flex; flex-direction:column; gap:4px; text-decoration:none; color:var(--ink); background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; transition:transform .25s, box-shadow .25s, border-color .25s; animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
 .toc a:hover{transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--rule-strong)}
-.toc .n{font-family:var(--f-body); font-size:.76rem; color:var(--muted); letter-spacing:.1em}
-.toc b{font-family:var(--f-display); font-size:1.2rem}
-.toc span{font-size:.92rem; color:var(--ink-2); line-height:1.6}
+.toc .n{font-family:var(--f-body); font-size:var(--fs-xs); color:var(--muted); letter-spacing:.1em}
+.toc b{font-family:var(--f-display); font-size:var(--fs-h3)}
+.toc span{font-size:var(--fs-md); color:var(--ink-2); line-height:1.6}
 @keyframes rise{from{transform:translateY(10px)}to{transform:none}}
 @keyframes sweep{from{background-size:0% 100%}to{background-size:100% 100%}}
 
 /* ---------- chapters & sections ---------- */
 .chapter{padding-top:calc(var(--gap-sec) / 2)}
 .ch-head{display:flex; align-items:baseline; gap:18px; flex-wrap:wrap; border-bottom:2px solid var(--ink); padding-bottom:10px; margin-bottom:8px}
-.ch-head .ch-n{font-family:var(--f-display); font-weight:900; font-size:clamp(3rem,7vw,4.6rem); line-height:1; color:var(--accent)}
-.ch-head h2{font-family:var(--f-display); font-weight:900; font-size:clamp(1.8rem,3.4vw,2.4rem); margin:0; line-height:1.3; text-wrap:balance}
-.ch-head .src{flex-basis:100%; font-size:.85rem; color:var(--muted); font-family:var(--f-body)}
+.ch-head .ch-n{font-family:var(--f-display); font-weight:900; font-size:var(--fs-ch); line-height:1; color:var(--accent)}
+.ch-head h2{font-family:var(--f-display); font-weight:900; font-size:var(--fs-title); margin:0; line-height:1.3; text-wrap:balance}
+.ch-head .src{flex-basis:100%; font-size:var(--fs-sm); color:var(--muted); font-family:var(--f-body)}
 .sec{padding-block:calc(var(--gap-sec) / 2) 0; position:relative}
 .sec > h3{font-family:var(--f-display); font-weight:700; font-size:var(--fs-h2); line-height:1.4; margin:0 0 .5em; text-wrap:balance; display:flex; gap:14px; align-items:baseline}
-.sec > h3 .sn{font-family:var(--f-body); font-weight:600; font-size:.95rem; color:var(--accent); letter-spacing:.04em; flex:none; font-variant-numeric:tabular-nums}
+.sec > h3 .sn{font-family:var(--f-body); font-weight:600; font-size:var(--fs-md); color:var(--accent); letter-spacing:.04em; flex:none; font-variant-numeric:tabular-nums}
 .sec > h3 .t{background:linear-gradient(transparent 64%, var(--hl-soft) 64%) no-repeat; background-size:0% 100%; transition:background-size 1s cubic-bezier(.6,.1,.2,1)}
 .sec.seen > h3 .t{background-size:100% 100%}
-.sec .pages{font-family:var(--f-body); font-size:.78rem; color:var(--muted); margin:-.4em 0 .6em}
+.sec .pages{font-family:var(--f-body); font-size:var(--fs-xs); color:var(--muted); margin:-.4em 0 .6em}
 h4,.prose h3,.prose h4{font-family:var(--f-display); font-size:var(--fs-h3); margin:1.6em 0 .4em; line-height:1.45}
 .prose h3{font-size:var(--fs-h2); margin-top:1.8em}
 p{margin:0 0 1.15em; max-width:var(--measure)}
@@ -166,7 +174,7 @@ q{quotes:"「" "」"; color:var(--ink-2); text-decoration:underline dotted; text
 code{font-family:var(--f-mono); font-size:.86em; background:var(--paper-deep); padding:.1em .35em; border-radius:4px}
 .mono{font-variant-numeric:tabular-nums}
 pre{font-family:var(--f-mono); background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; overflow-x:auto; line-height:1.6}
-pre code{background:none; padding:0; font-size:.88rem}
+pre code{background:none; padding:0; font-size:var(--fs-sm)}
 kbd{font-family:var(--f-mono)}
 
 /* ---------- code listings ----------
@@ -175,14 +183,14 @@ kbd{font-family:var(--f-mono)}
    both work; the box never pushes the page sideways (the <pre> scrolls instead). */
 .code{position:relative; max-width:100%; min-width:0; margin-block:var(--gap-block); background:var(--card); border:1px solid var(--rule); border-radius:12px; overflow:hidden}
 .code-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; border-bottom:1px solid var(--rule); background:var(--paper-deep)}
-.code-lang{font-family:var(--f-body); font-size:.74rem; letter-spacing:.1em; color:var(--muted)}
-.code-cap{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; color:var(--ink-2)}
+.code-lang{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.1em; color:var(--muted)}
+.code-cap{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--fs-md); color:var(--ink-2)}
 .code-copy{flex:none; margin-left:auto; display:inline-flex; align-items:center; font:inherit; padding:6px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink-2); cursor:pointer}
 .code-copy:hover{border-color:var(--accent); color:var(--ink)}
 .code-copy svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
 .code > .code-copy{position:absolute; top:8px; right:8px}
 .code.naked pre{padding-right:44px}
-.code pre{margin:0; border:0; border-radius:0; background:transparent; max-width:100%; font-family:var(--f-mono); font-size:.88rem; line-height:1.6}
+.code pre{margin:0; border:0; border-radius:0; background:transparent; max-width:100%; font-family:var(--f-mono); font-size:var(--fs-sm); line-height:1.6}
 /* The <pre> strut must match the code text: without this the pre inherits the 19px body font while
    the code shrinks to .88rem, so each line box is ruled by the taller strut and every code line
    reads as followed by a blank line. */
@@ -194,29 +202,29 @@ kbd{font-family:var(--f-mono)}
 .pager{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:var(--gap-sec); border-top:1px solid var(--rule); padding-top:28px}
 .pager a{display:flex; flex-direction:column; gap:2px; text-decoration:none; color:var(--ink); padding:14px 18px; border-radius:12px; background:var(--card); border:1px solid var(--rule); transition:border-color .2s, transform .2s}
 .pager a:hover{border-color:var(--accent); transform:translateY(-2px)}
-.pager a span{font-size:.82rem; color:var(--muted)}
+.pager a span{font-size:var(--fs-sm); color:var(--muted)}
 .pager a.next{text-align:right}
-.pager b{font-family:var(--f-display); font-size:1.05rem; line-height:1.4}
+.pager b{font-family:var(--f-display); font-size:var(--fs-body); line-height:1.4}
 
 /* margin note, callouts, errata */
-.note{font-family:var(--f-body); font-size:1.05rem; line-height:1.9; color:var(--ink-2); border-left:2px dashed var(--rule-strong); padding:2px 0 2px 16px; margin-block:calc(var(--gap-block) * .7)}
+.note{font-family:var(--f-body); font-size:var(--fs-body); line-height:1.9; color:var(--ink-2); border-left:2px dashed var(--rule-strong); padding:2px 0 2px 16px; margin-block:calc(var(--gap-block) * .7)}
 .note b,.note strong{color:var(--accent); font-weight:700}
 .callout{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px 18px; margin-block:calc(var(--gap-block) * .7)}
-.callout .lbl,.erratum .lbl{font-family:var(--f-body); font-size:.74rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); display:block}
-.erratum{background:var(--card); border:1px solid var(--rule); border-left:4px solid var(--bad); border-radius:10px; padding:12px 16px; margin-block:calc(var(--gap-block) * .7); font-size:.98rem}
+.callout .lbl,.erratum .lbl{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); display:block}
+.erratum{background:var(--card); border:1px solid var(--rule); border-left:4px solid var(--bad); border-radius:10px; padding:12px 16px; margin-block:calc(var(--gap-block) * .7); font-size:var(--fs-md)}
 .erratum .lbl{color:var(--bad)}
-.erratum cite{display:block; font-style:normal; font-family:var(--f-body); font-size:.8rem; color:var(--muted); margin-top:6px}
+.erratum cite{display:block; font-style:normal; font-family:var(--f-body); font-size:var(--fs-sm); color:var(--muted); margin-top:6px}
 
 /* the intuition card that comes before a formula, and the one-line conclusion that closes an idea */
 .analogy{display:grid; grid-template-columns:minmax(0,1fr); gap:6px; background:var(--card); border:1px solid var(--rule); border-radius:16px; padding:18px 22px; margin-block:calc(var(--gap-block) * .8); max-width:40em}
-.analogy > .tag{font-family:var(--f-display); font-size:1.05rem; color:var(--ink); letter-spacing:0}
-.analogy .body{color:var(--ink-2); font-size:1.02rem; line-height:1.85}
+.analogy > .tag{font-family:var(--f-display); font-size:var(--fs-body); color:var(--ink); letter-spacing:0}
+.analogy .body{color:var(--ink-2); font-size:var(--fs-body); line-height:1.85}
 .analogy .body > :first-child{margin-top:0}
 .analogy .body > :last-child{margin-bottom:0}
 .takeaway{border-left:4px solid var(--accent); padding:4px 0 4px 20px; margin-block:calc(var(--gap-block) * .8); max-width:38em}
 .takeaway > :first-child{margin-top:0}
 .takeaway > :last-child{margin-bottom:0}
-.takeaway p{color:var(--ink); font-size:1.08rem; line-height:1.8; margin:0}
+.takeaway p{color:var(--ink); font-size:var(--fs-body); line-height:1.8; margin:0}
 
 /* formulas: MathML rendered at build time. The maths face is the one place a fourth token is allowed,
    and only on `math` itself — see test/typography.test.mjs. */
@@ -233,22 +241,22 @@ math[display="block"]{margin-inline:0}
 /* Chromium sets stretchy over/underlines flush against the glyph (\overline{X} looks like X); give them room. */
 math mover[accent="true"] > mo[stretchy="true"]:last-child{padding-bottom:.18em}
 math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18em}
-.formula{font-size:1.25rem; text-align:center; margin-block:var(--gap-block); padding:16px 12px; overflow-x:auto; background:var(--card); border:1px solid var(--rule); border-radius:12px; position:relative}
-.formula .tag{position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:.7rem; letter-spacing:.12em; color:var(--muted)}
+.formula{font-size:var(--fs-h3); text-align:center; margin-block:var(--gap-block); padding:16px 12px; overflow-x:auto; background:var(--card); border:1px solid var(--rule); border-radius:12px; position:relative}
+.formula .tag{position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.12em; color:var(--muted)}
 .formula math[display="block"]{margin:.2em 0}
 /* a formula broken into parts: each piece is a button, and one explanation area below shows the
    words for whichever piece is selected. The pieces sit in a flex row so a long formula wraps
    between pieces rather than inside one. */
 .formula.parts{text-align:left; padding-top:22px}
-.formula.parts::before{content:attr(data-label); position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:.7rem; letter-spacing:.12em; color:var(--muted)}
-.formula.parts .eq{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.1em; font-size:1.15rem}
+.formula.parts::before{content:attr(data-label); position:absolute; top:6px; left:12px; font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.12em; color:var(--muted)}
+.formula.parts .eq{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.1em; font-size:var(--fs-body)}
 .formula.parts .eq .piece{border:0; background:none; padding:2px 4px; border-radius:8px; cursor:pointer; font:inherit; color:inherit; transition:background .2s}
 .formula.parts .eq button.piece:hover{background:var(--hl-soft)}
 .formula.parts .eq button.piece[aria-pressed="true"]{background:var(--hl)}
 .formula.parts .eq button.piece:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .formula.parts .eq .piece.static{cursor:default}
-.formula.parts .say{border-top:1px dashed var(--rule-strong); margin-top:14px; padding-top:12px; font-size:.98rem; line-height:1.8; color:var(--ink-2)}
-.formula.parts .hint{font-family:var(--f-body); font-size:.82rem; color:var(--muted); margin:8px 0 0; text-align:left}
+.formula.parts .say{border-top:1px dashed var(--rule-strong); margin-top:14px; padding-top:12px; font-size:var(--fs-md); line-height:1.8; color:var(--ink-2)}
+.formula.parts .hint{font-family:var(--f-body); font-size:var(--fs-sm); color:var(--muted); margin:8px 0 0; text-align:left}
 /* A fraction part is one cell of the row: numerator, bar, denominator, stacked. It is centred like any
    cell, which puts the bar near the maths axis. The bar is drawn as a gradient line so that a button
    keeps its whole width as the hit area. These rules come after the `.piece` rules and match their
@@ -259,14 +267,14 @@ math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18
 .formula.parts .frac > button.frac-bar{cursor:pointer}
 .formula.parts .frac > button.frac-bar:hover{background:linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat, var(--hl-soft)}
 .formula.parts .frac > button.frac-bar[aria-pressed="true"]{background:linear-gradient(currentColor,currentColor) center/100% 1.5px no-repeat, var(--hl)}
-.deriv{display:flex; flex-direction:column; gap:6px; align-items:flex-start; text-align:left; font-size:1.1rem; line-height:1.9}
-.deriv .why{font-family:var(--f-body); font-size:.95rem; color:var(--muted); margin-left:.8em}
+.deriv{display:flex; flex-direction:column; gap:6px; align-items:flex-start; text-align:left; font-size:var(--fs-body); line-height:1.9}
+.deriv .why{font-family:var(--f-body); font-size:var(--fs-md); color:var(--muted); margin-left:.8em}
 
 /* tables */
 .tablewrap{overflow-x:auto; margin-block:var(--gap-block); max-width:100%}
-table.data{border-collapse:collapse; font-size:.95rem; min-width:100%; font-variant-numeric:tabular-nums}
+table.data{border-collapse:collapse; font-size:var(--fs-md); min-width:100%; font-variant-numeric:tabular-nums}
 table.data th,table.data td{padding:7px 12px; border-bottom:1px solid var(--rule); text-align:left}
-table.data th{font-family:var(--f-body); font-size:.76rem; letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1.5px solid var(--rule-strong)}
+table.data th{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1.5px solid var(--rule-strong)}
 table.data td.num,table.data th.num{text-align:right; font-variant-numeric:tabular-nums}
 table.data tr{transition:background .25s}
 table.data tr.on{background:var(--hl-soft)}
@@ -275,10 +283,10 @@ table.data tr.dim{opacity:.45}
 .grid4{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px}
 .task{background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; transition:transform .25s, box-shadow .25s}
 .task:hover{transform:translateY(-3px); box-shadow:var(--shadow)}
-.task .k{font-family:var(--f-body); font-size:.72rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
-.task h5{font-family:var(--f-display); font-size:1.18rem; margin:.15em 0 .3em}
-.task p{font-size:.95rem; line-height:1.7; margin:0; color:var(--ink-2)}
-.pill{display:inline-block; font-family:var(--f-body); font-size:.72rem; padding:1px 8px; border-radius:999px; border:1px solid currentColor; letter-spacing:.04em; vertical-align:.1em}
+.task .k{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.task h5{font-family:var(--f-display); font-size:var(--fs-body); margin:.15em 0 .3em}
+.task p{font-size:var(--fs-md); line-height:1.7; margin:0; color:var(--ink-2)}
+.pill{display:inline-block; font-family:var(--f-body); font-size:var(--fs-xs); padding:1px 8px; border-radius:999px; border:1px solid currentColor; letter-spacing:.04em; vertical-align:.1em}
 
 /* ---------- stack: one variant in the same grid cell, so text changes never move layout ---------- */
 .stack{display:grid}
@@ -293,27 +301,27 @@ table.data tr.dim{opacity:.45}
 /* ---------- Lab chrome (shared by all Lab types) ---------- */
 .lab{min-width:0; margin-block:var(--gap-block); background:var(--card); border:1px solid var(--rule-strong); border-radius:18px; box-shadow:var(--shadow); overflow:hidden}
 .lab-head{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 18px; border-bottom:1px dashed var(--rule-strong); background:var(--paper-deep)}
-.lab-head .tag{font-family:var(--f-body); font-size:.72rem; font-weight:600; letter-spacing:.14em; color:var(--accent-ink); background:var(--accent); padding:3px 9px; border-radius:6px}
-.lab-head b{font-family:var(--f-display); font-size:1.12rem}
-.lab-head .hint{font-family:var(--f-body); color:var(--muted); font-size:.95rem; margin-left:auto}
+.lab-head .tag{font-family:var(--f-body); font-size:var(--fs-xs); font-weight:600; letter-spacing:.14em; color:var(--accent-ink); background:var(--accent); padding:3px 9px; border-radius:6px}
+.lab-head b{font-family:var(--f-display); font-size:var(--fs-body)}
+.lab-head .hint{font-family:var(--f-body); color:var(--muted); font-size:var(--fs-md); margin-left:auto}
 .lab-body{padding:18px; display:flex; flex-direction:column; gap:16px}
 .lab-body > *,.lab-cols > *,.sheet > *,.chapter,.sec{min-width:0}
 .lab-cols{display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:20px; align-items:start}
-.lab-error{color:var(--bad); font-family:var(--f-body); font-size:.9rem}
+.lab-error{color:var(--bad); font-family:var(--f-body); font-size:var(--fs-md)}
 .controls{display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center}
 .ctl{display:flex; flex-direction:column; gap:4px; min-width:0}
-.ctl > label,.ctl > .lbl{font-size:.82rem; color:var(--muted); font-family:var(--f-body); letter-spacing:.04em}
+.ctl > label,.ctl > .lbl{font-size:var(--fs-sm); color:var(--muted); font-family:var(--f-body); letter-spacing:.04em}
 .ctl output{display:inline-block; min-width:5.5ch; text-align:right; font-family:var(--f-body); font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums}
 .seg{display:inline-flex; background:var(--paper-deep); border:1px solid var(--rule); border-radius:10px; padding:3px; gap:2px; flex-wrap:wrap}
-.seg button{font:inherit; font-size:.92rem; border:0; background:transparent; color:var(--ink-2); padding:5px 12px; border-radius:7px; cursor:pointer; transition:background .2s,color .2s}
+.seg button{font:inherit; font-size:var(--fs-md); border:0; background:transparent; color:var(--ink-2); padding:5px 12px; border-radius:7px; cursor:pointer; transition:background .2s,color .2s}
 .seg button[aria-pressed="true"]{background:var(--card); color:var(--ink); box-shadow:inset 0 0 0 1px var(--rule-strong)}
-.btn{font:inherit; font-size:.95rem; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); padding:7px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:transform .15s, background .2s, border-color .2s}
+.btn{font:inherit; font-size:var(--fs-md); border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); padding:7px 16px; border-radius:10px; cursor:pointer; text-decoration:none; transition:transform .15s, background .2s, border-color .2s}
 .btn:hover{border-color:var(--accent)}
 .btn:active{transform:translateY(1px) scale(.98)}
 .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:500}
 .btn:disabled{opacity:.45; cursor:not-allowed}
 .stepper{display:inline-flex; align-items:center; border:1px solid var(--rule-strong); border-radius:10px; overflow:hidden; background:var(--card)}
-.stepper button{font:inherit; width:34px; height:34px; border:0; background:transparent; color:var(--ink); cursor:pointer; font-size:1.1rem}
+.stepper button{font:inherit; width:34px; height:34px; border:0; background:transparent; color:var(--ink); cursor:pointer; font-size:var(--fs-body)}
 .stepper button:hover{background:var(--paper-deep)}
 .stepper output{min-width:2.4em; text-align:center; font-family:var(--f-body); font-weight:600; font-variant-numeric:tabular-nums}
 /* Designed range slider: a filled track, a card-coloured thumb, a focus ring only when the keyboard
@@ -329,30 +337,30 @@ input[type=range]::-moz-range-progress{height:6px; border-radius:999px; backgrou
 input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--card); border:3px solid var(--accent); box-shadow:var(--shadow-sm); transition:transform .15s}
 input[type=range]:active::-moz-range-thumb{transform:scale(1.15)}
 input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-soft)}
-input[type=number]{font-family:var(--f-body); font-size:1rem; width:5.2em; padding:5px 8px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink); font-variant-numeric:tabular-nums}
+input[type=number]{font-family:var(--f-body); font-size:var(--fs-md); width:5.2em; padding:5px 8px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink); font-variant-numeric:tabular-nums}
 .readouts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
 /* A readout cell is as wide as its column, so a long label wraps inside 150px and the whole Lab grows
    a line taller while a Lab is being driven. One column on a phone gives every value the full width. */
 @media (max-width:600px){.readouts{grid-template-columns:minmax(0,1fr)}}
 .ro{background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column}
-.ro span{font-size:.78rem; color:var(--muted); font-family:var(--f-body); letter-spacing:.03em}
+.ro span{font-size:var(--fs-xs); color:var(--muted); font-family:var(--f-body); letter-spacing:.03em}
 /* A readout keeps its width across values: tabular digits plus room for the longest short value. */
-.ro b{font-family:var(--f-body); font-size:1.3rem; font-weight:600; font-variant-numeric:tabular-nums; min-width:5.5ch; transition:color .3s}
+.ro b{font-family:var(--f-body); font-size:var(--fs-h3); font-weight:600; font-variant-numeric:tabular-nums; min-width:5.5ch; transition:color .3s}
 .ro.win{border-color:var(--accent); background:var(--accent-soft)}
-.calc{font-family:var(--f-body); font-size:.95rem; line-height:1.9; background:var(--paper); border:1px dashed var(--rule-strong); border-radius:10px; padding:10px 14px; overflow-x:auto; font-variant-numeric:tabular-nums}
+.calc{font-family:var(--f-body); font-size:var(--fs-md); line-height:1.9; background:var(--paper); border:1px dashed var(--rule-strong); border-radius:10px; padding:10px 14px; overflow-x:auto; font-variant-numeric:tabular-nums}
 .calc .c{color:var(--muted)}
-.verdict{font-family:var(--f-body); font-size:1.05rem; line-height:1.7; padding:10px 14px; border-radius:10px; background:var(--hl-soft)}
-.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-body); font-size:.85rem; padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); transition:all .3s}
+.verdict{font-family:var(--f-body); font-size:var(--fs-body); line-height:1.7; padding:10px 14px; border-radius:10px; background:var(--hl-soft)}
+.chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--f-body); font-size:var(--fs-sm); padding:3px 10px; border-radius:8px; border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); transition:all .3s}
 .chip.good{border-color:var(--good); background:var(--good-soft)}
 .chip.bad{border-color:var(--bad); background:var(--bad-soft); text-decoration:line-through; text-decoration-color:var(--bad)}
 .chip.muted{border-style:dashed; color:var(--muted); background:transparent; text-decoration:line-through}
 .chip.info{border-color:var(--accent); background:var(--accent-soft)}
 .chips{display:flex; flex-wrap:wrap; gap:8px}
-.state{display:inline-flex; align-items:center; gap:6px; font-size:.9rem; font-weight:500; padding:3px 10px; border-radius:999px}
+.state{display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-md); font-weight:500; padding:3px 10px; border-radius:999px}
 .state.ok{background:var(--good-soft); color:var(--good)}
 .state.no{background:var(--bad-soft); color:var(--bad)}
 .state.mid{background:var(--hl-soft); color:var(--ink)}
-.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.85rem; color:var(--ink-2)}
+.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:var(--fs-sm); color:var(--ink-2)}
 .legend i{display:inline-block; width:14px; height:4px; border-radius:2px; vertical-align:middle; margin-right:6px}
 .vizwrap{position:relative; overflow-x:auto; max-width:100%}
 svg.viz{display:block; width:100%; height:auto; overflow:visible}
@@ -360,18 +368,18 @@ svg text{font-family:var(--f-body); fill:var(--ink); font-variant-numeric:tabula
 svg .axis line,svg .axis path{stroke:var(--rule-strong)}
 svg .grid line{stroke:var(--rule); stroke-dasharray:2 4}
 svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-variant-numeric:tabular-nums}
-.tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--paper); font-size:.82rem; font-family:var(--f-body); line-height:1.5; padding:6px 10px; border-radius:8px; transform:translate(-50%,-110%); white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5; font-variant-numeric:tabular-nums}
+.tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--paper); font-size:var(--fs-sm); font-family:var(--f-body); line-height:1.5; padding:6px 10px; border-radius:8px; transform:translate(-50%,-110%); white-space:nowrap; opacity:0; transition:opacity .15s; z-index:5; font-variant-numeric:tabular-nums}
 .tip.show{opacity:1}
 .ctab{border-collapse:collapse; font-family:var(--f-body); font-variant-numeric:tabular-nums}
 /* Cells never wrap: with wrapping allowed, the table's width follows its widest cell, so a header
    label re-wraps as soon as a number gains or loses a digit and the whole box jumps a line. Labels
    stay on one line and a wide table scrolls sideways in its .tablewrap instead. */
 .ctab th,.ctab td{border:1px solid var(--rule-strong); padding:6px 12px; text-align:center; white-space:nowrap}
-.ctab th{font-weight:600; font-size:.85rem; background:var(--paper-deep)}
+.ctab th{font-weight:600; font-size:var(--fs-sm); background:var(--paper-deep)}
 .ctab td.m{color:var(--muted)}
 .ctab input{width:4.4em}
 .bars2{display:flex; flex-direction:column; gap:12px}
-.hbar{display:grid; grid-template-columns:6.5em 1fr 4.5em; gap:10px; align-items:center; font-family:var(--f-body); font-size:.88rem; font-variant-numeric:tabular-nums}
+.hbar{display:grid; grid-template-columns:6.5em 1fr 4.5em; gap:10px; align-items:center; font-family:var(--f-body); font-size:var(--fs-sm); font-variant-numeric:tabular-nums}
 .hbar .track{height:22px; background:var(--paper); border:1px solid var(--rule); border-radius:6px; display:flex; overflow:hidden}
 .hbar .track i{display:block; height:100%; background:var(--s1); transition:width .45s cubic-bezier(.2,.8,.2,1)}
 /* Signed bar: the fill grows from a zero line in either direction. Sign is shown by side and by a
@@ -385,20 +393,20 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
 .quiz{background:var(--card); border:1px solid var(--rule-strong); border-radius:20px; box-shadow:var(--shadow); padding:22px; display:flex; flex-direction:column; gap:20px}
 .trail{display:flex; align-items:center; overflow-x:auto; padding:8px 4px 14px}
 .stop{flex:none; display:flex; flex-direction:column; align-items:center; gap:6px; background:none; border:0; cursor:pointer; color:var(--ink); font:inherit; width:110px}
-.stop .disc{width:56px; height:56px; border-radius:50%; display:grid; place-items:center; font-family:var(--f-display); font-weight:900; font-size:1.3rem; border:2.5px solid var(--rule-strong); background:var(--paper); transition:all .3s}
+.stop .disc{width:56px; height:56px; border-radius:50%; display:grid; place-items:center; font-family:var(--f-display); font-weight:900; font-size:var(--fs-h3); border:2.5px solid var(--rule-strong); background:var(--paper); transition:all .3s}
 .stop:hover .disc{transform:translateY(-3px)}
 .stop.active .disc{border-color:var(--accent); background:var(--accent); color:var(--accent-ink); box-shadow:0 0 0 5px var(--accent-soft)}
 .stop.done .disc{border-color:var(--good); background:var(--good-soft); color:var(--good)}
 .stop.locked{cursor:not-allowed; opacity:.5}
-.stop small{font-size:.8rem; line-height:1.35; text-align:center; color:var(--ink-2)}
-.stop .st{color:var(--star); font-size:.85rem; letter-spacing:1px; min-height:1.2em}
+.stop small{font-size:var(--fs-sm); line-height:1.35; text-align:center; color:var(--ink-2)}
+.stop .st{color:var(--star); font-size:var(--fs-sm); letter-spacing:1px; min-height:1.2em}
 .link{flex:1 0 24px; height:3px; background:repeating-linear-gradient(90deg,var(--rule-strong) 0 6px,transparent 6px 11px); margin-bottom:46px}
 .qcard{border:1px solid var(--rule); border-radius:14px; padding:20px; background:var(--paper)}
-.qmeta{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-family:var(--f-body); font-size:.82rem; color:var(--muted); margin-bottom:10px; font-variant-numeric:tabular-nums}
+.qmeta{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-family:var(--f-body); font-size:var(--fs-sm); color:var(--muted); margin-bottom:10px; font-variant-numeric:tabular-nums}
 .qbar{height:6px; border-radius:6px; background:var(--rule); overflow:hidden; margin-bottom:14px}
 .qbar i{display:block; height:100%; background:var(--accent); transition:width .4s}
-.qtext{font-size:1.2rem; line-height:1.8; margin:0 0 14px; max-width:var(--measure)}
-.qtitle{font-family:var(--f-display); font-size:1.5rem; font-weight:700; margin-bottom:4px}
+.qtext{font-size:var(--fs-h3); line-height:1.8; margin:0 0 14px; max-width:var(--measure)}
+.qtitle{font-family:var(--f-display); font-size:var(--fs-lg); font-weight:700; margin-bottom:4px}
 .qsub{color:var(--ink-2); margin-top:0}
 .opts{display:flex; flex-direction:column; gap:10px}
 .opt{font:inherit; text-align:left; display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border:1.5px solid var(--rule-strong); background:var(--card); color:var(--ink); border-radius:12px; cursor:pointer; transition:border-color .2s, background .2s, transform .15s; line-height:1.7}
@@ -409,27 +417,27 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
 .opt:disabled{cursor:default}
 @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 .numans{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-.numans input{width:9em; font-size:1.1rem}
+.numans input{width:9em; font-size:var(--fs-body)}
 .numans input.wrong{border-color:var(--bad); animation:shake .4s}
 .numans input.right{border-color:var(--good)}
 .fb{margin-top:14px; border-radius:12px; padding:12px 16px; line-height:1.8; animation:rise .35s both}
 .fb.ok{background:var(--good-soft)}
 .fb.bad{background:var(--bad-soft)}
 .fb b{font-family:var(--f-display)}
-.fb .src{display:block; margin-top:6px; font-size:.9rem}
+.fb .src{display:block; margin-top:6px; font-size:var(--fs-md)}
 .qnav{display:flex; justify-content:space-between; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center}
-.combo{font-family:var(--f-body); color:var(--star); font-size:1.05rem; font-weight:700}
+.combo{font-family:var(--f-body); color:var(--star); font-size:var(--fs-body); font-weight:700}
 .result{text-align:center; padding:10px 0}
-.result .bigstars{font-size:2.6rem; letter-spacing:6px; color:var(--star)}
+.result .bigstars{font-size:var(--fs-stars); letter-spacing:6px; color:var(--star)}
 .result .bigstars span{display:inline-block; animation:stamp .5s cubic-bezier(.2,1.6,.4,1) both}
 .result .bigstars span.off{color:var(--rule-strong)}
 .review{text-align:left; margin-top:18px; border-top:1px dashed var(--rule-strong); padding-top:14px}
-.review h6{font-family:var(--f-display); font-size:1.05rem; margin:0 0 8px}
+.review h6{font-family:var(--f-display); font-size:var(--fs-body); margin:0 0 8px}
 .review ol{margin:0; padding-left:1.4em; display:flex; flex-direction:column; gap:10px}
 .review li{line-height:1.7}
-.review .ans{display:block; font-size:.92rem; color:var(--ink-2)}
+.review .ans{display:block; font-size:var(--fs-md); color:var(--ink-2)}
 @keyframes stamp{from{transform:scale(1.8); opacity:0}to{transform:scale(1); opacity:1}}
-.toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translate(-50%,30px); background:var(--ink); color:var(--paper); padding:8px 18px; border-radius:999px; font-size:.92rem; opacity:0; transition:all .35s cubic-bezier(.2,.8,.2,1); z-index:80; pointer-events:none}
+.toast{position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translate(-50%,30px); background:var(--ink); color:var(--paper); padding:8px 18px; border-radius:999px; font-size:var(--fs-md); opacity:0; transition:all .35s cubic-bezier(.2,.8,.2,1); z-index:80; pointer-events:none}
 .toast.show{opacity:1; transform:translate(-50%,0)}
 
 /* ---------- responsive ---------- */
@@ -468,7 +476,7 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
   .grid2,.grid4{grid-template-columns:minmax(0,1fr)}
   .lab-body{padding:14px}
   .lab-head .hint{margin-left:0; flex-basis:100%}
-  .formula{font-size:1.08rem}
+  .formula{font-size:var(--fs-body)}
   .quiz{padding:14px}
   .hbar{grid-template-columns:5em 1fr 4em}
   .fab button{width:42px; height:42px}

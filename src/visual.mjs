@@ -125,13 +125,27 @@ const SCAN = () => {
     const cls = (el) => el.getAttribute('class') || '';
     const label = (el) => el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + cls(el).split(/\s+/).filter(Boolean).slice(0, 1).map((c) => `.${c}`).join('');
     const key = (el) => el.tagName.toLowerCase() + '|' + cls(el).split(/\s+/).sort().join('.') + '|' + (el.getAttribute('role') || '');
-    // A card is a block-level box, not an inline fragment: `span.katex` runs, table cells and SVG
-    // chart parts are layout, not repeated content cards.
+    // A card is a box-like block, not just any block-level box: it has to draw its own edges (a
+    // border, or a background that differs from its parent's) and hold its content off those edges
+    // with padding. Without this test the rule called four consecutive paragraphs a card wall, and
+    // the structural blocks of the document (sections, paragraphs, article wrappers) are never cards.
     const CARDY = new Set(['block', 'flex', 'grid', 'list-item', 'flow-root']);
     const SKIP = new Set(['TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'SVG', 'UL', 'OL', 'DL', 'SELECT', 'PRE', 'CODE', 'MATH']);
+    const STRUCT = new Set(['SECTION', 'P', 'ARTICLE', 'HEADER', 'FOOTER', 'ASIDE', 'MAIN', 'NAV', 'BODY', 'HTML', 'FORM', 'FIELDSET']);
+    const SIDES = ['Top', 'Right', 'Bottom', 'Left'];
+    const sum = (cs, prop) => SIDES.reduce((n, s) => n + (parseFloat(cs[`${prop}${s}`]) || 0), 0);
+    const boxy = (el, cs) => {
+      const framed = sum(cs, 'border') > 0 && !['none', 'hidden'].includes(cs.borderTopStyle) && cs.borderTopColor !== 'rgba(0, 0, 0, 0)';
+      const parentBg = el.parentElement ? getComputedStyle(el.parentElement).backgroundColor : 'rgba(0, 0, 0, 0)';
+      const filled = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== parentBg;
+      return (framed || filled) && sum(cs, 'padding') > 0;
+    };
     const card = (el) => {
-      if (SKIP.has(el.tagName) || el.closest('svg,math,.katex,pre,code,table')) return false;
-      return CARDY.has(getComputedStyle(el).display);
+      if (SKIP.has(el.tagName) || STRUCT.has(el.tagName) || el.closest('svg,math,.katex,pre,code,table')) return false;
+      // Lab internals are the Lab's own UI (readouts, controls), not the chapter's repeated content.
+      if (el.closest('.lab')) return false;
+      const cs = getComputedStyle(el);
+      return CARDY.has(cs.display) && boxy(el, cs);
     };
     const runs = [];
     for (const parent of [sheet, ...sheet.querySelectorAll('*')]) {

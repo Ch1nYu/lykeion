@@ -64,6 +64,67 @@ test('--f-mono is used only for code: pre, code, kbd and the code listing bar', 
   assert.deepEqual(stray, [], `--f-mono outside code: ${stray.join(', ')}`);
 });
 
+// A2: one type scale. Small text used to be set with ad-hoc values (.7/.72/.74/.76/.78/.8/.82/.85/.86
+// /.88/.9/.92/.95/.98rem and 1.02/1.05/1.08/1.1/1.12rem), so a chapter showed seven sizes and three
+// of them (15.7/16.3/17.3px) differed by under 2px — drift that reads as a mistake, not as a scale.
+// Every font-size is now a --fs token. The exceptions are sizes that are relative on purpose (em for
+// code, maths and Latin words, which must follow the text around them) and the two labels inside an
+// SVG chart, which are sized in px because they sit in the chart's own coordinate space.
+test('every font-size in base.css is a --fs token, apart from relative code/maths sizes and SVG chart labels', async () => {
+  // Sizes that are relative on purpose: they must follow the text around them, so they carry no step
+  // of their own. Keyed by selector because the maths reset is written as one rule for three areas.
+  const relative = new Map([
+    ['.en', ['.9em']],
+    ['code', ['.86em']],
+    ['math:not([display="block"])', ['.94em']],
+    ['.code pre code', ['1em']],
+    ['.nav math', ['1em']],
+    ['.topbar math', ['1em']],
+    ['.pager math', ['1em']],
+    ['svg .tick', ['11px']],
+    ['.ring text', ['15px']],
+  ]);
+  const offenders = [];
+  const css = (await readFile(join(ROOT, 'runtime/base.css'), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const rule of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = rule[1].trim().replace(/\s+/g, ' ').split(',').map((s) => s.trim());
+    const line = css.slice(0, rule.index).split('\n').length;
+    for (const m of rule[2].matchAll(/font-size\s*:\s*([^;}]+)/g)) {
+      const value = m[1].trim();
+      if (/^var\(--fs-[a-z0-9-]+\)$/.test(value)) continue;
+      // `inherit` takes the size of the text around it; it introduces no new step.
+      if (value === 'inherit') continue;
+      if (selectors.every((s) => relative.get(s)?.includes(value))) continue;
+      offenders.push(`${line} ${selectors.join(',')} font-size:${value}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `font-size must come from a --fs token:\n  ${offenders.join('\n  ')}`);
+});
+
+// The scale itself: three small steps below body text, body, the three heading sizes that were already
+// tokens, and the four display sizes the page actually uses (chapter title, chapter number, quiz title
+// and the result stars). A fourth small step reappearing is the drift the test above catches; a token
+// with no rule using it is the same drift from the other side.
+test('the type scale is three small steps, body, the headings and the display sizes — and each is used', async () => {
+  const base = await readFile(join(ROOT, 'runtime/base.css'), 'utf8');
+  const declared = [...new Set([...base.matchAll(/(--fs-[a-z0-9-]+)\s*:/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(declared, [
+    '--fs-body',
+    '--fs-ch',
+    '--fs-h1',
+    '--fs-h2',
+    '--fs-h3',
+    '--fs-lg',
+    '--fs-md',
+    '--fs-sm',
+    '--fs-stars',
+    '--fs-title',
+    '--fs-xs',
+  ]);
+  const unused = declared.filter((t) => !base.includes(`var(${t})`));
+  assert.deepEqual(unused, [], `every size token is used by a rule: ${unused.join(', ')}`);
+});
+
 test('the Google Fonts link asks for the three families the tokens name, and nothing else', async () => {
   const shell = await readFile(join(ROOT, 'runtime/shell.html'), 'utf8');
   const href = /<link[^>]+fonts\.googleapis\.com\/css2[^>]*>/.exec(shell)?.[0] || '';

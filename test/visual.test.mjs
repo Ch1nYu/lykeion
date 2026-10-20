@@ -90,8 +90,23 @@ test('gradientText: text clipped to a gradient background fails, a background hi
   assert.match(bad[0].msg, /background-clip/, 'the message names the cause');
 });
 
-test('cardWall: a run of identical sibling cards warns, a short run or varied sizes does not', async (t) => {
+test('cardWall: only a run of box-like siblings is a wall — paragraphs, sections and Lab controls are not cards', async (t) => {
   if (!browser) return t.skip('no browser available');
+  // The four shapes below are the false positives the rule produced on the private acceptance
+  // fixture: consecutive paragraphs, consecutive sections, and two kinds of Lab internal (a box-like
+  // readout and a borderless control row). None of them is a card, so none may warn.
+  const shapes = {
+    paragraphs: `<div class="prose">${Array.from({ length: 4 }, (_, i) => `<p>paragraph ${i + 1}</p>`).join('')}</div>`,
+    sections: Array.from({ length: 4 }, (_, i) => `<section class="sec" id="s${i}"><h3><span class="sn">${i + 1}</span></h3><div class="prose"><p>body ${i + 1}</p></div></section>`).join(''),
+    readouts: `<div class="lab"><div class="readouts">${Array.from({ length: 4 }, (_, i) => `<div class="ro" style="background:#f4eee1;border:1px solid #d8ccb4;padding:8px 12px"><span>r</span><b>${i}</b></div>`).join('')}</div></div>`,
+    controls: `<div class="lab"><div class="controls">${Array.from({ length: 4 }, (_, i) => `<div class="ctl"><label for="a${i}">a${i}</label></div>`).join('')}</div></div>`,
+  };
+  for (const [name, body] of Object.entries(shapes)) {
+    const r = await measure(`<div class="view" id="ch1">${body}</div>`);
+    const warns = ruleWarnings(r, 'cardWall');
+    assert.deepEqual(warns, [], `${name} is not a card wall: ${warns.map((w) => w.msg).join('; ')}`);
+  }
+
   // Calibrated on fixtures/sample: its longest identical run is 3 (the DIV.ro readouts), so the
   // shipped default is 4 — a wall is a run the reader scrolls past without reading.
   const card = (n, style = '') => `<div class="view" id="ch1"><section><div class="prose"><p>body</p></div>${Array.from({ length: n }, (_, i) => `<div class="card" style="padding:16px;margin:8px 0;border:1px solid #ccc;${style}">card ${i + 1}</div>`).join('')}</section></div>`;
@@ -183,11 +198,21 @@ test('a lowered threshold takes effect, so the override reaches the measurement'
 // One gate run for the whole file. A full render gate on the sample is ~25s, and every assertion
 // about the shipped example — clean rules, both viewports, the headline arithmetic — can be read off
 // the same run. The copy keeps the fixture's own verify-report.md untouched.
+//
+// The copy's lykeion.json lowers typeScale.max to 3. The shipped sample has one type scale now (four
+// sizes), so at the default threshold of 6 it warns about nothing and the headline's warning arithmetic
+// would have nothing to count. Lowering the threshold keeps that arithmetic under test without a
+// second gate run and without loosening the rule itself: the default stays 6 in
+// references/visual-rules.json, and 'the built sample has no typeScale warnings at the default
+// thresholds' measures the shipped project against those defaults. A warning never fails a gate, so
+// the status assertions are unaffected.
 let sampleRun = null;
 const sample = async () => {
   sampleRun ??= (async () => {
     const dir = await mkdtemp(join(tmpdir(), 'lykeion-visual-'));
     await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+    const project = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8'));
+    await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ ...project, visual: { typeScale: { max: 3 } } }, null, 2));
     const r = await verify(dir, { render: true });
     return { dir, r, gate: r.gates.find((g) => g.name === 'render') };
   })();
@@ -210,6 +235,29 @@ const openSample = async (dir) => {
   return page;
 };
 
+// 5a: ch1 used to show seven sizes because small prose was set with ad-hoc values (.98/1.02/1.08rem),
+// leaving 15.7/16.3/17.3px side by side. Every size now comes from a --fs token, so the page has one
+// scale and the rule has nothing to warn about. The threshold stays at 6: the page changed, not the rule.
+//
+// Measured here against the SHIPPED defaults, not read off the shared gate run — that run lowers
+// typeScale.max to 3 so the headline has warnings to count, and the point of this test is the sample
+// at the thresholds a real project gets.
+test('the built sample has no typeScale warnings at the default thresholds', async (t) => {
+  const { dir } = await sample();
+  if (!browser) return t.skip('no browser available');
+  const page = await openSample(dir);
+  try {
+    for (const { width, height } of [{ width: 1280, height: 900 }, { width: 375, height: 760 }]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => window.Lykeion.show('ch1', { noScroll: true }));
+      const measured = await measureVisual(page, defaults.rules);
+      assert.deepEqual(ruleWarnings(measured, 'typeScale').map((w) => w.msg), [], `one type scale at ${width}px`);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
 // The integration test: the rules have to be wired into the gate, and the shipped example has to
 // pass them. A rule that only ever passes is worthless, so the same build gets one emoji heading in
 // the test below and has to be measured as a failure there.
@@ -219,45 +267,52 @@ test('the render gate runs the visual rules on the built sample', async (t) => {
   const visualFailures = gate.items.filter((i) => i.ok === false && /^(hole|emojiIcon|gradientText|cardWall|leftEdges|typeScale):/.test(i.msg));
   assert.deepEqual(visualFailures.map((i) => i.msg), [], 'the shipped example has no visual failures');
   assert.equal(gate.status, 'pass', 'the shipped example passes the render gate');
-
-  // The gate measures each view at both widths, so a finding has to carry the width it came from.
-  // The sample's own typeScale warnings are what prove the measurement ran at each one.
+  // The warnings the shared run's lowered threshold produces also have to arrive as gate items, at
+  // both widths, and in the report: a rule that measures correctly but never reaches the report would
+  // pass the direct measurement above and still be missing from what a reader sees.
   const report = await readFile(r.reportPath, 'utf8');
   for (const where of ['desktop 1280', 'mobile 375']) {
-    const item = gate.items.find((i) => /^(hole|emojiIcon|gradientText|cardWall|leftEdges|typeScale): /.test(i.msg) && i.msg.includes(`(${where})`));
-    assert.ok(item, `the visual rules ran at ${where}: ${gate.items.map((i) => i.msg).join('\n')}`);
-    assert.ok(report.includes(item.msg), `verify-report.md records the visual finding at ${where}`);
+    const warned = gate.items.find((i) => i.warn === true && /^typeScale: /.test(i.msg) && i.msg.includes(`(${where})`));
+    assert.ok(warned, `a typeScale warning at ${where}: ${gate.items.map((i) => i.msg).join('\n')}`);
+    assert.ok(report.includes(warned.msg), `verify-report.md records the visual finding at ${where}`);
   }
 });
 
 // An emoji in a chapter heading is the smallest change that must trip a FAIL rule, and the CSS
 // ::before form is how one usually reaches a page. Measuring it directly costs one page, where
 // re-running the gate to see the same failure cost another 25s.
-test('an emoji heading on the built sample is a failure the gate files', async (t) => {
+//
+// Both widths are measured here because this is the cheap place to prove the rules ran at each one.
+// That evidence used to come from the sample's own typeScale warnings; the sample has a single type
+// scale now, so it comes from the rule's failure instead — a signal the sample cannot accidentally lose.
+test('an emoji heading on the built sample is a failure the gate files at both widths', async (t) => {
   const { dir } = await sample();
   if (!browser) return t.skip('no browser available');
   const page = await openSample(dir);
   try {
-    await page.evaluate(() => window.Lykeion.show('ch1', { noScroll: true }));
     await page.addStyleTag({ content: '#ch1 h2::before{content:"⭐"}' });
-    const measured = await measureVisual(page, defaults.rules);
-    const bad = ruleFailures(measured, 'emojiIcon');
-    assert.equal(bad.length, 1, `expected one emoji finding, got:\n${measured.failures.map((f) => f.msg).join('\n')}`);
-    assert.match(bad[0].msg, /⭐/u, 'the message names the emoji');
-    assert.match(bad[0].msg, /h2/, 'the message names the element');
+    for (const { width, height, where } of [{ width: 1280, height: 900, where: 'desktop 1280' }, { width: 375, height: 760, where: 'mobile 375' }]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => window.Lykeion.show('ch1', { noScroll: true }));
+      const measured = await measureVisual(page, defaults.rules);
+      const bad = ruleFailures(measured, 'emojiIcon');
+      assert.equal(bad.length, 1, `expected one emoji finding at ${where}, got:\n${measured.failures.map((f) => f.msg).join('\n')}`);
+      assert.match(bad[0].msg, /⭐/u, 'the message names the emoji');
+      assert.match(bad[0].msg, /h2/, 'the message names the element');
 
-    // The gate's own mapping: a failure is a failing item naming the rule, the view and the width.
-    const items = visualItems(measured, 'ch1', 'desktop 1280');
-    const named = items.find((i) => /emojiIcon/.test(i.msg));
-    assert.ok(named, 'the measurement becomes a gate item');
-    assert.equal(named.ok, false, 'an emoji icon fails the gate, it does not warn');
-    assert.match(named.msg, /ch1/, 'the failure names the chapter');
-    assert.match(named.msg, /h2/, 'the failure names the element');
-    assert.match(named.msg, /desktop 1280/, 'the failure names the width it was measured at');
+      // The gate's own mapping: a failure is a failing item naming the rule, the view and the width.
+      const items = visualItems(measured, 'ch1', where);
+      const named = items.find((i) => /emojiIcon/.test(i.msg));
+      assert.ok(named, `the measurement becomes a gate item at ${where}`);
+      assert.equal(named.ok, false, 'an emoji icon fails the gate, it does not warn');
+      assert.match(named.msg, /ch1/, 'the failure names the chapter');
+      assert.match(named.msg, /h2/, 'the failure names the element');
+      assert.match(named.msg, new RegExp(where), 'the failure names the width it was measured at');
+    }
 
     // Warnings travel the same path but never fail: ok:null is the report's ⚠ shape.
-    const warned = visualItems({ warnings: measured.warnings }, 'ch1', 'desktop 1280');
-    assert.ok(warned.length > 0, 'the sample has warnings to map');
+    const warned = visualItems({ warnings: [{ rule: 'cardWall', msg: '4 identical div.card siblings in a row' }] }, 'ch1', 'desktop 1280');
+    assert.ok(warned.length > 0, 'a warning maps to an item');
     assert.ok(warned.every((i) => i.ok === null && i.warn === true), 'a warning is not a failure');
   } finally {
     await page.close();
@@ -301,6 +356,11 @@ test('the render headline counts checks only, not the warning items', async (t) 
   if (gate.status === 'skipped') return t.skip('no browser available');
   const checks = gate.items.filter((i) => !i.warn).length;
   const warns = gate.items.filter((i) => i.warn).length;
+  // Unconditional: the shared run carries a lowered typeScale.max in its own lykeion.json, so this gate
+  // really does have warnings to miscount. A shape that only holds when the gate cannot warn would go
+  // on passing after the counting broke.
+  assert.ok(warns > 0, `the shared run must carry warnings to count (got ${warns})`);
   assert.equal(gate.headline, `${checks} checks passed, ${warns} warning(s)`, gate.headline);
+  assert.doesNotMatch(gate.headline, /\b0 warning/, 'a gate with no warnings says nothing about warnings');
   assert.ok(!gate.headline.startsWith(`${gate.items.length} checks`), 'the warning items are not checks');
 });
