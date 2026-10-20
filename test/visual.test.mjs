@@ -184,3 +184,17 @@ test('the render gate runs the visual rules on the built sample', async (t) => {
   assert.match(named.msg, /h2/, 'the failure names the element');
   assert.match(await readFile(after.reportPath, 'utf8'), /emojiIcon/, 'verify-report.md records the rule');
 });
+
+// The headline counts checks, so the warning items must not be counted as checks: "42 checks passed,
+// 2 warning(s)" for 40 checks + 2 warnings reads as 42 checks and hides that only 40 ran.
+test('the render headline counts checks only, not the warning items', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-visual-'));
+  await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+  const r = await verify(dir, { render: true });
+  const gate = r.gates.find((g) => g.name === 'render');
+  if (gate.status === 'skipped') return t.skip('no browser available');
+  const checks = gate.items.filter((i) => !i.warn).length;
+  const warns = gate.items.filter((i) => i.warn).length;
+  assert.equal(gate.headline, `${checks} checks passed, ${warns} warning(s)`, gate.headline);
+  assert.ok(!gate.headline.startsWith(`${gate.items.length} checks`), 'the warning items are not checks');
+});

@@ -1059,10 +1059,12 @@ async function renderGate(htmlPath, visual = null) {
   }
   const bad = items.filter((i) => i.ok === false).length;
   const warns = items.filter((i) => i.warn).length;
+  // Warning items are not checks: counting them said "42 checks passed, 2 warning(s)" for 40 checks.
+  const checks = items.length - warns;
   return {
     name: 'render',
     status: bad ? 'fail' : 'pass',
-    headline: bad ? `${bad} problem(s)` : warns ? `${items.length} checks passed, ${warns} warning(s)` : `${items.length} checks passed`,
+    headline: bad ? `${bad} problem(s)` : warns ? `${checks} checks passed, ${warns} warning(s)` : `${checks} checks passed`,
     items,
   };
 }

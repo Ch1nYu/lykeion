@@ -547,10 +547,12 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
 
   const bad = items.filter((i) => i.ok === false).length;
   const warns = items.filter((i) => i.warn).length;
+  // Warning items are not checks: counting them said "12 checks passed, 1 warning(s)" for 11 checks.
+  const checks = items.length - warns;
   return {
     name: 'teaching',
     status: bad ? 'fail' : 'pass',
-    headline: bad ? `${bad} problem(s)` : warns ? `${items.length} checks passed, ${warns} warning(s)` : `${items.length} checks passed`,
+    headline: bad ? `${bad} problem(s)` : warns ? `${checks} checks passed, ${warns} warning(s)` : `${checks} checks passed`,
     items,
   };
 }

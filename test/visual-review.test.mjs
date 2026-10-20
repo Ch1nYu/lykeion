@@ -105,3 +105,30 @@ test('the visual reviewer guide names the shots command and the result file the 
   assert.match(brief, /visual-reviewer\.md/);
   assert.match(brief, /visual-review\.md/);
 });
+
+// ---------- regressions found while reading the report code ----------
+// `icon()` maps a gate status to the mark the console summary and the report table print. It knew
+// pass, fail, skipped and pending but not warn, so a warning gate printed `?` — the one mark the
+// report reserves for a status it cannot read. Guard both places the mark is printed.
+test('a warn gate prints ⚠ in the console summary and in the report table, not ?', async () => {
+  const dir = await sampleCopy();
+  await build(dir);
+  const r = await verify(dir, { render: false });
+  const visual = r.gates.find((g) => g.name === 'visual review');
+  assert.equal(visual.status, 'warn');
+  assert.match(r.summary, /⚠ visual review/, r.summary);
+  assert.ok(!r.summary.includes('? visual review'), r.summary);
+  const report = await readFile(join(dir, 'verify-report.md'), 'utf8');
+  assert.match(report, /\| visual review \| ⚠ warn \|/);
+  assert.ok(!/\| visual review \| \?/.test(report), report);
+});
+
+// A gate that has no result yet is pending (…) — still not a `?`.
+test('a review with no result file prints … in the console summary, not ?', async () => {
+  const dir = await sampleCopy();
+  await build(dir);
+  const r = await verify(dir, { render: false });
+  assert.match(r.summary, /… source/, r.summary);
+  assert.match(r.summary, /… teaching review/, r.summary);
+  assert.ok(!/\? (source|teaching review)/.test(r.summary), r.summary);
+});

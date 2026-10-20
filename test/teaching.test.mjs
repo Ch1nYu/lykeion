@@ -191,6 +191,10 @@ test('lexicon fails a level:"fail" phrase and reports a level:"warn" phrase with
   assert.equal(w.ok, null);
   assert.match(w.msg, /uses “值得注意的是”/);
   assert.match(warn.headline, /warning/);
+  // The headline counts checks, so the ⚠ item must not be counted as one: "12 checks passed, 1
+  // warning(s)" for 11 checks + 1 warning reads as 12 checks and hides that only 11 ran.
+  assert.equal(warn.items.length, 12);
+  assert.equal(warn.headline, '11 checks passed, 1 warning(s)');
 
   // A clean sentence matches nothing.
   const ok = run([sec([para('分母不能是零，所以這裡先假設它不為零。')])]);
