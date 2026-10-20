@@ -12,12 +12,25 @@ import { launchBrowser, routeLocal, LOCAL_ORIGIN } from './browser.mjs';
 const VIEWPORTS = [{ name: 'mobile', width: 375, height: 760 }, { name: 'desktop', width: 1280, height: 900 }];
 const THEMES = ['light', 'dark'];
 
+// Chromium paints at most 16384px in one capture. Past that line it returns the empty canvas instead
+// of the page — #ffffff, or flat #121212 in dark — while the PNG header still reports the full height,
+// so a truncated capture looks complete. Long chapters are the normal case (the acceptance fixture
+// reaches 49,904px at 375 wide), so a view taller than one capture is taken in clips of CLIP and
+// written as numbered parts; a view that fits keeps its single-file name.
+const LIMIT = 16384;
+const CLIP = 8000;
+
 export const help = `lykeion shots [project-dir] [--out dir]
 
 Opens the built Lecture Site in a headless browser and writes one full-page PNG per chapter, theme
 and viewport to <project>/shots/ (or --out):
 
   <chapter-slug>.<theme>.<viewport>.png   e.g. 01-conditional.dark.mobile.png
+
+A chapter taller than one capture (>16384px, common at 375px wide) is written in numbered parts
+instead, in order, top to bottom — every part has to be looked at:
+
+  <chapter-slug>.<theme>.<viewport>.p1.png, .p2.png, …
 
 themes: light, dark — the system setting the page follows until a reader presses the theme button.
 viewports: mobile (375px wide), desktop (1280px wide).
@@ -74,6 +87,7 @@ export async function shots(dir, { out = null, launch = launchBrowser } = {}) {
     if (views.length !== slugs.length) throw new Error(`${views.length} chapter views in ${checks.output} for ${slugs.length} content/*.md — run "lykeion build" again`);
 
     await mkdir(outDir, { recursive: true });
+    const split = [];
     for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       for (const theme of THEMES) {
@@ -85,17 +99,51 @@ export async function shots(dir, { out = null, launch = launchBrowser } = {}) {
           // the settle below lets the Labs it mounts lay themselves out first.
           await page.evaluate((v) => window.Lykeion.show(v, { noScroll: true }), id);
           await settle(page);
-          const file = join(outDir, `${slugs[i]}.${theme}.${vp.name}.png`);
-          await page.screenshot({ path: file, fullPage: true });
-          files.push(file);
+          const stem = `${slugs[i]}.${theme}.${vp.name}`;
+          const parts = await capture(page, join(outDir, stem), vp);
+          files.push(...parts);
+          if (parts.length > 1) split.push(`${stem} p1-${parts.length}`);
+          await page.setViewportSize({ width: vp.width, height: vp.height });
         }
       }
     }
+    const message = split.length
+      ? `shots: ${files.length} PNGs → ${outDir} (${split.length} view${split.length > 1 ? 's' : ''} split into parts, each to be read in order: ${split.join(', ')})`
+      : `shots: ${files.length} full-page PNGs → ${outDir}`;
+    return { ok: true, skipped: false, outDir, files, split, message };
   } finally {
     await browser.close();
   }
+}
 
-  return { ok: true, skipped: false, outDir, files, message: `shots: ${files.length} full-page PNGs → ${outDir}` };
+// Writes one capture for a view, or the numbered parts of a view too tall for one. Returns the files.
+async function capture(page, stem, vp) {
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  if (height <= LIMIT) {
+    const file = `${stem}.png`;
+    await page.screenshot({ path: file, fullPage: true });
+    return [file];
+  }
+  // A tall viewport is what lets the page paint past the limit: scrolling to a clip and capturing the
+  // viewport returns real pixels at any depth, while `fullPage` — and `fullPage` with a clip — do not.
+  // The clip height is fixed so the parts are the same size, and it is re-measured after the resize
+  // because a taller viewport can change how tall the page lays out.
+  await page.setViewportSize({ width: vp.width, height: Math.min(CLIP, height) });
+  await settle(page);
+  const total = await page.evaluate(() => document.documentElement.scrollHeight);
+  const count = Math.ceil(total / CLIP);
+  const files = [];
+  for (let i = 0; i < count; i++) {
+    const top = i * CLIP;
+    const tall = Math.min(CLIP, total - top);
+    await page.setViewportSize({ width: vp.width, height: tall });
+    await page.evaluate((y) => window.scrollTo(0, y), top);
+    await settle(page);
+    const file = `${stem}.p${i + 1}.png`;
+    await page.screenshot({ path: file });
+    files.push(file);
+  }
+  return files;
 }
 
 // A view change lays the page out again and mounts the Labs in it; the fonts have to settle too, or

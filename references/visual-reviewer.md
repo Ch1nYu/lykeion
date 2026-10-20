@@ -10,7 +10,7 @@ You did not write the content. If you were started with the message in `reviewer
 
 ## Inputs
 
-- `<project>/shots/` — one full-page PNG per chapter, per theme, per viewport: `<chapter>.<light|dark>.<mobile|desktop>.png`. If the folder is missing, or its files are older than `<project>/<output>.html`, run `lykeion shots <project>` first and review the fresh images. Do not review a page you have not seen rendered.
+- `<project>/shots/` — one full-page PNG per chapter, per theme, per viewport: `<chapter>.<light|dark>.<mobile|desktop>.png`. A chapter too tall for one capture comes in numbered parts instead — `<chapter>.<light|dark>.<mobile|desktop>.p1.png`, `.p2.png`, … — and every part has to be looked at, in order: the parts are one page cut into pieces, so a fault can straddle a cut or sit only in the last part. If the folder is missing, or its files are older than `<project>/<output>.html`, run `lykeion shots <project>` first and review the fresh images. Do not review a page you have not seen rendered.
 - The built `<project>/<output>.html` — to find the section behind a finding, and to check anything the still images cannot show (a hover, a Lab mid-move).
 - `<project>/content/*.md` — only to know what a chapter is trying to say, so you can judge whether the visual says it.
 

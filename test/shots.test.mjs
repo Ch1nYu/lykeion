@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile, cp, readFile, readdir, stat } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateSync } from 'node:zlib';
 import { build } from '../src/build.mjs';
 import { shots, run } from '../src/shots.mjs';
 
@@ -33,6 +34,64 @@ const sampleCopy = async () => {
   return dir;
 };
 
+// Chromium refuses to paint a single capture taller than 16384px: past that line the pixels come back
+// as the empty canvas (#ffffff, or flat #121212 in dark), not as the page. A chapter can easily be
+// taller than that — 49,904px at 375 wide in the acceptance fixture — so a capture is taken in clips
+// and a chapter that needs more than one is written as parts. Reading a row out of a PNG is the only
+// way to see this from a test: the header still reports the full height, so the file looks complete.
+const PNG_CHANNELS = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+const decodePng = (buf) => {
+  let pos = 8;
+  let ihdr = null;
+  const idat = [];
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos);
+    const type = buf.subarray(pos + 4, pos + 8).toString('ascii');
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    if (type === 'IHDR') ihdr = { w: data.readUInt32BE(0), h: data.readUInt32BE(4), depth: data[8], colour: data[9] };
+    else if (type === 'IDAT') idat.push(data);
+    else if (type === 'IEND') break;
+    pos += 12 + len;
+  }
+  const bpp = Math.ceil((ihdr.depth * PNG_CHANNELS[ihdr.colour]) / 8);
+  const stride = ihdr.w * bpp;
+  const raw = inflateSync(Buffer.concat(idat));
+  const out = Buffer.alloc(stride * ihdr.h);
+  const paeth = (a, b, c) => {
+    const p = a + b - c;
+    const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+    return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+  };
+  for (let y = 0; y < ihdr.h; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, y * (stride + 1) + 1 + stride);
+    const cur = out.subarray(y * stride, (y + 1) * stride);
+    const prev = y > 0 ? out.subarray((y - 1) * stride, y * stride) : null;
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? cur[x - bpp] : 0;
+      const b = prev ? prev[x] : 0;
+      const c = prev && x >= bpp ? prev[x - bpp] : 0;
+      let v = line[x];
+      if (filter === 1) v += a;
+      else if (filter === 2) v += b;
+      else if (filter === 3) v += (a + b) >> 1;
+      else if (filter === 4) v += paeth(a, b, c);
+      cur[x] = v & 0xff;
+    }
+  }
+  return { ...ihdr, bpp, stride, pixels: out };
+};
+// The colours on one row, as hex: one colour means nothing was drawn there.
+const rowColours = (img, y) => {
+  const counts = new Map();
+  for (let x = 0; x < img.w; x++) {
+    const i = y * img.stride + x * img.bpp;
+    const hex = [...img.pixels.subarray(i, i + 3)].map((v) => v.toString(16).padStart(2, '0')).join('');
+    counts.set(hex, (counts.get(hex) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+};
+
 // One chapter, long enough to be taller than the screen: the shape most projects start as.
 const tiny = async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-shots-'));
@@ -43,6 +102,69 @@ const tiny = async () => {
   await build(dir);
   return dir;
 };
+
+// A chapter past Chromium's 16384px capture limit, with a bright block at the very end: if the bottom
+// of the page is lost, the block is lost with it. 200 paragraphs is ~17,500px at 375 wide and ~11,700px
+// at 1280, so one fixture proves both halves — the mobile capture has to be split, the desktop one
+// must stay a single file.
+const tall = async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-shots-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Tall probe', output: 'tall.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  const filler = Array.from({ length: 200 }, (_, i) => `第 ${i + 1} 段內文，用來把這一章拉得比一個螢幕還長。`).join('\n\n');
+  const end = '<div class="endmark" style="background:#ff00aa;color:#000;padding:24px;font-size:40px;line-height:1.4">END OF CHAPTER</div>';
+  await writeFile(join(dir, 'content', '01-tall.md'), `---\nchapter: 1\ntitle: Tall\nshort: tall\nsource: sample.pdf\n---\n\n## 1.1 A section {pages=1}\n\n${filler}\n\n${end}\n`);
+  await build(dir);
+  return dir;
+};
+
+test('a chapter taller than 16384px is captured to its last line', async (t) => {
+  const dir = await tall();
+  const res = await shots(dir);
+  if (res.skipped) {
+    t.skip('no browser available');
+    return;
+  }
+  assert.equal(res.ok, true, res.message);
+
+  // The end marker is #ff00aa; nothing else on this page is pink, so finding it anywhere in a capture
+  // is proof the bottom of the chapter was painted rather than left as empty canvas.
+  const pinkIn = async (file) => {
+    const img = decodePng(await readFile(file));
+    for (let y = 0; y < img.h; y += 4) {
+      if (rowColours(img, y).some(([hex]) => hex === 'ff00aa')) return true;
+    }
+    return false;
+  };
+
+  for (const theme of ['light', 'dark']) {
+    // Mobile: the chapter is over the limit, so the bottom of the page is the part that goes missing
+    // first. Whatever the file layout, the LAST mobile file must contain the end of the chapter.
+    const parts = (await readdir(res.outDir)).filter((f) => f.startsWith(`01-tall.${theme}.mobile.`) && f.endsWith('.png')).sort();
+    const last = join(res.outDir, parts.at(-1));
+    assert.equal(await pinkIn(last), true, `${parts.at(-1)} holds the end of the chapter — the bottom was captured`);
+    // And the last capture does not end on the empty canvas a truncated capture leaves behind.
+    const img = decodePng(await readFile(last));
+    const blank = theme === 'dark' ? '121212' : 'ffffff';
+    assert.notEqual(rowColours(img, img.h - 2)[0][0], blank, `${parts.at(-1)} does not end on the blank capture canvas (${blank})`);
+    // A view taller than one capture is written as numbered parts, so nothing is silently dropped.
+    assert.ok(parts.length > 1, `the ${theme} mobile chapter is split into parts (got ${parts.join(', ')})`);
+    assert.match(parts[0], /\.p1\.png$/, 'the first part is numbered p1');
+    assert.match(parts.at(-1), new RegExp(`\\.p${parts.length}\\.png$`), 'the parts are numbered without gaps');
+
+    // Desktop: the same chapter fits under the limit, so it keeps today's single-file name.
+    const one = join(res.outDir, `01-tall.${theme}.desktop.png`);
+    const { h } = await png(one);
+    assert.ok(h > 10000, `the desktop capture is the whole chapter (${h}px)`);
+    assert.equal(await pinkIn(one), true, 'the desktop capture holds the end of the chapter too');
+  }
+
+  // The summary counts files that exist and says a view was split, so a reader is not surprised by p2.
+  const onDisk = (await readdir(res.outDir)).length;
+  assert.equal(res.files.length, onDisk, 'every file it counts is on disk');
+  assert.match(res.message, new RegExp(`\\b${onDisk}\\b`));
+  assert.match(res.message, /split into parts/i, 'the summary says a view came in parts');
+});
 
 test('shots writes one full-page PNG per chapter, theme and viewport', async (t) => {
   const dir = await sampleCopy();
