@@ -287,23 +287,29 @@ export function quizReviewGate(levels) {
   }
   return { name: 'quiz review', status: bad ? 'fail' : 'pass', headline: bad ? `${bad} level(s) with a guessable key` : 'no level has a guessable key', items };
 }
+// Turns one view's measurement into the gate's items: a failure is a failing item naming the rule,
+// the view and the width it was measured at; a warning is the report's ⚠ shape (ok: null) and never
+// fails the gate. Exported because this mapping is the wiring — a measurement that fails has to
+// arrive as a failing item — and the mapping is far cheaper to prove than a second gate run.
+export function visualItems({ failures = [], warnings = [] } = {}, view, where) {
+  const items = [];
+  for (const f of failures) items.push({ ok: false, msg: `${f.rule}: ${view} (${where}) ${f.msg}` });
+  for (const w of warnings) items.push({ ok: null, warn: true, msg: `${w.rule}: ${view} (${where}) ${w.msg}` });
+  return items;
+}
+
 // ---------- gate: render ----------
 async function renderGate(htmlPath, visual = null) {
   const browser = await launchBrowser();
   if (!browser) return { name: 'render', status: 'skipped', headline: 'no browser available — NOT render-verified', items: [{ ok: null, msg: 'neither system Chrome nor Playwright Chromium could be launched' }] };
   const items = [];
   const add = (ok, msg) => items.push({ ok, msg });
-  // Visual rules report warnings (⚠ in verify-report.md) without failing the gate, exactly the way
-  // the teaching gate does: `ok: null, warn: true` is the report's existing warning shape.
-  const warn = (msg) => items.push({ ok: null, warn: true, msg });
   // Runs the visual rules over one view of one page and files every finding under its rule.
   const visualAt = async (pg, view, where) => {
     if (!visual) return;
     await pg.evaluate((id) => window.Lykeion.show(id, { noScroll: true }), view);
     await pg.waitForTimeout(30);
-    const { failures, warnings } = await measureVisual(pg, visual.rules);
-    for (const f of failures) add(false, `${f.rule}: ${view} (${where}) ${f.msg}`);
-    for (const w of warnings) warn(`${w.rule}: ${view} (${where}) ${w.msg}`);
+    for (const item of visualItems(await measureVisual(pg, visual.rules), view, where)) items.push(item);
   };
   if (visual?.unknown?.length) {
     for (const key of visual.unknown) add(false, `lykeion.json "visual" has no rule "${key}" (allowed: ${visual.known.join(', ')})`);
