@@ -4,5 +4,7 @@
   "gradientText": true,
   "cardWall": { "minRun": 4 },
   "leftEdges": { "max": 5 },
-  "typeScale": { "min": 2, "max": 6 }
+  "typeScale": { "min": 2, "max": 6 },
+  "clipped": true,
+  "sideScroll": true
 }

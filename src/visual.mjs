@@ -220,7 +220,77 @@ const SCAN = () => {
     return { sizes: [...sizes].sort((a, b) => b - a) };
   };
 
-  return { hole: HOLE(), emojiIcon: EMOJI(), gradientText: GRADIENT(), cardWall: CARDS(), leftEdges: EDGES(), typeScale: SIZES() };
+  // Runs inside the page: content cut off by a clipping ancestor. An `overflow:hidden` box (a Lab's
+  // rounded corners, a `.code` listing) cuts whatever does not fit and offers no way to reach it, so
+  // the reader loses a table column or half an equation with no sign. A scroll box does not count: its
+  // content is reachable. Nor do the three ways the theme clips on purpose — an ellipsis, a
+  // visually-hidden label, and a nowrap label that is meant to truncate.
+  const CLIPPED = () => {
+    const sheet = document.querySelector('main .sheet') || document.body;
+    const label = (el) => el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '') + (el.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 1).map((c) => `.${c}`).join('');
+    const snippet = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const SCROLLY = new Set(['auto', 'scroll', 'overlay']);
+    const hits = [];
+    const seen = new Set();
+    for (const el of sheet.querySelectorAll('*')) {
+      if (!el.getClientRects().length || !(el.textContent || '').trim()) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || Number(cs.opacity) <= 0.05) continue;
+      // Deliberate truncation: an ellipsis says "there is more, by design"; .sr-only is for ears.
+      if (cs.textOverflow === 'ellipsis' || el.closest('.sr-only')) continue;
+      const box = el.getBoundingClientRect();
+      if (box.width < 1) continue;
+      // Walk the ancestors and find the nearest one that clips horizontally without scrolling.
+      let cutBy = null;
+      let cut = 0;
+      for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+        const as = getComputedStyle(a);
+        if (SCROLLY.has(as.overflowX)) break; // a scroll box: the content is reachable, stop here
+        if (as.overflowX !== 'hidden' && as.overflowX !== 'clip') continue;
+        const inner = a.getBoundingClientRect();
+        const pl = parseFloat(as.paddingLeft) || 0;
+        const pr = parseFloat(as.paddingRight) || 0;
+        const over = Math.round(box.right - (inner.right - pr));
+        const under = Math.round((inner.left + pl) - box.left);
+        const worst = Math.max(over, under);
+        if (worst > 1) { cutBy = a; cut = worst; }
+        break;
+      }
+      if (!cutBy || seen.has(el)) continue;
+      seen.add(el);
+      hits.push({ el: label(el), by: label(cutBy), cut, text: snippet(el) });
+    }
+    return { hits };
+  };
+
+  // Runs inside the page: a box that scrolls sideways and does not say so. The runtime writes
+  // `data-overflow` on the sides that hold hidden content and CSS draws the fade from it; a box that
+  // overflows without that attribute is a page telling the reader the content ends at the edge.
+  const SIDESCROLL = () => {
+    const sheet = document.querySelector('main .sheet') || document.body;
+    const SEL = '.tablewrap,.formula,.calc,.vizwrap,.trail,pre';
+    const kind = (el) => {
+      const cls = String(el.className || '').split(/\s+/).filter(Boolean)[0];
+      return el.tagName.toLowerCase() + (cls ? `.${cls}` : '');
+    };
+    const snippet = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const boxes = [];
+    for (const el of sheet.querySelectorAll(SEL)) {
+      if (!el.getClientRects().length) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || Number(cs.opacity) <= 0.05) continue;
+      const hidden = el.scrollWidth - el.clientWidth;
+      if (hidden <= 1) continue;
+      // `data-overflow` is only the hook; what the reader sees is the gradient the stylesheet paints
+      // from it. A box that is marked but paints nothing is as misleading as one with no mark at all,
+      // so the cue counts only when the fade is actually there.
+      const painted = cs.backgroundImage !== 'none' && cs.backgroundImage.includes('gradient');
+      boxes.push({ el: kind(el), text: snippet(el), px: Math.round(hidden), cued: el.hasAttribute('data-overflow') && painted });
+    }
+    return { boxes };
+  };
+
+  return { hole: HOLE(), emojiIcon: EMOJI(), gradientText: GRADIENT(), cardWall: CARDS(), leftEdges: EDGES(), typeScale: SIZES(), clipped: CLIPPED(), sideScroll: SIDESCROLL() };
 };
 
 export async function measureVisual(page, rules) {
@@ -270,6 +340,22 @@ export async function measureVisual(page, rules) {
     const { sizes } = scan.typeScale;
     if (sizes.length > max) warnings.push(finding('typeScale', `${sizes.length} distinct font sizes (${sizes.join(', ')}px) — more than ${max}; a type scale should be a scale`));
     else if (sizes.length < min) warnings.push(finding('typeScale', `${sizes.length} distinct font size(s) (${sizes.join(', ')}px) — fewer than ${min}; the page has no hierarchy`));
+  }
+
+  // A reader cannot reach content that is clipped away, so this is a failure, not a warning.
+  const clipped = rules.clipped;
+  if (clipped) {
+    for (const h of scan.clipped.hits) failures.push(finding('clipped', `${h.el} is cut ${h.cut}px by ${h.by}, which hides the overflow — the reader cannot reach it ("${h.text}"); let it wrap or scroll`));
+  }
+
+  // The box scrolls, so the content is reachable; what fails is a page that does not say so. A box that
+  // carries the cue still warns — the author may want to break the line or drop a column instead.
+  const sideScroll = rules.sideScroll;
+  if (sideScroll) {
+    for (const b of scan.sideScroll.boxes) {
+      if (b.cued) warnings.push(finding('sideScroll', `${b.el} scrolls sideways: ${b.px}px past the edge ("${b.text}") — it is marked, but the content would read better if it fit`));
+      else failures.push(finding('sideScroll', `${b.el} scrolls sideways with no cue: ${b.px}px past the edge ("${b.text}") — the cut edge reads as the end of the content; the runtime marks it data-overflow, so this box is not the one the runtime knows`));
+    }
   }
 
   return { failures, warnings };

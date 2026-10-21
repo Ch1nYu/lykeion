@@ -120,6 +120,40 @@ function mountLabsIn(root) {
   });
 }
 
+/* A box that scrolls sideways has to say so, or the reader reads the cut edge as the end of the
+   content: a table loses its last column, a display formula loses its right-hand side, and nothing on
+   the page admits it. `data-overflow` names the sides that hold hidden content ("start", "end" or
+   "start end") and CSS draws the edge fade from it; a box that fits carries no attribute at all.
+   A box the reader has to scroll is also a keyboard target, so it takes tabindex="0" while it
+   overflows — unless the markup already gave it one.
+
+   This list is the same list the visual gate reads (src/visual.mjs SIDESCROLL): the runtime marks the
+   boxes and the gate reads the marks, so a selector on one side only is a box that is either marked
+   and never checked or checked and never marked. The two cannot share a constant — the runtime is
+   string-inlined into the built page — so test/typography.test.mjs asserts they stay equal. */
+const SCROLLERS = '.tablewrap,.formula,.calc,.vizwrap,.trail,pre';
+const overflowOf = (el) => {
+  const max = el.scrollWidth - el.clientWidth;
+  // Sub-pixel rounding at the end of a scroll leaves a fraction that is not content.
+  if (max <= 1) return null;
+  const start = el.scrollLeft > 1;
+  const end = el.scrollLeft < max - 1;
+  return start && end ? 'start end' : start ? 'start' : 'end';
+};
+function markOverflow(el) {
+  const v = overflowOf(el);
+  if (v) el.setAttribute('data-overflow', v);
+  else el.removeAttribute('data-overflow');
+  // Only the runtime's own tab stop is removed again; an authored one stays the author's.
+  if (v && el.getAttribute('tabindex') == null) { el.setAttribute('tabindex', '0'); el.dataset.overflowTab = ''; }
+  else if (!v && el.hasAttribute('data-overflow-tab')) { el.removeAttribute('tabindex'); delete el.dataset.overflowTab; }
+}
+function markOverflowsIn(root) {
+  if (!root) return;
+  const boxes = root.matches?.(SCROLLERS) ? [root, ...root.querySelectorAll(SCROLLERS)] : [...root.querySelectorAll(SCROLLERS)];
+  boxes.forEach(markOverflow);
+}
+
 /* Each code listing gets a small copy button: a real <button> so it is keyboard-focusable
    with an aria-label, answered by the existing toast. Graceful without the Clipboard API
    (a non-secure context or an old reader): fall back to selecting the code, still with a toast. */
@@ -357,6 +391,9 @@ function start() {
       }
       updateTabs();
       mountLabsIn(v);
+      // Synchronously, because a reader (or a gate that measures 30ms later) sees the view the moment
+      // it is shown: a cue that arrives on the next frame is a cue the measurement cannot see.
+      markOverflowsIn(v);
       // A view that was just opened has no current section yet, so the sidebar would sit without its
       // sub-headings until the reader scrolled. Name the view's first section instead.
       const first = $$('.sec', v)[0];
@@ -696,6 +733,27 @@ function start() {
   /* ---------- init ---------- */
   mountCodeCopy();
   mountFormulaParts();
+  // Every scroll box on the page, not only the view that opens first: the sidebar and the header are
+  // always laid out, and a hidden view is measured again when `show` makes it visible.
+  markOverflowsIn(document.body);
+  // A box scrolls its own content, so it re-marks itself — passively, because this runs on every
+  // scroll frame. Resize covers the other direction: a rotation, a window resize or a sidebar that
+  // collapses changes how much fits, and a Lab that mounts later changes its own height.
+  document.addEventListener('scroll', e => {
+    const el = e.target;
+    if (el && el.nodeType === 1 && el.matches?.(SCROLLERS)) markOverflow(el);
+  }, { capture: true, passive: true });
+  if ('ResizeObserver' in window) {
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) markOverflowsIn(entry.target);
+    });
+    const watch = (root) => $$(SCROLLERS, root).forEach(el => ro.observe(el));
+    watch(document.body);
+    // A view is observed when it is first shown; Labs inside it mount then too.
+    views.forEach(v => watch(v));
+  } else {
+    addEventListener('resize', () => markOverflowsIn(document.body), { passive: true });
+  }
   store.data.read.forEach(id => navLinks[id] && navLinks[id].classList.add('read'));
   if (LEVELS.length && $('#qStage')) Quiz.select(0, true);
   // The head script already applied a stored theme before first paint; keep the DOM in step when it

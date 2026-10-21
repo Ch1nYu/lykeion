@@ -2,4 +2,9 @@
    display on .step-view itself would turn the stack into a column and make the Lab as tall as every
    step at once. The old 12px column gap therefore moves inside each cell. */
 .step-view > *{display:flex; flex-direction:column; row-gap:12px}
+/* A flex item's automatic minimum size is its content, so a step whose only child is a .tablewrap
+   holding a wide table refused to shrink: the box grew past the Lab, and the Lab's overflow:hidden (its
+   rounded corners) cut the table off before .tablewrap could scroll it. At 375px that lost the dm's
+   Defaulted column with no sign. min-width:0 lets the cell shrink so the scroll box gets the overflow. */
+.step-view > *{min-width:0}
 .chip small{font-size:.75rem; color:var(--muted)}

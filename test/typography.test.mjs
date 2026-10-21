@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from '../src/build.mjs';
+import { launchBrowser, routeLocal, LOCAL_ORIGIN } from '../src/browser.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cssFiles = async () => {
@@ -161,4 +164,193 @@ test('focus rings are limited to :focus-visible', async () => {
   assert.match(base, /:focus\{outline:none\}/);
   assert.match(base, /:focus-visible\{outline:3px solid var\(--accent\)/);
   assert.doesNotMatch(base, /(?<!-visible):focus\{outline:(?!none)/);
+});
+
+// A10: a box that scrolls sideways has to say so. Nothing in the markup told the reader that a table
+// or a formula continued past the edge, so the last column and the right-hand side of an equation
+// looked like the end of the content. The runtime marks the sides that hold hidden content with
+// `data-overflow`, and CSS draws the fade from that attribute — so a measurement taken right after
+// `Lykeion.show` has to see the attribute already, not on the next frame.
+test('a box that scrolls sideways is marked data-overflow, and cleared when it fits', async (t) => {
+  const browser = await launchBrowser();
+  if (!browser) return t.skip('no browser available');
+  try {
+    const dir = await mkdtemp(join(tmpdir(), 'lykeion-overflow-'));
+    await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Overflow probe', output: 'probe.html', scope: [] }));
+    await mkdir(join(dir, 'content'), { recursive: true });
+    // A table far wider than 375px in one chapter, a table that fits in the other: the same runtime has
+    // to mark the first and leave the second alone.
+    // A cell that cannot wrap: `table-layout:auto` sizes the column to its longest word, so a long
+    // unbreakable token is what pushes a table past the phone's width.
+    const wide = 'SplitINFO_GainRATIO_Defaulted_0123456789_ABCDEFGHIJ';
+    await writeFile(join(dir, 'content', '01-wide.md'), `---\nchapter: 1\ntitle: Wide\nshort: wide\nsource: sample.pdf\n---\n\n## 1.1 A wide table {pages=1}\n\n| SplitINFO | GainRATIO | 備註 |\n|---|---|---|\n| 0.029 | 0.41 | ${wide} |\n`);
+    await writeFile(join(dir, 'content', '02-narrow.md'), `---\nchapter: 2\ntitle: Narrow\nshort: narrow\nsource: sample.pdf\n---\n\n## 2.1 A table that fits {pages=1}\n\n| a | b |\n|---|---|\n| 1 | 2 |\n`);
+    await build(dir);
+
+    const htmlPath = join(dir, 'probe.html');
+    const page = await browser.newPage({ viewport: { width: 375, height: 760 } });
+    try {
+      await page.route(/^https?:\/\/(?!lykeion\.local)/, (route) => route.abort());
+      await routeLocal(page, (path) => (path === '/probe.html' ? htmlPath : null));
+      await page.goto(`${LOCAL_ORIGIN}/probe.html`, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.Lykeion && window.Lykeion.views().length > 0);
+
+      // `show` is synchronous, so the attribute must be right the moment it returns — that is what a
+      // gate measuring 30ms later depends on.
+      const wide = await page.evaluate(() => {
+        window.Lykeion.show('ch1', { noScroll: true });
+        const box = document.querySelector('#ch1 .tablewrap');
+        return { attr: box.getAttribute('data-overflow'), tab: box.getAttribute('tabindex') };
+      });
+      assert.equal(wide.attr, 'end', `the wide table is marked: content is hidden past the right edge (got ${wide.attr})`);
+      assert.equal(wide.tab, '0', 'a box the reader can scroll is reachable from the keyboard');
+
+      const narrow = await page.evaluate(() => {
+        window.Lykeion.show('ch2', { noScroll: true });
+        const box = document.querySelector('#ch2 .tablewrap');
+        return { attr: box.getAttribute('data-overflow'), tab: box.getAttribute('tabindex') };
+      });
+      assert.equal(narrow.attr, null, 'a table that fits carries no cue');
+      assert.equal(narrow.tab, null, 'and is not turned into a tab stop');
+
+      // Scrolling to the end moves the cue to the other side: what is hidden is now behind you.
+      const scrolled = await page.evaluate(async () => {
+        window.Lykeion.show('ch1', { noScroll: true });
+        const box = document.querySelector('#ch1 .tablewrap');
+        box.scrollLeft = box.scrollWidth;
+        await new Promise((r) => setTimeout(r, 120));
+        return box.getAttribute('data-overflow');
+      });
+      assert.equal(scrolled, 'start', `scrolled to the end, only the start is hidden (got ${scrolled})`);
+
+      // The CSS draws the fade from the attribute, so the rule and the stylesheet cannot drift apart.
+      const base = await readFile(join(ROOT, 'runtime/base.css'), 'utf8');
+      assert.match(base, /\[data-overflow[~="]?\s*"?[^\]]*\]/, 'base.css draws the cue from data-overflow');
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+// A11: `data-overflow` alone does not tell the reader anything — the fade is what they see. The cue
+// rules (0,1,0) are matched by each box's own `background` shorthand, which comes later in the file
+// and resets background-image to none, so `.calc` was marked and painted nothing: the gate saw a cued
+// box and passed a reader who could not tell the content was cut. Every scroller must actually paint
+// the gradient, and its own background-color must survive.
+test('every box that scrolls sideways actually paints the fade, whatever its own background', async (t) => {
+  const browser = await launchBrowser();
+  if (!browser) return t.skip('no browser available');
+  try {
+    const dir = await mkdtemp(join(tmpdir(), 'lykeion-fade-'));
+    await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Fade probe', output: 'probe.html', scope: [] }));
+    await mkdir(join(dir, 'content'), { recursive: true });
+    // One unbreakable token is what makes a box overflow: `table-layout:auto` and `overflow-x:auto`
+    // both size to the longest word, so a long run with no spaces is the honest way to force it.
+    const wide = 'SplitINFO_GainRATIO_Defaulted_0123456789_ABCDEFGHIJ';
+    await writeFile(join(dir, 'content', '01-wide.md'), [
+      '---', 'chapter: 1', 'title: Wide', 'short: wide', 'source: sample.pdf', '---', '',
+      '## 1.1 A wide table {pages=1}', '',
+      '| SplitINFO | GainRATIO | 備註 |', '|---|---|---|', `| 0.029 | 0.41 | ${wide} |`, '',
+      '## 1.2 A wide formula {pages=1}', '',
+      `$$${wide}$$`, '',
+      '## 1.3 A wide listing {pages=1}', '',
+      '```python', `x = "${wide}"`, '```', '',
+    ].join('\n'));
+    await build(dir);
+
+    const htmlPath = join(dir, 'probe.html');
+    const page = await browser.newPage({ viewport: { width: 375, height: 760 } });
+    try {
+      await page.route(/^https?:\/\/(?!lykeion\.local)/, (route) => route.abort());
+      await routeLocal(page, (path) => (path === '/probe.html' ? htmlPath : null));
+      await page.goto(`${LOCAL_ORIGIN}/probe.html`, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.Lykeion && window.Lykeion.views().length > 0);
+
+      const boxes = await page.evaluate(async (wide) => {
+        window.Lykeion.show('ch1', { noScroll: true });
+        // Nothing in the builder emits a `.calc` box (the fence of that name only records checks), but
+        // the stylesheet and the runtime both list it as a scroller, so it is the one box that could
+        // regress unseen. It is injected here so the stylesheet is tested on the box it names.
+        const sheet = document.querySelector('main .sheet');
+        const calc = document.createElement('div');
+        calc.className = 'calc';
+        calc.textContent = wide;
+        sheet.appendChild(calc);
+        // The runtime marks a box on a scroll of that box (its document-level capture listener), which
+        // is the path a Lab's own scrolling content takes. A box added after load is marked the same way.
+        calc.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 100));
+        const SEL = '.tablewrap,.formula,.calc,.vizwrap,.trail,pre';
+        return [...document.querySelectorAll(SEL)].map((el) => {
+          const cs = getComputedStyle(el);
+          return {
+            el: el.tagName.toLowerCase() + (String(el.className || '').split(/\s+/)[0] ? `.${String(el.className).split(/\s+/)[0]}` : ''),
+            attr: el.getAttribute('data-overflow'),
+            image: cs.backgroundImage,
+            repeat: cs.backgroundRepeat,
+            colour: cs.backgroundColor,
+            hidden: el.scrollWidth - el.clientWidth,
+          };
+        }).filter((b) => b.hidden > 1);
+      }, wide);
+      assert.ok(boxes.length >= 4, `the probe has overflowing boxes to check (got ${boxes.length})`);
+      // The probe is worthless if it silently stops covering the box that regressed.
+      assert.ok(boxes.some((b) => b.el === 'div.calc'), `the .calc box is among them (got ${boxes.map((b) => b.el).join(', ')})`);
+
+      const unpainted = boxes.filter((b) => !b.attr || !b.image.includes('gradient')).map((b) => `${b.el} attr=${b.attr} image=${b.image}`);
+      assert.deepEqual(unpainted, [], `every overflowing box paints the fade:\n  ${unpainted.join('\n  ')}`);
+
+      // The fade is a background LAYER: a box that paints a card must still paint it under the cue, or
+      // the fade would have repainted the card. Only the boxes that own a background are checked —
+      // `.tablewrap` and `.vizwrap` are transparent wrappers on purpose, and stay transparent.
+      // `pre` inside `.code` is deliberately transparent: the card is painted by `.code` around it, so
+      // the cue layer lands on the box that actually holds the colour.
+      const CARDED = new Set(['div.formula', 'div.calc']);
+      const lost = boxes.filter((b) => CARDED.has(b.el) && b.colour === 'rgba(0, 0, 0, 0)').map((b) => b.el);
+      assert.deepEqual(lost, [], `a carded box keeps its own background-color under the fade:\n  ${lost.join(', ')}`);
+      const painted = boxes.filter((b) => !CARDED.has(b.el) && b.colour !== 'rgba(0, 0, 0, 0)').map((b) => b.el);
+      assert.deepEqual(painted, [], `and the cue gives a transparent wrapper no colour:\n  ${painted.join(', ')}`);
+
+      // `background-repeat` is folded into the cue rules; `repeat` would tile a 38px fade across the box.
+      const tiled = boxes.filter((b) => b.repeat !== 'no-repeat').map((b) => `${b.el} repeat=${b.repeat}`);
+      assert.deepEqual(tiled, [], `the fade is one 38px layer, not a tile:\n  ${tiled.join('\n  ')}`);
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
+// A12: the runtime marks the boxes and the gate reads the marks, so the two have to agree on WHICH
+// boxes those are. They drifted: the runtime also listed `.lab .scroll` and `.lab table`, and no
+// `.scroll` class exists anywhere in the repo while a <table> is not a scroll container — so the
+// runtime could paint a fade and add a tab stop to a box that cannot scroll, and the gate would never
+// see it because it looks at its own list. One list per side is not reachable across the inlining
+// boundary (the runtime is string-inlined into the built page), so the lists are asserted equal.
+test('the runtime and the visual gate watch the same set of scroll boxes', async () => {
+  const read = async (f) => readFile(join(ROOT, f), 'utf8');
+  const runtime = await read('runtime/runtime.js');
+  const visual = await read('src/visual.mjs');
+  const list = (src, name) => {
+    const m = new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*'([^']+)'`).exec(src);
+    assert.ok(m, `${name} is declared`);
+    return m[1].split(',').map((s) => s.trim()).sort();
+  };
+  // Several probes declare a `SEL`; the scroll-box one is the selector that names the watched boxes,
+  // so it is found by its content rather than by being the first match in the file.
+  const scrollers = list(runtime, 'SCROLLERS');
+  const sel = [...visual.matchAll(/(?:const|let|var)\s+SEL\s*=\s*'([^']+)'/g)]
+    .map((m) => m[1].split(',').map((s) => s.trim()).sort())
+    .find((s) => s.includes('.tablewrap') && s.includes('.formula'));
+  assert.ok(sel, 'the scroll-box selector is declared in src/visual.mjs');
+  assert.deepEqual(scrollers, sel, 'the runtime and the gate name the same selectors');
+
+  // And every selector on that list has to be a box something actually emits, or the list is a lie.
+  const base = await read('runtime/base.css');
+  const missing = scrollers.filter((s) => !base.includes(s));
+  assert.deepEqual(missing, [], `every watched selector is styled by base.css:\n  ${missing.join(', ')}`);
+  assert.ok(!scrollers.includes('.lab table'), 'a <table> is not a scroll container');
 });

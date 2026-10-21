@@ -152,6 +152,63 @@ test('typeScale: too many or too few type sizes warns', async (t) => {
   assert.equal(ruleWarnings(good, 'typeScale').length, 0, 'three sizes is a hierarchy');
 });
 
+test('clipped: content cut by an overflow:hidden ancestor fails, ellipsis and scroll boxes do not', async (t) => {
+  if (!browser) return t.skip('no browser available');
+  // A Lab clips for its rounded corners, and a Lab's own markup is not the author's to fix — but the
+  // content inside it is still lost, so the rule reports it either way.
+  const cut = await measure('<div class="view" id="ch1"><div class="lab" style="overflow:hidden;width:200px"><div style="width:400px">被切掉的內容 Defaulted column</div></div></div>');
+  const bad = ruleFailures(cut, 'clipped');
+  assert.equal(bad.length, 1, `one clipped element, got: ${bad.map((b) => b.msg).join('; ')}`);
+  assert.match(bad[0].msg, /div\.lab/, 'the message names the ancestor that clips');
+  assert.match(bad[0].msg, /\d+px/, 'the message says how much is cut');
+  assert.match(bad[0].msg, /被切掉的內容/, 'the message quotes the text so it can be found');
+  assert.equal(ruleWarnings(cut, 'clipped').length, 0, 'clipping is a failure, not a warning');
+
+  // Everything below is clipped on purpose and must stay quiet: the ways the theme itself does it (an
+  // ellipsis, a visually-hidden label) and a scroll box, whose content the reader can reach.
+  const onPurpose = await measure(`<div class="view" id="ch1"><div class="lab" style="overflow:hidden;width:200px">
+    <div style="width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">a very long label that ends in an ellipsis</div>
+    <span class="sr-only">screen reader only text that is far too wide for this box</span>
+    <div class="tablewrap" style="overflow-x:auto;width:200px"><table style="width:600px"><tr><td>wide table</td></tr></table></div>
+  </div></div>`);
+  assert.deepEqual(ruleFailures(onPurpose, 'clipped'), [], 'an ellipsis, .sr-only and a scroll box are deliberate');
+});
+
+test('sideScroll: an overflowing scroll box without the cue fails, with the cue it warns, fitting boxes are silent', async (t) => {
+  if (!browser) return t.skip('no browser available');
+  const box = (attr) => `<div class="view" id="ch1"><div class="tablewrap" style="overflow-x:auto;width:240px"${attr}><table style="width:600px"><tr><td>SplitINFO 與 GainRATIO 的結論</td></tr></table></div></div>`;
+
+  // No cue at all: the reader sees a table that ends at the edge and has no way to know otherwise.
+  const bare = await measure(box(''));
+  const fail = ruleFailures(bare, 'sideScroll');
+  assert.equal(fail.length, 1, `one uncued scroll box, got: ${fail.map((f) => f.msg).join('; ')}`);
+  assert.match(fail[0].msg, /tablewrap/, 'the message names the box kind');
+  assert.match(fail[0].msg, /SplitINFO/, 'the message quotes the text in the box');
+  assert.match(fail[0].msg, /\d+px/, 'the message says how far the content runs past the edge');
+  assert.equal(ruleWarnings(bare, 'sideScroll').length, 0, 'a missing cue is a failure, not a warning');
+
+  // The attribute alone is not a cue: it is a hook, and what the reader sees is the gradient the
+  // stylesheet paints from it. A box that carries `data-overflow` but paints no fade is as misleading
+  // as one with no attribute at all — `.calc` was exactly that, marked by the runtime and painted
+  // nothing because its own `background:` shorthand came later in the file.
+  const marked = await measure(box(' data-overflow="end"'));
+  const unpainted = ruleFailures(marked, 'sideScroll');
+  assert.equal(unpainted.length, 1, `a marked but unpainted box still fails, got: ${unpainted.map((f) => f.msg).join('; ')}`);
+  assert.match(unpainted[0].msg, /no cue|paint/i, 'the message says the cue is not painted');
+
+  // With the fade actually painted the box is honest about scrolling: content still scrolls, so the
+  // author is told, but the page does not lie to the reader.
+  const cued = await measure(box(' data-overflow="end"').replace('<div class="view"', '<style>[data-overflow~="end"]{background-image:linear-gradient(to left,#0003,transparent);background-repeat:no-repeat;background-size:38px 100%}</style><div class="view"'));
+  assert.deepEqual(ruleFailures(cued, 'sideScroll'), [], 'a painted cue turns the failure into a warning');
+  const warns = ruleWarnings(cued, 'sideScroll');
+  assert.equal(warns.length, 1, 'the overflowing box still warns');
+  assert.match(warns[0].msg, /SplitINFO/);
+
+  // A box that fits says nothing and reports nothing.
+  const fits = await measure('<div class="view" id="ch1"><div class="tablewrap" style="overflow-x:auto;width:600px"><table style="width:300px"><tr><td>fits</td></tr></table></div></div>');
+  assert.deepEqual(ruleAll(fits, 'sideScroll'), [], 'a scroll box that fits is silent');
+});
+
 // Each rule used to cost its own page.evaluate, so one view cost six round trips and the gate pays
 // that per view. One scan per view is the promise: a rule that wants a second round trip has to
 // argue for it, because the sample's two viewports were most of the gate's runtime.
@@ -211,6 +268,9 @@ const sample = async () => {
   sampleRun ??= (async () => {
     const dir = await mkdtemp(join(tmpdir(), 'lykeion-visual-'));
     await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+    // Build from source: the copied sample.html is a gitignored artefact, and measuring a stale build
+    // would report on a runtime that is no longer in the tree.
+    await build(dir);
     const project = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8'));
     await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ ...project, visual: { typeScale: { max: 3 } } }, null, 2));
     const r = await verify(dir, { render: true });
@@ -363,4 +423,52 @@ test('the render headline counts checks only, not the warning items', async (t) 
   assert.equal(gate.headline, `${checks} checks passed, ${warns} warning(s)`, gate.headline);
   assert.doesNotMatch(gate.headline, /\b0 warning/, 'a gate with no warnings says nothing about warnings');
   assert.ok(!gate.headline.startsWith(`${gate.items.length} checks`), 'the warning items are not checks');
+});
+
+// A Lab clips for its rounded corners (.lab{overflow:hidden}). A step cell is a flex column, and a flex
+// item's automatic minimum size is its content — so when the cell's only child is a .tablewrap holding a
+// wide table, the cell refuses to shrink below the table and pushes it past the Lab, which cuts it. On
+// the dm copy at 375px that lost the Defaulted column, the class label the whole Lab counts, with no
+// sign anything was missing. The Lab's own CSS has to let the cell shrink so the scroll box can do its
+// job; this is the runtime's fix, not the author's.
+test('a Lab lets a wide table reach its scroll box instead of clipping it at 375px', async (t) => {
+  if (!browser) return t.skip('no browser available');
+  const read = (f) => readFile(join(ROOT, f), 'utf8');
+  const [baseCss, labCss] = await Promise.all([read('runtime/base.css'), read('labs/stepper/lab.css')]);
+  const page = await browser.newPage({ viewport: { width: 375, height: 760 }, colorScheme: 'light' });
+  try {
+    // The stepper Lab's markup: several steps stacked in one grid cell, each step's only child the
+    // .tablewrap. The first step's table is the dm's five-column table, wider than the phone.
+    const cols = ['ID', 'Home Owner', 'Marital Status', 'Annual Income', 'Defaulted'];
+    const rows = [[1, 'Yes', 'Single', '125K', 'No'], [2, 'No', 'Married', '100K', 'No']];
+    const table = (head, body) => `<table class="data">${head ? `<thead><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr></thead>` : ''}<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    const step = (inner) => `<div><div class="tablewrap">${inner}</div></div>`;
+    await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>
+      ${baseCss}
+      ${labCss}
+      main .sheet { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    </style></head><body><main><div class="sheet"><div class="view" id="ch1"><div class="lab" id="lab-1"><div class="lab-body">
+      <div class="step-view stack"><div class="on">${step(table(true, rows))}</div><div>${step(table(false, [[1, 'a']]))}</div></div>
+    </div></div></div></div></main></body></html>`);
+    const box = await page.evaluate(() => {
+      const lab = document.querySelector('#lab-1');
+      const tw = lab.querySelector('.tablewrap');
+      const labR = lab.getBoundingClientRect();
+      const twR = tw.getBoundingClientRect();
+      return {
+        past: Math.round(twR.right - labR.right),
+        scrolls: tw.scrollWidth > tw.clientWidth + 1,
+        hidden: Math.round(tw.scrollWidth - tw.clientWidth),
+      };
+    });
+    // The table is wider than the phone, so the scroll box has to be narrower than its content and
+    // scroll it — and it has to sit inside the Lab, or the Lab's overflow:hidden cuts it first.
+    assert.ok(box.scrolls, `the box scrolls its table (${box.hidden}px hidden)`);
+    assert.ok(box.past <= 1, `the scroll box sits inside the Lab (it reaches ${box.past}px past it)`);
+    // And the rule sees the same thing: no clipped failure on a Lab that ships the fix.
+    const measured = await measureVisual(page, defaults.rules);
+    assert.deepEqual(ruleFailures(measured, 'clipped').map((f) => f.msg), [], 'the Lab must not clip its own scroll box');
+  } finally {
+    await page.close();
+  }
 });

@@ -271,6 +271,24 @@ math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18
 .deriv .why{font-family:var(--f-body); font-size:var(--fs-md); color:var(--muted); margin-left:.8em}
 
 /* tables */
+/* A box that scrolls sideways says so: the runtime writes `data-overflow` naming the sides that hold
+   hidden content, and this paints a fade on those sides so the cut edge never reads as the end of the
+   content. Drawn as a background layer on the box itself — no pseudo-element, so a box that already
+   positions one (`.formula.parts::before` is its label) keeps it. `--ink` at low alpha is the only
+   colour involved, so it is right in both themes and adds no Palette token.
+
+   The selector carries `:is(...)` on purpose. A box's own rule sets `background:` as a shorthand —
+   `.calc{background:var(--paper)}`, `pre{background:var(--card)}`, `.formula{background:var(--card)}` —
+   and a shorthand resets background-image to none. `:is()` keeps the attribute in the compound, so the
+   cue is (0,2,0) and outranks every one of those single-class rules wherever they sit in the file; the
+   bare `[data-overflow~=…]` was (0,1,0) and lost to any of them that came later, which left `.calc`
+   marked but painted nothing. Each box's own background-color still shows through: the fade is only a
+   background LAYER on top of it, and background-repeat is folded in so the 38px gradient is not tiled. */
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow~="end"]{background-repeat:no-repeat; background-image:linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:right top}
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow~="start"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:left top}
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow="start end"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent), linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%, 38px 100%; background-position:left top, right top}
+/* A box the reader has to scroll is a control, so it takes the focus ring the other controls take. */
+[data-overflow]{outline-offset:2px}
 .tablewrap{overflow-x:auto; margin-block:var(--gap-block); max-width:100%}
 table.data{border-collapse:collapse; font-size:var(--fs-md); min-width:100%; font-variant-numeric:tabular-nums}
 table.data th,table.data td{padding:7px 12px; border-bottom:1px solid var(--rule); text-align:left}

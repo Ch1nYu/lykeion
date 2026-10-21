@@ -11,7 +11,7 @@ The ten metrics used in the first acceptance review of four hand-made Lecture Si
 | 5 | Quiz | 8% | Enough items per level, calculation and concept mix, explanations that address the wrong option, working progression. |
 | 6 | Maths rendering | 8% | Every formula renders, offline, legibly. |
 | 7 | Visual design | 10% | Coherent typography and Palette, clear hierarchy, working dark theme; no visual-rule failures, and the Visual Review of the Shots has no must-fix finding. |
-| 8 | Responsive | 7% | Usable at 375px: drawer navigation, no horizontal overflow, readable tables and Labs. |
+| 8 | Responsive | 7% | Usable at 375px: drawer navigation, no horizontal overflow, readable tables and Labs. A table or formula too wide for the screen must scroll, and say that it does: the reader is never shown a cut edge with no sign that content continues. |
 | 9 | Accessibility | 8% | Semantic structure, keyboard use, focus styles, labels, contrast, reduced motion. |
 | 10 | Code quality | 12% | No errors, no broken wiring, no global leaks, resilient storage, no CDN dependence for content. |
 
