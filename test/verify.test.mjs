@@ -1,14 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, cp, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
+import { ROOT, sampleCopy } from './.project.mjs';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const M = { compile: (e) => () => Function(`"use strict"; return (${e});`)() };
 
 test('numeric gate fails on a wrong stated value and on a number question without calc', () => {
@@ -62,42 +61,10 @@ test('coverage gate fails a section that cites an excluded page, an exclusion wi
   assert.ok(outside.items.some((i) => i.ok === false && /exclude p\.7-8 is outside the scope p\.1-6/.test(i.msg)));
 });
 
-async function sampleCopy() {
-  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
-  await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
-  return dir;
-}
-
 test('build fails on broken TeX instead of shipping it', async () => {
   const dir = await sampleCopy();
   await writeFile(join(dir, 'content', '03-bad.md'), '---\nchapter: 3\ntitle: Bad\nsource: sample.pdf\n---\n\n## 3.1 Bad {pages=1}\n\n$\\frac{1}{$\n');
   await assert.rejects(build(dir), /TeX error/);
-});
-
-test('render gate catches a Lab that throws', async () => {
-  const dir = await sampleCopy();
-  await mkdir(join(dir, 'labs', 'boom'), { recursive: true });
-  await writeFile(join(dir, 'labs', 'boom', 'lab.js'), "Lykeion.registerLab('boom', function () { throw new Error('kaboom'); });");
-  await writeFile(join(dir, 'content', '03-boom.md'), '---\nchapter: 3\ntitle: Boom\nsource: sample.pdf\n---\n\n## 3.1 Boom {pages=1}\n\n```lab boom\ntitle: x\n```\n');
-  await build(dir);
-  const r = await verify(dir);
-  const render = r.gates.find((g) => g.name === 'render');
-  assert.equal(render.status, 'fail');
-  assert.ok(render.items.some((i) => i.ok === false && /kaboom/.test(i.msg)));
-});
-
-test('render gate moves a slider that starts at its maximum the other way', async () => {
-  const dir = await sampleCopy();
-  await writeFile(join(dir, 'content', '03-max.md'), '---\nchapter: 3\ntitle: Max\nsource: sample.pdf\n---\n\n## 3.1 Max {pages=1}\n\n```lab slider-calc\ntitle: x\ninputs: [{ id: k, label: k, min: 2, max: 20, step: 1, value: 20 }]\noutputs: [{ label: r, expr: "1/log2(k)" }]\n```\n');
-  await build(dir);
-  const r = await verify(dir);
-  const render = r.gates.find((g) => g.name === 'render');
-  // The appended chapter's Lab is the last one mounted, so identify it by the gate's own Lab count
-  // instead of a hardcoded index (the sample fixture gains Labs as content grows).
-  const mounted = render.items.find((i) => /Labs mounted/.test(i.msg));
-  assert.ok(mounted, render.items.map((i) => i.msg).join('\n'));
-  const last = Number(mounted.msg.match(/(\d+) Labs mounted/)[1]);
-  assert.ok(render.items.some((i) => i.ok === true && new RegExp(`Lab lab-${last} \\(slider-calc\\): slider → output changed`).test(i.msg)), render.items.map((i) => i.msg).join('\n'));
 });
 
 test('build rejects Lab parameters the Lab type does not support', () => {
@@ -143,19 +110,6 @@ test('build rejects an unknown stepper chip state and lists the allowed ones', (
   const legendErrs = checkLabParams(schema, { type: 'stepper', where, params: { steps: [{ label: 'a' }], legend: { good: '留下', frequency: 'x' } } });
   assert.equal(legendErrs.length, 1);
   assert.match(legendErrs[0], /Lab "stepper" legend has no key "frequency" \(allowed: good, bad, muted, info\)/);
-});
-
-test('stepper legend swatches reuse the chip class, so they cannot drift from the chips', async () => {
-  const dir = await sampleCopy();
-  await writeFile(join(dir, 'content', '03-legend.md'), '---\nchapter: 3\ntitle: Legend\nsource: sample.pdf\n---\n\n## 3.1 Legend {pages=1}\n\n```lab stepper\ntitle: x\nlegend: { good: 留下, muted: 剪掉 }\nsteps:\n  - label: a\n    chips: [{ text: A, state: good }, { text: B, state: muted }]\n  - label: b\n    chips: [{ text: C, state: good }]\n```\n');
-  await build(dir);
-  const r = await verify(dir);
-  const render = r.gates.find((g) => g.name === 'render');
-  assert.equal(render.status, 'pass', render.items.filter((i) => i.ok === false).map((i) => i.msg).join('\n'));
-  const legend = render.items.find((i) => /stepper legend/.test(i.msg));
-  assert.ok(legend, render.items.map((i) => i.msg).join('\n'));
-  assert.equal(legend.ok, true);
-  assert.match(legend.msg, /stepper legend: 2 swatches match the chip states they name/);
 });
 
 // A quiz block usually sits at the end of a chapter, so without `sec` every item links back to the
@@ -320,28 +274,4 @@ test('quiz review passes balanced items, numeric options and the level-wide habi
   const habit = quizReviewGate([{ t: '習慣', qs: Array.from({ length: 4 }, () => slight) }]);
   assert.equal(habit.status, 'fail');
   assert.match(habit.items.at(-1).msg, /right option is the longest in 4\/4 items/);
-});
-
-// The sidebar is a long list of links before the content, so a keyboard reader has to Tab through
-// every chapter before reaching the sheet. The skip link must be the FIRST focusable element and it
-// must really move focus into `main` (not just scroll to it).
-test('render gate finds a skip link that is the first stop and moves focus into the main content', async () => {
-  const dir = await sampleCopy();
-  await build(dir);
-  const ok = await verify(dir);
-  const render = ok.gates.find((g) => g.name === 'render');
-  assert.equal(render.status, 'pass', render.items.filter((i) => i.ok === false).map((i) => i.msg).join('\n'));
-  const item = render.items.find((i) => /skip link/.test(i.msg));
-  assert.ok(item, render.items.map((i) => i.msg).join('\n'));
-  assert.equal(item.ok, true);
-
-  // Remove the skip link from a temp copy of the built page: the gate must fail and say so.
-  const html = await readFile(join(dir, 'sample.html'), 'utf8');
-  const stripped = html.replace(/<a class="skip"[^>]*>[^<]*<\/a>\s*/, '');
-  assert.notEqual(stripped, html, 'the built page has no skip link to remove');
-  await writeFile(join(dir, 'sample.html'), stripped);
-  const bad = await verify(dir);
-  const badRender = bad.gates.find((g) => g.name === 'render');
-  assert.equal(badRender.status, 'fail');
-  assert.ok(badRender.items.some((i) => i.ok === false && /skip link/.test(i.msg)), badRender.items.map((i) => i.msg).join('\n'));
 });
