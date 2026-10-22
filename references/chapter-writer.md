@@ -19,7 +19,7 @@ Write for a student who missed the lecture. Each section moves from **intuition 
 - **Teach every key formula piece by piece.** Write it as a `formula` with `parts`: each clickable piece's `say` tells what that piece *means* in the analogy or the example, not its name ("連抽兩次都抽到第 j 種的機率", not "p_j 的平方"). Order the parts so clicking them in turn tells the story from the smallest piece to the whole, and say that order in `hint`. A secondary formula may stay plain TeX, but a paragraph must follow it explaining what it says — the gate fails a formula followed directly by another formula, a heading or the section end.
 - **Tie each piece to the analogy or the example.** A piece's `say` names what it is in the analogy (「分子是桌布上重疊的那塊」), or what number it takes in the example (「分母是 0.4」). A `say` that only restates the definition (「將得分轉換為機率分布」) ties to nothing; the `sayConnects` gate fails a formula where most pieces do.
 - **No page numbers in the text.** Sections carry their pages in `{pages=…}`; the reader sees them in the section header. Never write 「講義 p.34」「第 34 頁」「見投影片 12」 in prose, Lab text or quiz items — tell the content instead. The gate fails it.
-- **Short paragraphs, varied blocks.** One idea per paragraph (the gate's default limit is 160 characters). After at most three short paragraphs, show something: an `analogy`, a `formula`, a Lab, a table, a numbered list of calculation steps, a `note`, a `takeaway`. A long section must use at least two kinds of non-prose block.
+- **Short paragraphs, varied blocks.** One idea per paragraph (the gate's default limit is 160 characters). After at most three short paragraphs, show something: an `analogy`, a `formula`, a Lab, a table, a `note`, a `takeaway`. A list is prose too: paragraphs and lists in a row count together (default limit 520 characters), so a long list of steps needs a formula, a table or a Lab inside it, or a split. A long section must use at least two kinds of non-prose block.
 - **Close with a takeaway.** End a section with a one-sentence `takeaway` of what to remember, and use `note` for the exam trap: what a question typically twists, which two concepts students confuse.
 - Use `###` sub-headings that name a question or an idea (「切完之後，怎麼替這一刀打分數？」), not just a term; they become the sidebar's quick links.
 - Derive what the Depth asks for (see `docs/workflow.md`), one step per line, with a short reason beside non-obvious steps.
@@ -40,6 +40,7 @@ Write natural Traditional Chinese (Taiwan), the way a good teacher talks — not
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
 - Every decimal or percentage in your prose is a `calc` expect or a Lab readout at its default inputs in the same section, at the precision written (`99.95 %` for a readout of 0.9995). A figure the slides state that this site does not compute is quoted as `<q>90%</q>`, with the true value said in the prose if it differs; the `proseNumbers` rule fails the rest.
+- Point at another section as `§3.7`, never a bare `3.7`: the rule reads a bare section number as a decimal and fails it.
 
 ## Code listings
 
