@@ -502,7 +502,7 @@ test('plainMath fails every shape of maths typed as plain text and passes the sa
 
 // ---------- plainMath in Lab labels ----------
 // A Lab's labels are plain text by design, so the gate reads them on their own, with the same patterns as
-// prose and one exception: a lone letter with digits (`x1`, `p2`) is a name, not maths.
+// prose and one exception: a lone letter with digits (`x1`, `p2`, `A₁`) is a name, not maths.
 const lab = (labels) => ({ kind: 'lab:slider-calc', chars: 0, labels });
 test('plainMath holds Lab labels to the prose patterns and says how to write them instead', () => {
   const g = run([sec([lab(['向量維度 d_k', '除以 √d 後', 'QKᵀ'])])]);
@@ -518,6 +518,13 @@ test('plainMath lets a lone letter with digits stand in a label, but not with a 
   assert.equal(run([sec([lab(['x1', 'p2', '第 2 組'])])]).status, 'pass');
   assert.equal(run([sec([lab(['x1_k'])])]).status, 'fail', 'x1_k is still an underscore subscript');
   assert.equal(run([sec([lab(['x1^2'])])]).status, 'fail', 'x1^2 is still a caret');
+});
+
+test('plainMath lets a lone letter with subscript digits stand in a label, but not a superscript', () => {
+  assert.equal(run([sec([lab(['A₁', 'B₁₂', '向量 A₃ 分量'])])]).status, 'pass');
+  assert.equal(run([sec([lab(['A₁²'])])]).status, 'fail', 'A₁² still squares it');
+  assert.equal(run([sec([lab(['x²'])])]).status, 'fail', 'x² is a power, not a name');
+  assert.equal(run([sec([lab(['d_k'])])]).status, 'fail', 'd_k is still an underscore subscript');
 });
 
 // ---------- numericMath ----------

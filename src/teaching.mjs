@@ -356,7 +356,8 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
   const plainMathRule = rules.plainMath;
   const plainMath = plainMathRule && plainMathRule !== false ? compile(plainMathRule.patterns, plainMathRule.flags || '') : [];
   // Lab labels are plain text by design, so they are held to the same patterns as prose, except a lone
-  // letter with digits (`x1`, `p2`), which `labelAllow` removes before the patterns run.
+  // letter with digits (`x1`, `p2`) or subscript digits (`A₁`), which `labelAllow` removes before the
+  // patterns run.
   const labelAllow = plainMathRule?.labelAllow ? compile([plainMathRule.labelAllow], 'gu')[0] : null;
   {
     const failures = [];
