@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-19T12:00:47.997Z
-- Verified: 2026-10-19T12:01:13.367Z
+- Built: 2026-10-23T17:04:48.590Z
+- Verified: 2026-10-23T17:05:13.742Z
 - Result: **PASS (with gates not yet run — see below)**
 
 | Gate | Status | Summary |
@@ -10,9 +10,10 @@
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
 | teaching | ✓ pass | 13 checks passed |
-| render | ✓ pass | 40 checks passed |
+| render | ✓ pass | 40 checks passed, 1 warning(s) |
 | source | … pending | awaiting agent review (references/source-checker.md) |
 | teaching review | … pending | awaiting agent review (references/teaching-reviewer.md) |
+| visual review | ⚠ warn | visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md) |
 
 ## numeric
 
@@ -84,7 +85,7 @@
 - ✓ Quiz Level 2 “二項分布”: 3 questions answered with the key → all accepted
 - ✓ 4 chapter tabs each show exactly their own view
 - ✓ 11 sidebar links land their target just under the top bar (or at the page end)
-- ✓ deep link #s2-2 opens ch2 with the section just under the top bar (section top y=64px, top bar bottom y=58px)
+- ✓ deep link #s2-2 opens ch2 with the section just under the top bar (section top y=66px, top bar bottom y=60px)
 - ✓ browser Back returns to ch1 (showing ch1)
 - ✓ back to top: hidden and out of the tab order at the top, shown and tabbable after one viewport, click → scrollY 0
 - ✓ theme button flips light → dark → light from a light system, aria-label “切換成深色模式” → “切換成淺色模式”
@@ -96,6 +97,7 @@
 - ✓ every Lab keeps its height while its controls move at 375px (6 Labs)
 - ✓ mobile drawer opens and closes with Esc
 - ✓ dark theme applies (body background rgb(28, 26, 22))
+- ⚠ sideScroll: ch2 (mobile 375) pre scrolls sideways: 69px past the edge ("from math import comb n, k, p = 10, 2, 0") — it is marked, but the content would read better if it fit
 - ✓ no console or page errors (mobile, dark)
 
 ## source
@@ -105,3 +107,7 @@
 ## teaching review
 
 - – teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md
+
+## visual review
+
+- ⚠ visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md
