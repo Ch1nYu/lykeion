@@ -15,7 +15,7 @@ lykeion/                       # public repo
 ├── docs/{adr/, PLAN.md, workflow.md, content-format.md, rubric.md}
 ├── runtime/                   # fixed template (M1): shell.html, base.css, runtime.js
 ├── labs/                      # generic Lab types (M4)
-├── palettes/{bundled,candidates}/*.json   # (M2)
+├── palettes/bundled/*.json    # (M2)
 ├── src/                       # CLI command implementations
 ├── references/                # agent prompts: outline, chapter writer, source checker
 └── fixtures/README.md         # how to point at a private Acceptance Fixture
@@ -69,10 +69,11 @@ lykeion/                       # public repo
 2. Numeric: every quiz answer and worked example carrying a `calc` is recomputed within tolerance.
 3. Coverage: every page in Scope is cited by at least one section.
 4. Source check (agent, `references/source-checker.md`): claims vs. cited pages and References → certain / disputed.
+- Gates added later — quiz review, teaching, teaching review, visual review — are listed in `README.md`; `verify` runs all of them in the order of that table.
 - Fix loop: objective failures and certain findings auto-fixed, ≤ 3 rounds; disputed findings go to the user.
 
 ### M6 — Workflow
-- `docs/workflow.md` (agent-neutral): ask Depth → `extract` → Outline (+ suggested unused Palette) → user approval (`--yes` skips) → write chapters (parallel if sub-agents exist, otherwise sequential) → build → verify → fix loop → report. Incremental mode: add/rewrite one chapter, rebuild, re-verify all, keep reader-progress keys stable.
+- `docs/workflow.md` (agent-neutral): ask Depth → `extract` → Outline (+ suggested unused Palette) → user approval (skipped when the user says to proceed without review) → write chapters (parallel if sub-agents exist, otherwise sequential) → build → verify → fix loop → report. Incremental mode: add/rewrite one chapter, rebuild, re-verify all, keep reader-progress keys stable.
 - `SKILL.md`: thin Claude Code entry. Write both with the `writing-for-agents` skill.
 
 ### M7 — Acceptance (maintainer machine only)
@@ -93,6 +94,7 @@ All four gates green, no high-severity findings; the 82-point absolute bar was m
 3. `calc` datasets and helpers (`datasets: { name: [...] }`, generic helpers over a named dataset) instead of copy-pasted IIFEs; one rounding policy so tables and derivations agree; full precision in verify-report.
 4. Disputed source-check items must be resolved on the page (rewrite, erratum or callout) or the source gate warns.
 5. Page-length budget per Depth; quiz answer-position balance check.
+6. `SKILL.md` never says how to resolve its own directory: every command is written `node <repo>/bin/lykeion.mjs`, so a host has to work out where the skill was installed before it can run anything. Name that resolution once — the folder the host loaded the skill from — so `<repo>` has one meaning, and leave the per-host entry notes (`AGENTS.md` for Codex / Cursor) to the TODO below.
 
 ## TODO (not v1)
 - Public demo + CI on openly licensed material (e.g. OpenStax, CC BY).
@@ -101,4 +103,3 @@ All four gates green, no high-severity findings; the 82-point absolute bar was m
 - Non-computational subjects and Labs (classify, order, match).
 - Eye-comfort / long-reading Palettes.
 - English-language Lecture Sites.
-- README (English + 繁中).

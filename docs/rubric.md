@@ -17,4 +17,4 @@ The ten metrics used in the first acceptance review of four hand-made Lecture Si
 
 Severity of findings: **high** — breaks a feature or misteaches a core concept; **medium** — wrong but local; **low** — polish.
 
-Acceptance (M7): the regenerated Acceptance Fixture Lecture Site scores **≥ 82**, has **no high-severity findings**, and passes all four `verify` gates. Score it with a reviewer that did not write it, reading the whole file and recomputing the worked numbers.
+Acceptance (M7): the regenerated Acceptance Fixture Lecture Site scores **≥ 82**, has **no high-severity findings**, and passes every machine gate `verify` runs (the table in `README.md` lists them; the agent reviews are scored separately). Score it with a reviewer that did not write it, reading the whole file and recomputing the worked numbers.

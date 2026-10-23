@@ -22,7 +22,7 @@ The Primary Source is the factual baseline. Content follows the slides; where a 
    | Proofs and derivations | results only | key derivations | full derivations |
    | Errata | obvious slide errors | Standard + checked against References | every claim checked against References |
 
-4. New mode: `lykeion init <pdf...> --title <title> --pages <a-b> ... --depth <depth>`. It creates `<pdf dir>/lykeion/` and suggests an unused Palette.
+4. New mode: `lykeion init <pdf...> --title <title> --pages <a-b> ... --depth <depth> [--dir <project-dir>]`. It creates `<first pdf dir>/lykeion/` (or the `--dir` folder) and suggests an unused Palette. `--pages` is given once per PDF, in the same order, and defaults to every page.
 
 Done when `lykeion.json` exists with the Scope and Depth the user confirmed.
 
