@@ -5,7 +5,7 @@ description: Lecture slides → a verified, interactive single-file teaching sit
 
 # lykeion
 
-This skill's directory is the lykeion repo. Run its CLI as `node <this skill's directory>/bin/lykeion.mjs <command>`. It needs Node 22.13 or newer; the CLI prints that and exits if the host Node is older.
+`<repo>` is the folder holding this `SKILL.md` — the skill's own directory; in Claude Code that is `~/.claude/skills/lykeion`, and `npx skills list -g` prints the path. Resolve it once and run every command through it: `node <repo>/bin/lykeion.mjs <command>`. The CLI needs Node 22.13 or newer; it prints that and exits if the host Node is older.
 
 Follow `docs/workflow.md` from step 1, in order; it points to every other file you need (`references/`, `docs/content-format.md`). Use the vocabulary of `GLOSSARY.md` when talking to the user.
 

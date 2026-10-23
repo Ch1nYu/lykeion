@@ -75,6 +75,7 @@ lykeion/                       # public repo
 ### M6 — Workflow
 - `docs/workflow.md` (agent-neutral): ask Depth → `extract` → Outline (+ suggested unused Palette) → user approval (skipped when the user says to proceed without review) → write chapters (parallel if sub-agents exist, otherwise sequential) → build → verify → fix loop → report. Incremental mode: add/rewrite one chapter, rebuild, re-verify all, keep reader-progress keys stable.
 - `SKILL.md`: thin Claude Code entry. Write both with the `writing-for-agents` skill.
+- Status (2026-10-24): `SKILL.md` states how it resolves its own directory (`<repo>` is the folder holding it, with the Claude Code location as the example), so a host can run the CLI without guessing where the skill was installed.
 
 ### M7 — Acceptance (maintainer machine only)
 - Regenerate the Data Mining Lecture Site from the fixture paths in `~/.config/lykeion/config.json` at Standard depth.
@@ -94,7 +95,6 @@ All four gates green, no high-severity findings; the 82-point absolute bar was m
 3. `calc` datasets and helpers (`datasets: { name: [...] }`, generic helpers over a named dataset) instead of copy-pasted IIFEs; one rounding policy so tables and derivations agree; full precision in verify-report.
 4. Disputed source-check items must be resolved on the page (rewrite, erratum or callout) or the source gate warns.
 5. Page-length budget per Depth; quiz answer-position balance check.
-6. `SKILL.md` never says how to resolve its own directory: every command is written `node <repo>/bin/lykeion.mjs`, so a host has to work out where the skill was installed before it can run anything. Name that resolution once — the folder the host loaded the skill from — so `<repo>` has one meaning, and leave the per-host entry notes (`AGENTS.md` for Codex / Cursor) to the TODO below.
 
 ## TODO (not v1)
 - Public demo + CI on openly licensed material (e.g. OpenStax, CC BY).
