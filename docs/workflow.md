@@ -84,13 +84,22 @@ Fix every finding marked **certain**, rebuild, and re-run steps 6–7. Leave **d
 
 Steps 6–7 together get at most **3 fix rounds**. If gates still fail after round 3, stop and report what remains.
 
+**Fixes the rounds leave unreviewed.** When you fix a review's blocking findings after its last round (or the user declines another round), do not edit the reviewer's STATUS line or findings. Append to the review file:
+
+```markdown
+## Fixed after review
+- 03-classification.md §3.6 — part `p_j^2` now says 「連抽兩次都抽到第 j 種的機率」 (content/03-classification.md)
+```
+
+One line per fixed blocking finding (**certain** here, **must-fix** in steps 8–9), starting with the finding's location exactly as the reviewer wrote it, then what changed and in which file. The gate still fails — a fix nobody re-reviewed is not a pass — but `verify-report.md` lists each finding as fixed-not-re-reviewed (⚠) or still open (✗), and its headline counts them. Report the fixed ones to the user as unconfirmed.
+
 Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 
 ## 8. Teaching review
 
 Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md` (or one `teaching-review-<chapter>.md` per chapter reviewer; the gate reads the parts together, as in step 7). As with the source check, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent. A `self` line without a reason fails the teaching-review gate; a self-review with a reason shows as ⚠ in `lykeion verify`.
 
-Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains.
+Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains, with fixes after the last round recorded under `## Fixed after review` as in step 7.
 
 Done when `lykeion verify` shows teaching review ✓ (or 2 rounds are spent).
 
@@ -100,7 +109,7 @@ Once the content teaches, have the rendered page judged for how it looks. Run `l
 
 The render gate already measures what a counter can: holes taller than half a screen, emoji used as icons, gradient text, walls of identical cards, too many left edges, and a type scale that is too wide or too flat (thresholds in `references/visual-rules.json`; a project may change one under `"visual"` in `lykeion.json` only for a reason the user agreed to). The visual review covers what it cannot: focal point, hierarchy, whether a figure belongs to its topic, mobile and dark-theme reading.
 
-A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for now; a `STATUS: fail` or a `self` line without a reason does. Fix every **must-fix** finding, rebuild, re-run `lykeion shots` and re-verify. At most **2 rounds**; then report what remains.
+A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for now; a `STATUS: fail` or a `self` line without a reason does. Fix every **must-fix** finding, rebuild, re-run `lykeion shots` and re-verify. At most **2 rounds**; then report what remains, with fixes after the last round recorded under `## Fixed after review` as in step 7.
 
 Done when `lykeion verify` shows visual review ✓ (or 2 rounds are spent, or the user chose to skip it — then report it as ⚠, never as passed).
 
@@ -109,6 +118,6 @@ Done when `lykeion verify` shows visual review ✓ (or 2 rounds are spent, or th
 Tell the user, briefly:
 
 - the Lecture Site path (and offer to open it);
-- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, visual-rule warnings (⚠), and whether the source check, the teaching review and the visual review were independent, self-reviews or (visual review only) not done;
+- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, visual-rule warnings (⚠), and whether the source check, the teaching review and the visual review were independent, self-reviews or (visual review only) not done; findings fixed after the last round are named as fixed but not re-reviewed;
 - every **disputed** finding, quoted with its page and Reference, for the user to decide;
 - the Palette used.

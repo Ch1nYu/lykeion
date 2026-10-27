@@ -37,6 +37,12 @@ export async function build(dir, opts = {}) {
   const project = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8').catch(() => { throw new Error(`no lykeion.json in ${dir}`); }));
   const S = { ...BUILD_STR, ...(project.buildStrings || {}) };
   const errors = [];
+  // The code a writer and a source checker may read: a path that does not exist would send them to
+  // nothing, and they would fall back on guessing without saying so.
+  for (const path of [].concat(project.implementation ?? [])) {
+    if (typeof path !== 'string' || !path.trim()) errors.push(`lykeion.json "implementation" lists ${JSON.stringify(path)}; give folder or file paths relative to the project`);
+    else await access(resolve(dir, path)).catch(() => errors.push(`lykeion.json "implementation" path "${path}" does not exist (resolved to ${resolve(dir, path)})`));
+  }
   const chapters = await loadChapters(join(dir, 'content'));
   if (!chapters.length) throw new Error(`no content/*.md in ${dir}`);
 

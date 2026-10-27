@@ -164,14 +164,14 @@ const REVIEWERS = {
   self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see {file}', warn: true },
 };
 
-async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending' }) {
+async function reviewGate({ name, dir, file, awaiting, missing, blocking, countDisputed = false, missingStatus = 'pending' }) {
   const files = await reviewFiles(dir, file);
   if (!files.length) {
     const warn = missingStatus === 'warn';
     return { name, status: missingStatus, headline: awaiting, items: [{ ok: null, warn: warn || undefined, msg: missing }] };
   }
   const reviews = [];
-  for (const f of files) reviews.push(readReview(f, await readFile(join(dir, f), 'utf8'), countDisputed));
+  for (const f of files) reviews.push(readReview(f, await readFile(join(dir, f), 'utf8'), { countDisputed, blocking }));
   const from = `(from ${files.join(', ')})`;
   // A self-review must say why no independent reviewer was available; without that reason it fails.
   const unreasoned = reviews.filter((r) => r.reviewer === 'self' && !r.reason);
@@ -186,13 +186,41 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
   const status = reviews.some((r) => r.status === 'fail') ? 'fail' : 'pass';
   const lead = reviews.find((r) => r.reviewer === 'self') || reviews.find((r) => r.r.warn) || reviews[0];
   const disputed = reviews.reduce((n, r) => n + r.disputed, 0);
+  const fixes = fixedAfterReview(reviews, blocking);
   return {
     name,
     status,
     selfReview: reviews.some((r) => r.reviewer === 'self'),
-    headline: `${lead.r.how}${lead.reason ? ` (${lead.reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} ${from}`,
-    items: reviews.map((r) => ({ ok: r.status === 'pass', warn: r.r.warn, msg: r.r.msg.replace('{file}', r.file) })),
+    headline: `${lead.r.how}${lead.reason ? ` (${lead.reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''}${fixes.note} ${from}`,
+    items: [...reviews.map((r) => ({ ok: r.status === 'pass', warn: r.r.warn, msg: r.r.msg.replace('{file}', r.file) })), ...fixes.items],
   };
+}
+
+// The writer may answer a review it cannot have re-reviewed (the rounds are spent) with a
+// `## Fixed after review` section in the review file: one line per blocking finding, starting with the
+// finding's location as the reviewer wrote it, then what changed and where. The STATUS line still
+// decides — a fix nobody has looked at is not a pass — but the report tells the fixed findings (⚠)
+// apart from the ones still open (✗), so the gate no longer needs a note in free text.
+function fixedAfterReview(reviews, blocking) {
+  if (!blocking || reviews.every((r) => r.fixed === null)) return { note: '', items: [] };
+  const items = [];
+  let fixed = 0, total = 0;
+  for (const r of reviews) {
+    const left = new Map(r.fixed || []);
+    for (const loc of r.findings) {
+      total++;
+      const n = left.get(loc) || 0;
+      if (n > 0) {
+        left.set(loc, n - 1);
+        fixed++;
+        items.push({ ok: null, warn: true, msg: `${r.file}: [${blocking}] ${loc} — fixed after review, not re-reviewed` });
+      } else items.push({ ok: false, msg: `${r.file}: [${blocking}] ${loc} — still open` });
+    }
+    for (const [loc, n] of left) {
+      if (n > 0) items.push({ ok: false, msg: `${r.file}: "## Fixed after review" lists “${loc}”, which matches no [${blocking}] finding — start the line with the finding's location exactly as the reviewer wrote it` });
+    }
+  }
+  return { note: total ? `; ${fixed} of ${total} ${blocking} finding(s) fixed after review, not re-reviewed` : '', items };
 }
 
 // The review's files: the merged `<file>` and any per-chapter `<stem>-<chapter>.md` beside it (one
@@ -204,7 +232,19 @@ export async function reviewFiles(dir, file) {
   return [...(names.includes(file) ? [file] : []), ...parts];
 }
 
-function readReview(file, txt, countDisputed) {
+function readReview(file, txt, { countDisputed, blocking }) {
+  // A finding's location is what sits between its tags and the first " — ": `03-a.md §3.6` for a
+  // teaching finding, `03-a.md, dark/mobile` for a visual one.
+  const loc = (s) => s.trim().replace(/\s+/g, ' ');
+  const findings = blocking
+    ? [...txt.matchAll(new RegExp(`^- \\[${blocking}\\](?:\\[[^\\]]*\\])*\\s*(.+?)\\s+—\\s`, 'gim'))].map((x) => loc(x[1]))
+    : [];
+  const section = /^## Fixed after review[ \t]*$([\s\S]*?)(?=^## |(?![\s\S]))/im.exec(txt);
+  let fixed = null;
+  if (section) {
+    fixed = new Map();
+    for (const x of section[1].matchAll(/^-\s+(.+?)\s+—\s/gm)) fixed.set(loc(x[1]), (fixed.get(loc(x[1])) || 0) + 1);
+  }
   const m = /^STATUS:\s*(pass|fail)/im.exec(txt);
   const status = m ? m[1].toLowerCase() : 'fail';
   const disputed = countDisputed ? (txt.match(/^- \[disputed\]/gim) || []).length : 0;
@@ -220,12 +260,12 @@ function readReview(file, txt, countDisputed) {
     msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see {file}` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see {file}',
     warn: true,
   };
-  return { file, status, disputed, reviewer, reason, r };
+  return { file, status, disputed, reviewer, reason, r, findings, fixed };
 }
 
 export function sourceGate(dir) {
   return reviewGate({
-    name: 'source', dir, file: 'source-check.md', countDisputed: true,
+    name: 'source', dir, file: 'source-check.md', countDisputed: true, blocking: 'certain',
     awaiting: 'awaiting agent review (references/source-checker.md)',
     missing: 'source-check.md not found: the agent must review claims against the cited pages',
   });
@@ -233,7 +273,7 @@ export function sourceGate(dir) {
 
 export function teachingReviewGate(dir) {
   return reviewGate({
-    name: 'teaching review', dir, file: 'teaching-review.md',
+    name: 'teaching review', dir, file: 'teaching-review.md', blocking: 'must-fix',
     awaiting: 'awaiting agent review (references/teaching-reviewer.md)',
     missing: 'teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md',
   });
@@ -243,7 +283,7 @@ export function teachingReviewGate(dir) {
 // has not done one yet is warned about (⚠) instead of failed — the headline says how to do it.
 export function visualReviewGate(dir) {
   return reviewGate({
-    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn',
+    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn', blocking: 'must-fix',
     awaiting: 'visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md)',
     missing: 'visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md',
   });

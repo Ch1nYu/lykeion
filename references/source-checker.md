@@ -9,6 +9,7 @@ You did not write the content: read it as a skeptical examiner would. If you wer
 - `<project>/content/*.md` — the content, each section with its `pages`.
 - `<project>/pages/<pdf>/p-NNN.txt` and `.png` — the cited slides.
 - `<project>/lykeion.json` `references` — the References.
+- `<project>/lykeion.json` `implementation`, when present — the code behind the Primary Source's results. Read it only where the cited pages leave unclear what was done (which axis a split runs over, a default, the exact form of an update), and cite the file and line as the evidence: `per code: lib/sampling.py:42`.
 - Never an earlier review: do not open a `source-check*.md`, `teaching-review*.md` or `visual-review*.md` already in the folder, or anything under `_work/reviews-*/`. They are another reviewer's verdict on an older build; this review must be your own. If one is in the way, ignore it — your result replaces it.
 
 ## Procedure
@@ -24,7 +25,9 @@ Record a finding only with evidence: the page or Reference that shows it.
 Classify each finding:
 
 - **certain** — the slide or a Reference shows the content is wrong; the fix is unambiguous.
-- **disputed** — the slide and a Reference disagree, or the right reading depends on the course's convention; the user decides.
+- **disputed** — the slide and a Reference disagree, the slide clearly states something the `implementation` does not do, or the right reading depends on the course's convention; the user decides.
+
+When the slide is unclear and the `implementation` settles it, the finding is **certain**, with the code as its evidence.
 
 ## Output: `source-check.md`
 

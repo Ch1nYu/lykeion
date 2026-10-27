@@ -27,7 +27,8 @@ Any error below fails the build; nothing broken is silently rendered.
   "hero": { "title": "把公式<em>算給你看</em>的一頁講堂", "intro": "One paragraph." },
   "levels": { "條件機率": "條件機率、獨立性與貝氏定理" },
   "scope": [{ "file": "sample.pdf", "pages": "1-4" }],
-  "references": ["Ross, *A First Course in Probability*, 10th ed."]
+  "references": ["Ross, *A First Course in Probability*, 10th ed."],
+  "implementation": ["original/"]
 }
 ```
 
@@ -36,6 +37,7 @@ Any error below fails the build; nothing broken is silently rendered.
 - `levels` gives each Quiz Level a subtitle; keys are level titles used in quiz blocks.
 - `scope` is what `verify` checks coverage against; `file` matches a chapter's `source`.
 - `scope[].exclude` lists the pages the scope leaves out on purpose, each with its reason: `"exclude": [{ "pages": "1-3", "reason": "AI 發展史，不屬核心邏輯" }]`. Excluded pages are not required for coverage; `verify` lists them as "excluded on purpose" with the reason. A section that cites an excluded page fails, an exclusion without a reason fails, and an excluded page must lie inside the scope's `pages`. `init` does not write it; the Outline proposes it (see `references/outline.md`).
+- `implementation` (optional) lists the folders or files, relative to the project, of the code behind the Primary Source's results — for a paper or thesis whose experiments the site explains. The writer and the source checker read it only where the Primary Source is unclear about what was done (which axis a split runs over, a default, the exact form of an update), and say so when a claim rests on it. Every path must exist, or the build fails.
 - `teaching` overrides the teaching rules (`references/teaching-rules.json`) and extends the style lexicon (`references/style-lexicon.json`) for this project; see [Teaching rules](#teaching-rules).
 
 ## Chapter file

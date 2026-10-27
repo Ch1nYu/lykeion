@@ -257,6 +257,43 @@ test('review gates read the merged file and its parts together, and name the wea
   assert.match(bad.items[0].msg, /see source-check-04\.md/);
 });
 
+// After the last round the writer can only answer a review, not have it re-done. `## Fixed after review`
+// tells the fixed findings (⚠) apart from the open ones (✗), but the STATUS line still decides.
+test('review gates tell findings fixed after review apart from open ones, and still fail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  const findings = [
+    'STATUS: fail', 'Reviewer: independent', '', '## Findings',
+    '- [must-fix] 03-a.md §3.6 — formula part says its name; say what it means.',
+    '- [must-fix] 03-a.md §3.6 — the Lab shows nothing.',
+    '- [must-fix][content] 04-b.md §4.2 — the analogy misleads.',
+    '- [suggestion] 04-b.md §4.3 — tie the log term back.',
+    '', '## Checked', '- 03-a.md: §3.1–3.8',
+  ];
+  await writeFile(join(dir, 'teaching-review.md'), [...findings, '', '## Fixed after review',
+    '- 03-a.md §3.6 — the part now says 「連抽兩次的機率」 (content/03-a.md)',
+    '- 04-b.md §4.2 — new analogy (content/04-b.md)', ''].join('\n'));
+  const g = await teachingReviewGate(dir);
+  assert.equal(g.status, 'fail', 'a fix nobody re-reviewed is not a pass');
+  assert.equal(g.headline, 'independent; 2 of 3 must-fix finding(s) fixed after review, not re-reviewed (from teaching-review.md)');
+  const fixed = g.items.filter((i) => i.warn && /fixed after review/.test(i.msg));
+  const open = g.items.filter((i) => /still open/.test(i.msg));
+  assert.equal(fixed.length, 2);
+  assert.equal(open.length, 1);
+  assert.equal(open[0].ok, false);
+  assert.match(open[0].msg, /teaching-review\.md: \[must-fix\] 03-a\.md §3\.6 — still open/);
+
+  // A fix line that matches no finding is a mistake the gate names.
+  await writeFile(join(dir, 'teaching-review.md'), [...findings, '', '## Fixed after review', '- 03-a.md 3.6 — typo in the location', ''].join('\n'));
+  const typo = await teachingReviewGate(dir);
+  assert.ok(typo.items.some((i) => i.ok === false && /lists “03-a\.md 3\.6”, which matches no \[must-fix\] finding/.test(i.msg)));
+
+  // Without the section the gate reads as before.
+  await writeFile(join(dir, 'teaching-review.md'), findings.join('\n'));
+  const plain = await teachingReviewGate(dir);
+  assert.equal(plain.headline, 'independent (from teaching-review.md)');
+  assert.equal(plain.items.length, 1);
+});
+
 // The report names how many reviews the writing agent did itself, under the gate table, and says
 // nothing when every review is independent.
 test('report flags self-reviewed gates under the table and stays silent when none is self-reviewed', async () => {

@@ -52,3 +52,15 @@ test('a doubled backslash before a TeX command is a build error', () => {
   assert.equal(ctx.errors.length, 1, ctx.errors.join('\n'));
   assert.match(ctx.errors[0], /x\.md §1\.1: TeX "\\\\theta" writes \\\\theta: \\\\ is a line break/);
 });
+
+// `implementation` points the writer and the source checker at the code behind the results; a path
+// that does not exist would leave them guessing without saying so.
+test('every lykeion.json implementation path must exist', async () => {
+  const dir = await project('正文。');
+  await mkdir(join(dir, 'original', 'lib'), { recursive: true });
+  const cfg = { title: 'Control probe', output: 'probe.html', scope: [], implementation: ['original/'] };
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify(cfg));
+  await build(dir);
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ ...cfg, implementation: ['original/', 'missing/'] }));
+  await assert.rejects(build(dir), /lykeion\.json "implementation" path "missing\/" does not exist/);
+});
