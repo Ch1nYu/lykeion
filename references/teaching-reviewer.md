@@ -1,6 +1,6 @@
 # Teaching reviewer
 
-You review how well a built Lecture Site **teaches**, after the source check has confirmed that it is right. Write `<project>/teaching-review.md`.
+You review how well a built Lecture Site **teaches**, after the source check has confirmed that it is right. Write your result to the file the brief names under `Write your result to:` — `<project>/teaching-review.md`, or `<project>/teaching-review-<chapter>.md` when you review one chapter — and to `<project>/teaching-review.md` when there is no brief.
 
 The machine gates already catch what can be counted: page references in body text, paragraphs and prose runs that are too long, formulas left without words, formulas with no analogy before them, sections built from one kind of block, too many stepper Labs, Lab boxes that change height, fonts outside the three tokens, and listed filler phrases (`lykeion verify`, gates **teaching** and **render**). Do not repeat them. Your job is what a counter cannot judge: whether a student who missed the lecture would understand.
 
@@ -10,6 +10,7 @@ You did not write the content. If you were started with the message in `reviewer
 
 - The built `<project>/<output>.html` — open it in a browser and use it as a reader would: switch chapters, click every formula part, move every Lab control.
 - `<project>/content/*.md` and the cited `pages/<pdf>/p-NNN.png` when you need to see what the slide meant.
+- Never an earlier review: do not open a `source-check*.md`, `teaching-review*.md` or `visual-review*.md` already in the folder, or anything under `_work/reviews-*/`. They are another reviewer's verdict on an older build; this review must be your own. If one is in the way, ignore it — your result replaces it.
 
 ## Rubric — check every section
 

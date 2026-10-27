@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate, teachingReviewGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 import { ROOT, sampleCopy } from './.project.mjs';
 
@@ -222,6 +222,39 @@ test('source gate names an unrecognised Reviewer value instead of calling it uns
   assert.equal(g.status, 'pass');
   assert.match(g.headline, /reviewer "sub-agent" not recognised/);
   assert.ok(!/not stated/.test(g.headline), g.headline);
+});
+
+// One reviewer per chapter writes `<stem>-<chapter>.md`. The gate reads the parts as one review, so
+// nobody has to merge them by hand, and one failing part fails it.
+test('review gates read per-chapter parts as one review', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'teaching-review-01.md'), sourceCheck('independent'));
+  await writeFile(join(dir, 'teaching-review-02.md'), sourceCheck('independent'));
+  const pass = await teachingReviewGate(dir);
+  assert.equal(pass.status, 'pass');
+  assert.equal(pass.headline, 'independent (from teaching-review-01.md, teaching-review-02.md)');
+  assert.equal(pass.items.length, 2);
+
+  await writeFile(join(dir, 'teaching-review-02.md'), sourceCheck('independent', 'fail'));
+  const fail = await teachingReviewGate(dir);
+  assert.equal(fail.status, 'fail');
+  assert.deepEqual(fail.items.map((i) => i.ok), [true, false]);
+  assert.match(fail.items[1].msg, /teaching-review-02\.md/);
+});
+
+test('review gates read the merged file and its parts together, and name the weakest reviewer', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'source-check.md'), sourceCheck('independent'));
+  await writeFile(join(dir, 'source-check-03.md'), 'STATUS: pass\nReviewer: self (no sub-agent tool in this host)\n\n- [disputed] x\n');
+  const g = await sourceGate(dir);
+  assert.equal(g.status, 'pass');
+  assert.equal(g.selfReview, true, 'one self-reviewed chapter makes the gate a self-review');
+  assert.equal(g.headline, 'self-review, not independent (no sub-agent tool in this host), 1 disputed item(s) for the user (from source-check.md, source-check-03.md)');
+
+  await writeFile(join(dir, 'source-check-04.md'), sourceCheck('self'));
+  const bad = await sourceGate(dir);
+  assert.equal(bad.status, 'fail');
+  assert.match(bad.items[0].msg, /see source-check-04\.md/);
 });
 
 // The report names how many reviews the writing agent did itself, under the gate table, and says

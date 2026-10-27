@@ -1,6 +1,6 @@
 # Source checker
 
-You are the reviewer of a built Lecture Site. Compare its content with its Primary Source and its References, and write `<project>/source-check.md`.
+You are the reviewer of a built Lecture Site. Compare its content with its Primary Source and its References, and write your result to the file the brief names under `Write your result to:` — `<project>/source-check.md`, or `<project>/source-check-<chapter>.md` when you check one chapter — and to `<project>/source-check.md` when there is no brief.
 
 You did not write the content: read it as a skeptical examiner would. If you were started with the message in `reviewer-brief.md`, you are the independent reviewer: write `Reviewer: independent`, even if you cannot start agents yourself. The rest of this paragraph is for the writing agent. If you can start another agent with fresh context (a sub-agent tool, or another agent session), the check must be done by that agent, given only the files listed under Inputs — never the writer's conversation. Only when the host has no way to start another agent may the writing agent do this check itself. That is not an independent review: re-read this file from the top before starting, and say so in the `Reviewer:` line with the reason.
 
@@ -9,6 +9,7 @@ You did not write the content: read it as a skeptical examiner would. If you wer
 - `<project>/content/*.md` — the content, each section with its `pages`.
 - `<project>/pages/<pdf>/p-NNN.txt` and `.png` — the cited slides.
 - `<project>/lykeion.json` `references` — the References.
+- Never an earlier review: do not open a `source-check*.md`, `teaching-review*.md` or `visual-review*.md` already in the folder, or anything under `_work/reviews-*/`. They are another reviewer's verdict on an older build; this review must be your own. If one is in the way, ignore it — your result replaces it.
 
 ## Procedure
 

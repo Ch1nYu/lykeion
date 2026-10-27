@@ -7,7 +7,7 @@
 //   6 source          (agent review against the Primary Source; read from source-check.md when present)
 //   7 teaching review (agent review of the teaching; read from teaching-review.md when present)
 //   8 visual review   (agent review of the rendered page; read from visual-review.md when present)
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { launchBrowser } from './browser.mjs';
@@ -20,8 +20,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const help = `lykeion verify [project-dir] [--no-render]
 
 Runs the gates on the last build (run "lykeion build" first) and writes <project>/verify-report.md.
-Exit code 1 if any gate fails. Gate 4 (source) comes from <project>/source-check.md, written by the agent; a
-Reviewer line in its header says whether the reviewer was independent or the writing agent itself.`;
+Exit code 1 if any gate fails. The source, teaching review and visual review gates come from
+source-check.md, teaching-review.md and visual-review.md, written by reviewers; per-chapter parts beside
+them (source-check-03.md, …) are read as one review. A Reviewer line in each header says whether the
+reviewer was independent or the writing agent itself.`;
 
 export async function run(args) {
   const dir = resolve(args.find((a) => !a.startsWith('--')) || '.');
@@ -151,8 +153,8 @@ export function coverageGate(scope, sections) {
 }
 
 // ---------- gate: agent reviews ----------
-// Two gates read a review the agent wrote: source-check.md (are the claims right?) and
-// teaching-review.md (does the writing teach?). Ideally a reviewer with fresh context writes it (a
+// Three gates read a review the agent wrote: source-check.md (are the claims right?),
+// teaching-review.md (does the writing teach?) and visual-review.md (does the page read well?). Ideally a reviewer with fresh context writes it (a
 // sub-agent, or another agent session the host provides). When no such reviewer exists the writing
 // agent reviews its own content, which is allowed — but the report must not print a ✓ beside it as if
 // it were an independent check, so the headline says so and the item is painted ⚠. The STATUS line
@@ -163,11 +165,46 @@ const REVIEWERS = {
 };
 
 async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending' }) {
-  let txt;
-  try { txt = await readFile(join(dir, file), 'utf8'); } catch {
+  const files = await reviewFiles(dir, file);
+  if (!files.length) {
     const warn = missingStatus === 'warn';
     return { name, status: missingStatus, headline: awaiting, items: [{ ok: null, warn: warn || undefined, msg: missing }] };
   }
+  const reviews = [];
+  for (const f of files) reviews.push(readReview(f, await readFile(join(dir, f), 'utf8'), countDisputed));
+  const from = `(from ${files.join(', ')})`;
+  // A self-review must say why no independent reviewer was available; without that reason it fails.
+  const unreasoned = reviews.filter((r) => r.reviewer === 'self' && !r.reason);
+  if (unreasoned.length) {
+    return {
+      name, status: 'fail', selfReview: true, headline: `self-review without a reason ${from}`,
+      items: unreasoned.map((r) => ({ ok: false, msg: `Reviewer "self" needs a reason: get an independent reviewer, or write Reviewer: self (reason), e.g. Reviewer: self (no sub-agent tool in this host) — see ${r.file}` })),
+    };
+  }
+  // Per-chapter parts are one review: any part that fails fails the gate, and the headline names the
+  // weakest reviewer among them, so one self-reviewed chapter is not hidden behind independent ones.
+  const status = reviews.some((r) => r.status === 'fail') ? 'fail' : 'pass';
+  const lead = reviews.find((r) => r.reviewer === 'self') || reviews.find((r) => r.r.warn) || reviews[0];
+  const disputed = reviews.reduce((n, r) => n + r.disputed, 0);
+  return {
+    name,
+    status,
+    selfReview: reviews.some((r) => r.reviewer === 'self'),
+    headline: `${lead.r.how}${lead.reason ? ` (${lead.reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} ${from}`,
+    items: reviews.map((r) => ({ ok: r.status === 'pass', warn: r.r.warn, msg: r.r.msg.replace('{file}', r.file) })),
+  };
+}
+
+// The review's files: the merged `<file>` and any per-chapter `<stem>-<chapter>.md` beside it (one
+// reviewer per chapter writes those). The gate reads them all, so parts need no merging by hand.
+export async function reviewFiles(dir, file) {
+  const stem = file.replace(/\.md$/, '');
+  const names = await readdir(dir).catch(() => []);
+  const parts = names.filter((n) => n.startsWith(`${stem}-`) && n.endsWith('.md')).sort();
+  return [...(names.includes(file) ? [file] : []), ...parts];
+}
+
+function readReview(file, txt, countDisputed) {
   const m = /^STATUS:\s*(pass|fail)/im.exec(txt);
   const status = m ? m[1].toLowerCase() : 'fail';
   const disputed = countDisputed ? (txt.match(/^- \[disputed\]/gim) || []).length : 0;
@@ -178,25 +215,12 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
   const rev = /^Reviewer:\s*([^\s(]+)\s*(?:\(([^)]*)\))?/im.exec(head);
   const reviewer = rev ? rev[1].toLowerCase() : null;
   const reason = rev?.[2]?.trim() || '';
-  // A self-review must say why no independent reviewer was available; without that reason it fails.
-  if (reviewer === 'self' && !reason) {
-    return {
-      name, status: 'fail', selfReview: true, headline: `self-review without a reason (from ${file})`,
-      items: [{ ok: false, msg: `Reviewer "self" needs a reason: get an independent reviewer, or write Reviewer: self (reason), e.g. Reviewer: self (no sub-agent tool in this host) — see ${file}` }],
-    };
-  }
   const r = REVIEWERS[reviewer] || {
     how: reviewer ? `reviewer "${reviewer}" not recognised (use independent or self)` : 'reviewer not stated',
     msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see {file}` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see {file}',
     warn: true,
   };
-  return {
-    name,
-    status,
-    selfReview: reviewer === 'self',
-    headline: `${r.how}${reason ? ` (${reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from ${file})`,
-    items: [{ ok: status === 'pass', warn: r.warn, msg: r.msg.replace('{file}', file) }],
-  };
+  return { file, status, disputed, reviewer, reason, r };
 }
 
 export function sourceGate(dir) {
