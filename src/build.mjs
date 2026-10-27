@@ -76,7 +76,7 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, secs: sections, allSectionNums, refs, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [] } };
+      const ctx = { errors, where, sec, secs: sections, allSectionNums, refs, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [], verdicts: [] } };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const tokens = md.parse(sec.body, {});
@@ -87,7 +87,7 @@ export async function build(dir, opts = {}) {
       for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
       errors.push(...sectionRefErrors(body, where, refs));
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
-      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts });
+      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts, verdicts: ctx.teach.verdicts });
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
       const titleHtml = inlineTitle(sec.title, errors, where);
@@ -838,6 +838,7 @@ function renderLab(type, p, ctx) {
     return v;
   };
   ctx.teach.readouts.push(...labReadouts(type, p, ctx));
+  if (type === 'slider-calc') ctx.teach.verdicts.push(...labVerdicts(p, ctx));
   p = walk(p);
   ctx.labUses.push({ type, params: p, where: ctx.where });
   ctx.labSeq.n++;
@@ -878,6 +879,107 @@ function labReadouts(type, p, ctx) {
     const X = p.x || { min: 0, max: 1 };
     const x = Number(p.marker.value ?? (X.min + X.max) / 2);
     for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
+  }
+  return out;
+}
+
+// What a slider-calc Lab's verdicts do as the reader moves the controls, found by trying the settings
+// the reader can reach. A verdict is the Lab's one sentence about what the reader should notice, so it
+// fails when it cannot change: one that is true everywhere hides every verdict after it, and one that is
+// never true is dead text. Those two are failures only when every reachable setting was tried
+// (`exhaustive`); otherwise, and for the softer smells — a verdict true only at the opening values, a
+// setting where no verdict is true, a control that changes nothing — the finding is a warning.
+// Returns { lab, warn, msg } for the `labVerdicts` teaching rule.
+const VERDICT_SETTINGS = 50000, STEPS_KEPT = 400;
+function labVerdicts(p, ctx) {
+  const verdicts = Array.isArray(p.verdict) ? p.verdict.filter((v) => v && v.when !== undefined) : [];
+  const inputs = (Array.isArray(p.inputs) ? p.inputs : []).filter((i) => i && i.id);
+  if (!verdicts.length || !inputs.length) return [];
+  const lab = String(p.tag || p.title || 'slider-calc');
+  const ids = inputs.map((i) => i.id);
+  const compile = (expr) => { try { return ctx.maths.compile(String(expr), ids); } catch { return null; } };
+  const whens = verdicts.map((v) => compile(v.when));
+  const reads = [...(p.outputs || []), ...(p.bars || [])].map((o) => compile(o.expr)).filter(Boolean);
+  const truth = (fn, state) => { try { return !!fn(state); } catch { return false; } };
+  const read = (fn, state) => { try { return Number(fn(state)); } catch { return NaN; } };
+
+  // Every value a control can take: the options of a segmented input, or the slider's steps from `min`
+  // (the browser's step base), written at the step's precision as the range input reports them.
+  // A slider with more than STEPS_KEPT steps is thinned out, and then not every setting is tried.
+  const valuesOf = (inp) => {
+    if (Array.isArray(inp.options)) return { list: [...new Set(inp.options.map((o) => Number(o && typeof o === 'object' ? o.value : o)))], complete: true };
+    const min = Number(inp.min), max = Number(inp.max), step = Number(inp.step) || (max - min) / 100;
+    if (!(max > min) || !(step > 0)) return { list: [Number(inp.value)], complete: true };
+    const digits = (String(inp.step ?? '').split('.')[1] || '').length;
+    const count = Math.floor((max - min) / step + 1e-9);
+    const stride = Math.max(1, Math.ceil(count / STEPS_KEPT));
+    const list = [];
+    for (let k = 0; k <= count; k += stride) list.push(+(min + k * step).toFixed(digits));
+    return { list, complete: stride === 1 };
+  };
+  const ranges = inputs.map(valuesOf);
+  const values = ranges.map((r) => r.list);
+  const opening = Object.fromEntries(inputs.map((i) => [i.id, Number(i.value)]));
+  const total = values.reduce((n, v) => n * v.length, 1);
+  const exhaustive = total <= VERDICT_SETTINGS && ranges.every((r) => r.complete);
+
+  // The settings tried: every combination when there are few enough; otherwise each control swept from
+  // end to end with the others at their opening, lowest and highest values, plus the corners.
+  const settings = [];
+  if (exhaustive) {
+    const walk = (j, state) => {
+      if (j === inputs.length) { settings.push({ ...state }); return; }
+      for (const v of values[j]) { state[ids[j]] = v; walk(j + 1, state); }
+    };
+    walk(0, {});
+  } else {
+    const bases = [opening, Object.fromEntries(ids.map((id, j) => [id, values[j][0]])), Object.fromEntries(ids.map((id, j) => [id, values[j][values[j].length - 1]]))];
+    for (const base of bases) for (const [j, id] of ids.entries()) for (const v of values[j]) settings.push({ ...base, [id]: v });
+  }
+  const sameAsOpening = (s) => ids.every((id) => s[id] === opening[id]);
+  const show = (s) => ids.map((id) => `${id}=${s[id]}`).join(', ');
+
+  const everTrue = verdicts.map(() => false), alwaysTrue = verdicts.map(() => true), wins = verdicts.map(() => false);
+  const trueAwayFromOpening = verdicts.map(() => false);
+  let gap = null;
+  // For each control: the settings that differ only in that control, grouped, with what the reader
+  // sees in each (readouts and the verdict shown). A group that sees two things means the control moves
+  // something.
+  const groups = ids.map(() => new Map());
+  for (const s of settings) {
+    let shown = -1;
+    whens.forEach((fn, i) => {
+      const t = fn ? truth(fn, s) : false;
+      if (t) { everTrue[i] = true; if (shown < 0) shown = i; if (!sameAsOpening(s)) trueAwayFromOpening[i] = true; } else alwaysTrue[i] = false;
+    });
+    if (shown >= 0) wins[shown] = true;
+    else if (!gap) gap = s;
+    const seen = `${shown}|${reads.map((fn) => read(fn, s)).join('|')}`;
+    ids.forEach((id, j) => {
+      const key = ids.map((k) => (k === id ? '' : s[k])).join('|');
+      const g = groups[j].get(key);
+      if (g === undefined) groups[j].set(key, seen);
+      else if (g !== seen) groups[j].set(key, null); // null: this control changed what the reader sees here
+    });
+  }
+
+  const out = [];
+  const name = (i) => `verdict ${i + 1} (when: "${verdicts[i].when}")`;
+  const last = verdicts.length - 1;
+  const tried = exhaustive ? 'every setting' : 'every setting tried (each control end to end, from the opening values and from both ends)';
+  verdicts.forEach((v, i) => {
+    if (!whens[i]) return; // a broken expression is the page's error to report
+    if (alwaysTrue[i] && i < last) out.push({ lab, warn: !exhaustive, msg: `${name(i)} is true at ${tried}, so ${last - i === 1 ? 'the verdict after it never shows' : `the ${last - i} verdicts after it never show`} — narrow it, or move it last as the catch-all` });
+    else if (alwaysTrue[i] && verdicts.length === 1) out.push({ lab, warn: !exhaustive, msg: `its only verdict is true at ${tried}: it says the same thing whatever the reader does — give it a condition that the controls change, or put the sentence in the hint` });
+    else if (!everTrue[i]) out.push({ lab, warn: !exhaustive, msg: `${name(i)} is never true at ${tried} — a reader can never see it; check its numbers against the controls' min, max and step` });
+    else if (!wins[i]) out.push({ lab, warn: true, msg: `${name(i)} is true only where an earlier verdict already shows, so it never shows — reorder the verdicts or narrow the earlier one` });
+    else if (inputs.length > 1 && !trueAwayFromOpening[i] && settings.some(sameAsOpening)) out.push({ lab, warn: true, msg: `${name(i)} is true only at the values the Lab opens on (${show(opening)}): once the reader moves anything it is gone — tie it to what the reader changes` });
+  });
+  if (gap) out.push({ lab, warn: true, msg: `no verdict is true at ${show(gap)}, so the verdict line goes blank there — add a verdict for that case, or end with a catch-all (when: "true")` });
+  // A control that changes nothing the reader can see: no readout and no verdict moves with it.
+  for (const [j, id] of ids.entries()) {
+    if (values[j].length < 2) continue;
+    if (![...groups[j].values()].includes(null)) out.push({ lab, warn: true, msg: `moving "${inputs[j].label ?? id}" changes no readout and no verdict — drop the control, or show what it changes` });
   }
   return out;
 }
