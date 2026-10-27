@@ -68,6 +68,7 @@ Section body in Markdown.
 - Inline `$…$`, display `$$…$$` (may span lines). TeX is rendered to MathML at build time by KaTeX.
 - A closing `$` followed by a digit is not a delimiter, so prices like `$5` are safe; write `\$` for a literal dollar inside maths.
 - Write TeX exactly as in a `.tex` file — never escape backslashes (`\frac`, not `\\frac`).
+- The build fails on the two ways a backslash goes wrong. A control character in a content file (a form feed, a bell, …), or a tab inside a line before a letter, is a TeX command that lost its backslash to an escape — a script that wrote `'\theta'` in Python, or a double-quoted YAML string reading `"\alpha"` as a bell + `lpha`; the error names the line. And `\\` before a letter (`\\theta`) is a line break followed by plain letters, which is what a doubled backslash in a single-quoted YAML string leaves. Tabs in leading indentation and in code listings are allowed.
 - A display formula with a corner label:
 
   ````markdown

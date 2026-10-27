@@ -4,6 +4,10 @@ import MarkdownIt from 'markdown-it';
 import katex from 'katex';
 
 export function tex(src, display, errors, where) {
+  // `\\` is a line break, so `\\theta` renders as the letters "theta" without any KaTeX error. It is
+  // what a doubled backslash in a single-quoted YAML string (or a body written as escaped text) leaves.
+  const doubled = /(?<!\\)\\\\[A-Za-z]+/.exec(src);
+  if (doubled) errors.push(`${where}: TeX "${src.slice(0, 60)}" writes ${doubled[0]}: \\\\ is a line break, so the command prints as plain letters — write one backslash (a single-quoted YAML string keeps both; double it only inside double quotes)`);
   try {
     return katex.renderToString(src, { output: 'mathml', displayMode: display, throwOnError: true, strict: 'ignore', trust: false });
   } catch (e) {
