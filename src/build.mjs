@@ -177,7 +177,7 @@ export async function build(dir, opts = {}) {
   await writeFile(out, html);
   // `levels` is written for the quiz-review gate: it reads the stem and the options, which only exist here.
   const levelDump = levels.map((l) => ({ t: l.t, qs: l.qs.map((q) => ({ type: q.type, q: q.q, a: q.a, o: q.o || [], sec: q.sec })) }));
-  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks, teaching: { sections: teachingSections, quiz: teachingQuiz } }, null, 2) + '\n');
+  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks, teaching: { sections: teachingSections, quiz: teachingQuiz }, labs: labUses.map((u) => ({ where: u.where, type: u.type, params: u.raw })) }, null, 2) + '\n');
   return { out, sections: sectionCount, questions: levels.reduce((s, l) => s + l.qs.length, 0), labs: labCount };
 }
 
@@ -845,8 +845,9 @@ function renderLab(type, p, ctx) {
   };
   ctx.teach.readouts.push(...labReadouts(type, p, ctx));
   if (type === 'slider-calc') ctx.teach.verdicts.push(...labVerdicts(p, ctx));
+  const raw = p;
   p = walk(p);
-  ctx.labUses.push({ type, params: p, where: ctx.where });
+  ctx.labUses.push({ type, params: p, raw, where: ctx.where });
   ctx.labSeq.n++;
   const id = p.id || `lab-${ctx.labSeq.n}`;
   const params = JSON.stringify(p).replace(/</g, '\\u003c');

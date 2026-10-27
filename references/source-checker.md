@@ -47,4 +47,4 @@ The `Reviewer:` line is required and belongs in the header, above the first `##`
 
 `STATUS: pass` only when there are no **certain** findings left; disputed findings alone do not fail the gate.
 
-Done when every section of every chapter is listed under **Checked** with its page count.
+Done when every section of every chapter is listed under **Checked** with its page count: one line per chapter, `- <file>.md: §a–b, N pages, N claims, N quiz items`. `lykeion verify` holds the list against the build — a chapter left out, or a count of sections, cited pages or quiz items that is not the site's, fails the gate whatever `STATUS` says.

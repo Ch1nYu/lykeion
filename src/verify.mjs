@@ -164,7 +164,7 @@ const REVIEWERS = {
   self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see {file}', warn: true },
 };
 
-async function reviewGate({ name, dir, file, awaiting, missing, blocking, countDisputed = false, missingStatus = 'pending' }) {
+async function reviewGate({ name, dir, file, awaiting, missing, blocking, depth, countDisputed = false, missingStatus = 'pending' }) {
   const files = await reviewFiles(dir, file);
   if (!files.length) {
     const warn = missingStatus === 'warn';
@@ -187,13 +187,70 @@ async function reviewGate({ name, dir, file, awaiting, missing, blocking, countD
   const lead = reviews.find((r) => r.reviewer === 'self') || reviews.find((r) => r.r.warn) || reviews[0];
   const disputed = reviews.reduce((n, r) => n + r.disputed, 0);
   const fixes = fixedAfterReview(reviews, blocking);
+  const checks = await readFile(join(dir, 'checks.json'), 'utf8').then(JSON.parse, () => null);
+  const covered = depth && checks ? checkedCoverage(depth, reviews, checks) : [];
+  const short = covered.some((i) => i.ok === false);
   return {
     name,
-    status,
+    status: short ? 'fail' : status,
     selfReview: reviews.some((r) => r.reviewer === 'self'),
-    headline: `${lead.r.how}${lead.reason ? ` (${lead.reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''}${fixes.note} ${from}`,
-    items: [...reviews.map((r) => ({ ok: r.status === 'pass', warn: r.r.warn, msg: r.r.msg.replace('{file}', r.file) })), ...fixes.items],
+    headline: `${lead.r.how}${lead.reason ? ` (${lead.reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''}${fixes.note}${short ? '; its Checked list does not match the site' : ''} ${from}`,
+    items: [...reviews.map((r) => ({ ok: r.status === 'pass', warn: r.r.warn, msg: r.r.msg.replace('{file}', r.file) })), ...fixes.items, ...covered],
   };
+}
+
+// A review says what it covered under `## Checked`, one line per chapter:
+//   - 03-classification.md: §3.1–3.11, 11 sections, 6 formulas, 4 Labs           (teaching review)
+//   - 03-classification.md: §3.1–3.11, 31 pages, 48 claims, 14 quiz items         (source check)
+//   - 03-classification.md: light+mobile, light+desktop, dark+mobile, dark+desktop (visual review)
+// A reviewer that stopped early, or counted from memory, writes a list that does not match the site.
+// The gate holds the list against the build: every chapter must be there (across per-chapter parts),
+// every count it states for sections, Labs, cited pages and quiz items must be the site's, and a
+// visual review must name all four theme and viewport pairs. A review with no `## Checked` at all is
+// only warned about, so reviews written before the gate read it still verify.
+function checkedCoverage(depth, reviews, checks) {
+  const items = [];
+  const byFile = new Map(); // chapter file → { file: review file, line }
+  for (const r of reviews) {
+    if (!r.checked) { items.push({ ok: null, warn: true, msg: `${r.file} has no "## Checked" list, so the gate cannot tell what was reviewed — list every chapter with its counts` }); continue; }
+    for (const line of r.checked) byFile.set(line.chapter, { file: r.file, text: line.text });
+  }
+  if (reviews.every((r) => !r.checked)) return items;
+  const sections = checks.sections || [];
+  const chapters = [...new Set(sections.map((s) => s.file))];
+  const actual = (f) => {
+    const own = sections.filter((s) => s.file === f);
+    const pages = new Set();
+    for (const s of own) { try { for (const p of parsePages(s.pages)) pages.add(`${s.source}:${p}`); } catch { /* the coverage gate reports it */ } }
+    const mine = (where) => where === f || String(where).startsWith(`${f} `);
+    return {
+      section: own.length,
+      lab: (checks.labs || []).filter((l) => mine(l.where)).length,
+      page: pages.size,
+      'quiz item': (checks.teaching?.quiz || []).filter((q) => mine(q.where)).length,
+    };
+  };
+  const missing = chapters.filter((f) => !byFile.has(f));
+  if (missing.length) items.push({ ok: false, msg: `Checked lists no line for ${missing.join(', ')} — review every chapter, or give it its own reviewer` });
+  for (const f of chapters) {
+    const got = byFile.get(f);
+    if (!got) continue;
+    if (depth === 'visual') {
+      const pairs = new Set([...got.text.matchAll(/(light|dark)\s*[+/ ]\s*(mobile|desktop)/gi)].map((m) => `${m[1]}+${m[2]}`.toLowerCase()));
+      const lacking = ['light+mobile', 'light+desktop', 'dark+mobile', 'dark+desktop'].filter((p) => !pairs.has(p));
+      if (lacking.length) items.push({ ok: false, msg: `${got.file}: Checked for ${f} lacks ${lacking.join(', ')} — a chapter is reviewed once it is seen in both themes at both widths` });
+      continue;
+    }
+    const want = actual(f);
+    for (const [, n, unit] of got.text.matchAll(/(\d+)\s*(sections?|labs?|pages?|quiz items?)\b/gi)) {
+      const key = unit.toLowerCase().replace(/s$/, '');
+      if (!(key in want) || Number(n) === want[key]) continue;
+      items.push({ ok: false, msg: `${got.file}: Checked says ${f} has ${n} ${unit}, the site has ${want[key]} — review what is there, then count again` });
+    }
+    if (!/\d+\s*sections?\b/i.test(got.text)) items.push({ ok: null, warn: true, msg: `${got.file}: Checked for ${f} gives no section count — write "${want.section} sections"` });
+  }
+  if (!items.some((i) => i.ok === false)) items.push({ ok: true, msg: `Checked covers every chapter${depth === 'visual' ? ' in both themes at both widths' : ' with the site\'s counts'}` });
+  return items;
 }
 
 // The writer may answer a review it cannot have re-reviewed (the rounds are spent) with a
@@ -260,12 +317,17 @@ function readReview(file, txt, { countDisputed, blocking }) {
     msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see {file}` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see {file}',
     warn: true,
   };
-  return { file, status, disputed, reviewer, reason, r, findings, fixed };
+  // `## Checked`: one `- <chapter>.md: …` line per chapter covered.
+  const checkedSection = /^## Checked[ \t]*$([\s\S]*?)(?=^## |(?![\s\S]))/im.exec(txt);
+  const checked = checkedSection
+    ? [...checkedSection[1].matchAll(/^-\s+`?([^\s:`]+\.md)`?\s*:?\s*(.*)$/gm)].map((x) => ({ chapter: x[1].split('/').pop(), text: x[2] }))
+    : null;
+  return { file, status, disputed, reviewer, reason, r, findings, fixed, checked };
 }
 
 export function sourceGate(dir) {
   return reviewGate({
-    name: 'source', dir, file: 'source-check.md', countDisputed: true, blocking: 'certain',
+    name: 'source', dir, file: 'source-check.md', countDisputed: true, blocking: 'certain', depth: 'source',
     awaiting: 'awaiting agent review (references/source-checker.md)',
     missing: 'source-check.md not found: the agent must review claims against the cited pages',
   });
@@ -273,7 +335,7 @@ export function sourceGate(dir) {
 
 export function teachingReviewGate(dir) {
   return reviewGate({
-    name: 'teaching review', dir, file: 'teaching-review.md', blocking: 'must-fix',
+    name: 'teaching review', dir, file: 'teaching-review.md', blocking: 'must-fix', depth: 'teaching',
     awaiting: 'awaiting agent review (references/teaching-reviewer.md)',
     missing: 'teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md',
   });
@@ -283,7 +345,7 @@ export function teachingReviewGate(dir) {
 // has not done one yet is warned about (⚠) instead of failed — the headline says how to do it.
 export function visualReviewGate(dir) {
   return reviewGate({
-    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn', blocking: 'must-fix',
+    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn', blocking: 'must-fix', depth: 'visual',
     awaiting: 'visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md)',
     missing: 'visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md',
   });

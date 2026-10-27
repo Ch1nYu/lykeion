@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate, teachingReviewGate } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate, teachingReviewGate, visualReviewGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 import { ROOT, sampleCopy } from './.project.mjs';
 
@@ -292,6 +292,49 @@ test('review gates tell findings fixed after review apart from open ones, and st
   const plain = await teachingReviewGate(dir);
   assert.equal(plain.headline, 'independent (from teaching-review.md)');
   assert.equal(plain.items.length, 1);
+});
+
+// A review that stopped early or counted from memory lists what it did not check. The gate holds the
+// `## Checked` list against the build.
+test('review gates fail a Checked list that misses a chapter or miscounts it', async () => {
+  const dir = await sampleCopy();
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const count = (f) => ({
+    sections: checks.sections.filter((s) => s.file === f).length,
+    labs: checks.labs.filter((l) => l.where.startsWith(`${f} `)).length,
+  });
+  const a = count('01-conditional.md'), b = count('02-binomial.md');
+  const review = (lines) => ['STATUS: pass', 'Reviewer: independent', '', '## Findings', '- none', '', '## Checked', ...lines, ''].join('\n');
+  const gate = async (lines) => {
+    await writeFile(join(dir, 'teaching-review.md'), review(lines));
+    return teachingReviewGate(dir);
+  };
+
+  const ok = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs} Labs`, `- 02-binomial.md: ${b.sections} sections, ${b.labs} Labs`]);
+  assert.equal(ok.status, 'pass', ok.items.map((i) => i.msg).join('\n'));
+  assert.ok(ok.items.some((i) => i.ok === true && /Checked covers every chapter/.test(i.msg)));
+
+  const missing = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs} Labs`]);
+  assert.equal(missing.status, 'fail', 'a STATUS: pass over a chapter nobody checked is not a pass');
+  assert.match(missing.headline, /its Checked list does not match the site/);
+  assert.ok(missing.items.some((i) => i.ok === false && /Checked lists no line for 02-binomial\.md/.test(i.msg)));
+
+  const miscount = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs + 1} Labs`, `- 02-binomial.md: ${b.sections} sections, ${b.labs} Labs`]);
+  assert.equal(miscount.status, 'fail');
+  assert.ok(miscount.items.some((i) => i.ok === false && new RegExp(`Checked says 01-conditional\\.md has ${a.labs + 1} Labs, the site has ${a.labs}`).test(i.msg)));
+
+  // A visual review names all four theme and viewport pairs per chapter.
+  await writeFile(join(dir, 'visual-review.md'), review(['- 01-conditional.md: light+mobile, light+desktop, dark+mobile, dark+desktop', '- 02-binomial.md: light+mobile, dark+mobile']));
+  const visual = await visualReviewGate(dir);
+  assert.equal(visual.status, 'fail');
+  assert.ok(visual.items.some((i) => /Checked for 02-binomial\.md lacks light\+desktop, dark\+desktop/.test(i.msg)));
+
+  // No Checked at all only warns, so older reviews still verify.
+  await writeFile(join(dir, 'teaching-review.md'), 'STATUS: pass\nReviewer: independent\n\n## Findings\n- none\n');
+  const old = await teachingReviewGate(dir);
+  assert.equal(old.status, 'pass');
+  assert.ok(old.items.some((i) => i.warn && /has no "## Checked" list/.test(i.msg)));
 });
 
 // The report names how many reviews the writing agent did itself, under the gate table, and says
