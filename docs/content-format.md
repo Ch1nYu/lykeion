@@ -27,7 +27,8 @@ Any error below fails the build; nothing broken is silently rendered.
   "hero": { "title": "把公式<em>算給你看</em>的一頁講堂", "intro": "One paragraph." },
   "levels": { "條件機率": "條件機率、獨立性與貝氏定理" },
   "scope": [{ "file": "sample.pdf", "pages": "1-4" }],
-  "references": ["Ross, *A First Course in Probability*, 10th ed."]
+  "references": ["Ross, *A First Course in Probability*, 10th ed."],
+  "implementation": ["original/"]
 }
 ```
 
@@ -36,6 +37,7 @@ Any error below fails the build; nothing broken is silently rendered.
 - `levels` gives each Quiz Level a subtitle; keys are level titles used in quiz blocks.
 - `scope` is what `verify` checks coverage against; `file` matches a chapter's `source`.
 - `scope[].exclude` lists the pages the scope leaves out on purpose, each with its reason: `"exclude": [{ "pages": "1-3", "reason": "AI 發展史，不屬核心邏輯" }]`. Excluded pages are not required for coverage; `verify` lists them as "excluded on purpose" with the reason. A section that cites an excluded page fails, an exclusion without a reason fails, and an excluded page must lie inside the scope's `pages`. `init` does not write it; the Outline proposes it (see `references/outline.md`).
+- `implementation` (optional) lists the folders or files, relative to the project, of the code behind the Primary Source's results — for a paper or thesis whose experiments the site explains. The writer and the source checker read it only where the Primary Source is unclear about what was done (which axis a split runs over, a default, the exact form of an update), and say so when a claim rests on it. Every path must exist, or the build fails.
 - `teaching` overrides the teaching rules (`references/teaching-rules.json`) and extends the style lexicon (`references/style-lexicon.json`) for this project; see [Teaching rules](#teaching-rules).
 
 ## Chapter file
@@ -68,6 +70,7 @@ Section body in Markdown.
 - Inline `$…$`, display `$$…$$` (may span lines). TeX is rendered to MathML at build time by KaTeX.
 - A closing `$` followed by a digit is not a delimiter, so prices like `$5` are safe; write `\$` for a literal dollar inside maths.
 - Write TeX exactly as in a `.tex` file — never escape backslashes (`\frac`, not `\\frac`).
+- The build fails on the two ways a backslash goes wrong. A control character in a content file (a form feed, a bell, …), or a tab inside a line before a letter, is a TeX command that lost its backslash to an escape — a script that wrote `'\theta'` in Python, or a double-quoted YAML string reading `"\alpha"` as a bell + `lpha`; the error names the line. And `\\` before a letter (`\\theta`) is a line break followed by plain letters, which is what a doubled backslash in a single-quoted YAML string leaves. Tabs in leading indentation and in code listings are allowed.
 - A display formula with a corner label:
 
   ````markdown
@@ -351,6 +354,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 | `codeSource` | `{ "exampleLabel": "示範", "minIdentifierShare": 0.5, "outputTitles": ["輸出"], "keywords": [...] }` | a code listing has no `from`, or its `from` is none of `slides`, a `references` prefix or `example` (with 「示範」 in the title); a `from="slides"` listing shares fewer than `minIdentifierShare` of its identifiers with its section's pages. Missing page text is ⚠ (not checkable). `outputTitles` are exempt, and `keywords` are not counted as identifiers |
 | `sayConnects` | `{ "minShare": 0.5, "stopTerms": ["的", "一個", "這個", "機率", "公式", "表示", "the", …] }` | fewer than `minShare` of a parts formula's explanations (`say` of its pieces and of its fractions) tie to the lesson. A `say` ties when it contains a digit (it works through the example's numbers), or shares a term with the section's `analogy` blocks (title and body), or shares a term with the digit paragraphs and lists before the formula. A term is a CJK bigram or a Latin word of three letters or more, taken after the `stopTerms` are removed, so a generic word links nothing. A section with neither an analogy nor worked numbers before its formula reports ⚠ and cannot fail |
 | `numericMath` | `{ "ignore": "\\s|\\d|[+\\-.,%$]|[{}]" }` | a `$…$` span is only a number (`$0.5$`): it inherits the maths face, size and baseline and reads as a foreign word in the sentence. Anything left after removing digits, signs and braces is an expression and passes |
+| `labVerdicts` | `true` | a `slider-calc` Lab's verdicts do not follow its controls. The build tries every setting a reader can reach (every step of every slider, every option; when there are more than 50,000, each control end to end from the opening values and from both ends) and records which verdict shows. It fails a verdict that is true at every setting while verdicts follow it, an only verdict that is always true, and a verdict no setting reaches — the last two only when every setting was tried. It warns (⚠) when a verdict is true only at the opening values of a Lab with two or more controls, when some setting shows no verdict (it names one), when a verdict is true only where an earlier one already shows, and when a control changes no readout and no verdict. `false` turns it off |
 | `proseNumbers` | `{ "ignore": ["\\d+(?:\\.\\d+){2,}", "§\\s*\\d+(?:\\.\\d+)*"] }` | a decimal or a percentage in the reading text (paragraphs, lists, notes, callouts, analogies, takeaways, a parts formula's words, a quiz explanation) matches no `calc` expect or Lab readout of its section at the precision written, and is not inside `<q>…</q>`. Integers are not checked. `ignore` patterns are blanked before the scan; a project's `proseNumbers` replaces the whole rule, so repeat the patterns you keep |
 
 - Every failure names the file, the section and a short excerpt.

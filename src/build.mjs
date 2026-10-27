@@ -37,6 +37,12 @@ export async function build(dir, opts = {}) {
   const project = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8').catch(() => { throw new Error(`no lykeion.json in ${dir}`); }));
   const S = { ...BUILD_STR, ...(project.buildStrings || {}) };
   const errors = [];
+  // The code a writer and a source checker may read: a path that does not exist would send them to
+  // nothing, and they would fall back on guessing without saying so.
+  for (const path of [].concat(project.implementation ?? [])) {
+    if (typeof path !== 'string' || !path.trim()) errors.push(`lykeion.json "implementation" lists ${JSON.stringify(path)}; give folder or file paths relative to the project`);
+    else await access(resolve(dir, path)).catch(() => errors.push(`lykeion.json "implementation" path "${path}" does not exist (resolved to ${resolve(dir, path)})`));
+  }
   const chapters = await loadChapters(join(dir, 'content'));
   if (!chapters.length) throw new Error(`no content/*.md in ${dir}`);
 
@@ -65,6 +71,8 @@ export async function build(dir, opts = {}) {
   const teachingQuiz = [];
   // Every section number in the site, so a quiz `sec` pointing at another chapter's section is caught.
   const allSectionNums = chapters.flatMap((ch) => splitSections(ch).filter((s) => s.num).map((s) => s.num));
+  const refs = sectionRefTargets(chapters, allSectionNums);
+  for (const ch of chapters) errors.push(...rawTextErrors(ch.file, ch.raw), ...yamlEscapeErrors(ch.meta, ch.front, `${ch.file} front matter`));
   for (const ch of chapters) {
     const sections = splitSections(ch);
     const chNum = ch.meta.chapter ?? '';
@@ -74,7 +82,7 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, secs: sections, allSectionNums, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [] } };
+      const ctx = { errors, where, sec, secs: sections, allSectionNums, refs, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [], verdicts: [] } };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const tokens = md.parse(sec.body, {});
@@ -83,8 +91,9 @@ export async function build(dir, opts = {}) {
       const rendered = md.renderer.render(tokens, md.options, ctx);
       const body = sec.id && sec.num ? headingIds(rendered, sec.id) : rendered;
       for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
+      errors.push(...sectionRefErrors(body, where, refs));
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
-      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts });
+      teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts, verdicts: ctx.teach.verdicts });
       sectionCount++;
       const pages = sec.pages ? `<p class="pages">${esc(fill(S.pages, { p: sec.pages }))}</p>` : '';
       const titleHtml = inlineTitle(sec.title, errors, where);
@@ -168,7 +177,7 @@ export async function build(dir, opts = {}) {
   await writeFile(out, html);
   // `levels` is written for the quiz-review gate: it reads the stem and the options, which only exist here.
   const levelDump = levels.map((l) => ({ t: l.t, qs: l.qs.map((q) => ({ type: q.type, q: q.q, a: q.a, o: q.o || [], sec: q.sec })) }));
-  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks, teaching: { sections: teachingSections, quiz: teachingQuiz } }, null, 2) + '\n');
+  if (opts.writeChecks !== false) await writeFile(join(dir, 'checks.json'), JSON.stringify({ built: new Date().toISOString(), output: basename(out), scope: project.scope || [], sections: collectSections(chapters), levels: levelDump, checks, teaching: { sections: teachingSections, quiz: teachingQuiz }, labs: labUses.map((u) => ({ where: u.where, type: u.type, params: u.raw })) }, null, 2) + '\n');
   return { out, sections: sectionCount, questions: levels.reduce((s, l) => s + l.qs.length, 0), labs: labCount };
 }
 
@@ -182,9 +191,96 @@ async function loadChapters(contentDir) {
     if (!m) throw new Error(`${file}: missing YAML front matter (--- … ---)`);
     const meta = yaml.load(m[1]) || {};
     if (!meta.title) throw new Error(`${file}: front matter needs "title"`);
-    out.push({ file, meta, body: m[2] });
+    out.push({ file, meta, body: m[2], raw, front: m[1] });
   }
   return out;
+}
+
+// ---------- control characters ----------
+// A TeX command can lose its backslash on the way into a file: Python's '\theta' and YAML's "\alpha"
+// both read the backslash as an escape, leaving a tab + "heta" or a bell + "lpha". KaTeX never sees
+// the damage when the math delimiter no longer parses (`$<tab>heta$` is not maths), so every gate
+// passes over a page that prints "heta". The build looks for the characters themselves.
+const BLOCK_NAMES = new Set(['quiz', 'lab', 'calc', 'note', 'formula', 'erratum', 'callout', 'analogy', 'takeaway']);
+// C0 controls and DEL, except tab, line feed and carriage return, which text does carry.
+const CONTROL = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+const ESCAPE_HINT = 'a TeX command lost its backslash to an escape (\\t, \\f, \\a, \\b, \\v, \\e in a double-quoted YAML string or a script) — write the backslash back; in YAML, put TeX in single quotes';
+// The character as its Unicode control picture (␉ for a tab), with a little context, so the message
+// shows where it is without printing an invisible character.
+const showControl = (s, at) => `${s.slice(Math.max(0, at - 12), at)}${String.fromCharCode(s.charCodeAt(at) === 0x7f ? 0x2421 : 0x2400 + s.charCodeAt(at))}${s.slice(at + 1, at + 13)}`;
+
+// Errors for one content file, by line: a control character anywhere, and a tab inside a line before a
+// lowercase letter (`\theta`, `\times`, `\text`, `\tfrac` after a lost backslash). Code listings keep
+// their tabs, and leading indentation is never a lost backslash.
+export function rawTextErrors(file, raw) {
+  const errs = [];
+  let fence = null; // null outside a fence, else { listing }
+  raw.split('\n').forEach((line, i) => {
+    const at = `${file}:${i + 1}`;
+    const bad = CONTROL.exec(line);
+    if (bad) errs.push(`${at}: control character in “${showControl(line, bad.index)}” — ${ESCAPE_HINT}`);
+    if (/^(```|~~~)/.test(line)) {
+      fence = fence ? null : { listing: !BLOCK_NAMES.has(fenceInfo(line.slice(3).replace(/^[`~]+/, '')).lang) };
+      return;
+    }
+    if (fence?.listing) return;
+    const tab = /(?<=\S.*)\t(?=[a-z])/.exec(line);
+    if (tab) errs.push(`${at}: tab before a letter in “${showControl(line, tab.index)}” — ${ESCAPE_HINT}`);
+  });
+  return errs;
+}
+
+// Errors for one parsed YAML value: a control character in a string that the source text does not
+// carry, i.e. one YAML made out of an escape ("\theta" → tab + "heta").
+export function yamlEscapeErrors(value, src, where) {
+  const errs = [];
+  const walk = (v, path) => {
+    if (typeof v === 'string') {
+      const m = /[\x00-\x09\x0B-\x1F\x7F]/.exec(v);
+      if (m && !src.includes(m[0])) errs.push(`${where}: ${path ? `"${path}" has ` : ''}a control character in “${showControl(v, m.index)}” — ${ESCAPE_HINT}`);
+    } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
+  };
+  walk(value, '');
+  return errs;
+}
+
+// ---------- § references ----------
+// A `§4.5` in the text promises a section the reader can open. What can be opened is a `##` section
+// (or a whole chapter, `§4`); a numbered `###` heading inside a section is not one, and a number
+// nothing carries is a dangling reference. Another work's section is cited in an erratum's `ref`, in
+// code, or quoted with <q>…</q>, which this check skips.
+function sectionRefTargets(chapters, sectionNums) {
+  const sub = new Map(); // a `###` heading's number → the section it sits in
+  for (const ch of chapters) {
+    for (const s of splitSections(ch)) {
+      let inFence = false;
+      for (const line of s.body.split('\n')) {
+        if (/^(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+        const m = !inFence && /^#{3,6}\s+(\d+(?:\.\d+)+)\.?\s/.exec(line);
+        if (m && s.num && !sub.has(m[1])) sub.set(m[1], s.num);
+      }
+    }
+  }
+  const chapterNums = chapters.map((ch) => ch.meta.chapter).filter((n) => n !== undefined && n !== null).map(String);
+  return { sections: new Set(sectionNums), chapters: new Set(chapterNums), sub };
+}
+
+export function sectionRefErrors(html, where, refs) {
+  if (!refs) return [];
+  // A Lab's sentences sit in its JSON parameters, where `<` is written \u003c.
+  const text = String(html).replace(/\\u003c/g, '<').replace(/<(cite|code|pre|q)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+  const errs = [];
+  const seen = new Set();
+  for (const [, num] of text.matchAll(/§\s*(\d+(?:\.\d+)*)/g)) {
+    if (seen.has(num) || refs.sections.has(num) || (!num.includes('.') && refs.chapters.has(num))) continue;
+    seen.add(num);
+    const under = refs.sub.get(num);
+    errs.push(under
+      ? `${where}: §${num} is a ### heading inside §${under}, not a section the reader can open — cite §${under}, or make ${num} a ## section`
+      : `${where}: §${num} names no section of this site — fix the number; another work's section goes in an erratum's ref or inside <q>…</q>`);
+  }
+  return errs;
 }
 
 // "## 3.1 Title {pages=3-5}" starts a section; text before the first one is the chapter intro.
@@ -545,7 +641,10 @@ function renderFence(token, ctx, countLab) {
 }
 
 function parseYaml(src, ctx, kind) {
-  try { return yaml.load(src); } catch (e) { ctx.errors.push(`${ctx.where}: invalid YAML in ${kind} block: ${e.message.split('\n')[0]}`); return null; }
+  let v;
+  try { v = yaml.load(src); } catch (e) { ctx.errors.push(`${ctx.where}: invalid YAML in ${kind} block: ${e.message.split('\n')[0]}`); return null; }
+  ctx.errors.push(...yamlEscapeErrors(v, src, `${ctx.where}: ${kind} block`));
+  return v;
 }
 
 // A `formula` body is TeX, unless it is a YAML mapping with a `tex` key — then it is a formula broken
@@ -704,6 +803,7 @@ function addQuiz(items, levelArg, ctx, md) {
     const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: secId, pages: q.pages || ctx.sec.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);
+    ctx.errors.push(...sectionRefErrors([item.q, item.ex, ...(item.o || [])].join(' '), w, ctx.refs));
     ctx.levels[li].qs.push(item);
     if (num && q.calc !== undefined) ctx.checks.push({ where: w, kind: 'quiz', expr: String(q.calc), expect: q.a, tol: Math.max(Number(q.tol ?? 0), 1e-9) });
     if (num && q.calc === undefined) ctx.checks.push({ where: w, kind: 'quiz-missing-calc', expect: q.a });
@@ -744,8 +844,10 @@ function renderLab(type, p, ctx) {
     return v;
   };
   ctx.teach.readouts.push(...labReadouts(type, p, ctx));
+  if (type === 'slider-calc') ctx.teach.verdicts.push(...labVerdicts(p, ctx));
+  const raw = p;
   p = walk(p);
-  ctx.labUses.push({ type, params: p, where: ctx.where });
+  ctx.labUses.push({ type, params: p, raw, where: ctx.where });
   ctx.labSeq.n++;
   const id = p.id || `lab-${ctx.labSeq.n}`;
   const params = JSON.stringify(p).replace(/</g, '\\u003c');
@@ -784,6 +886,107 @@ function labReadouts(type, p, ctx) {
     const X = p.x || { min: 0, max: 1 };
     const x = Number(p.marker.value ?? (X.min + X.max) / 2);
     for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
+  }
+  return out;
+}
+
+// What a slider-calc Lab's verdicts do as the reader moves the controls, found by trying the settings
+// the reader can reach. A verdict is the Lab's one sentence about what the reader should notice, so it
+// fails when it cannot change: one that is true everywhere hides every verdict after it, and one that is
+// never true is dead text. Those two are failures only when every reachable setting was tried
+// (`exhaustive`); otherwise, and for the softer smells — a verdict true only at the opening values, a
+// setting where no verdict is true, a control that changes nothing — the finding is a warning.
+// Returns { lab, warn, msg } for the `labVerdicts` teaching rule.
+const VERDICT_SETTINGS = 50000, STEPS_KEPT = 400;
+function labVerdicts(p, ctx) {
+  const verdicts = Array.isArray(p.verdict) ? p.verdict.filter((v) => v && v.when !== undefined) : [];
+  const inputs = (Array.isArray(p.inputs) ? p.inputs : []).filter((i) => i && i.id);
+  if (!verdicts.length || !inputs.length) return [];
+  const lab = String(p.tag || p.title || 'slider-calc');
+  const ids = inputs.map((i) => i.id);
+  const compile = (expr) => { try { return ctx.maths.compile(String(expr), ids); } catch { return null; } };
+  const whens = verdicts.map((v) => compile(v.when));
+  const reads = [...(p.outputs || []), ...(p.bars || [])].map((o) => compile(o.expr)).filter(Boolean);
+  const truth = (fn, state) => { try { return !!fn(state); } catch { return false; } };
+  const read = (fn, state) => { try { return Number(fn(state)); } catch { return NaN; } };
+
+  // Every value a control can take: the options of a segmented input, or the slider's steps from `min`
+  // (the browser's step base), written at the step's precision as the range input reports them.
+  // A slider with more than STEPS_KEPT steps is thinned out, and then not every setting is tried.
+  const valuesOf = (inp) => {
+    if (Array.isArray(inp.options)) return { list: [...new Set(inp.options.map((o) => Number(o && typeof o === 'object' ? o.value : o)))], complete: true };
+    const min = Number(inp.min), max = Number(inp.max), step = Number(inp.step) || (max - min) / 100;
+    if (!(max > min) || !(step > 0)) return { list: [Number(inp.value)], complete: true };
+    const digits = (String(inp.step ?? '').split('.')[1] || '').length;
+    const count = Math.floor((max - min) / step + 1e-9);
+    const stride = Math.max(1, Math.ceil(count / STEPS_KEPT));
+    const list = [];
+    for (let k = 0; k <= count; k += stride) list.push(+(min + k * step).toFixed(digits));
+    return { list, complete: stride === 1 };
+  };
+  const ranges = inputs.map(valuesOf);
+  const values = ranges.map((r) => r.list);
+  const opening = Object.fromEntries(inputs.map((i) => [i.id, Number(i.value)]));
+  const total = values.reduce((n, v) => n * v.length, 1);
+  const exhaustive = total <= VERDICT_SETTINGS && ranges.every((r) => r.complete);
+
+  // The settings tried: every combination when there are few enough; otherwise each control swept from
+  // end to end with the others at their opening, lowest and highest values, plus the corners.
+  const settings = [];
+  if (exhaustive) {
+    const walk = (j, state) => {
+      if (j === inputs.length) { settings.push({ ...state }); return; }
+      for (const v of values[j]) { state[ids[j]] = v; walk(j + 1, state); }
+    };
+    walk(0, {});
+  } else {
+    const bases = [opening, Object.fromEntries(ids.map((id, j) => [id, values[j][0]])), Object.fromEntries(ids.map((id, j) => [id, values[j][values[j].length - 1]]))];
+    for (const base of bases) for (const [j, id] of ids.entries()) for (const v of values[j]) settings.push({ ...base, [id]: v });
+  }
+  const sameAsOpening = (s) => ids.every((id) => s[id] === opening[id]);
+  const show = (s) => ids.map((id) => `${id}=${s[id]}`).join(', ');
+
+  const everTrue = verdicts.map(() => false), alwaysTrue = verdicts.map(() => true), wins = verdicts.map(() => false);
+  const trueAwayFromOpening = verdicts.map(() => false);
+  let gap = null;
+  // For each control: the settings that differ only in that control, grouped, with what the reader
+  // sees in each (readouts and the verdict shown). A group that sees two things means the control moves
+  // something.
+  const groups = ids.map(() => new Map());
+  for (const s of settings) {
+    let shown = -1;
+    whens.forEach((fn, i) => {
+      const t = fn ? truth(fn, s) : false;
+      if (t) { everTrue[i] = true; if (shown < 0) shown = i; if (!sameAsOpening(s)) trueAwayFromOpening[i] = true; } else alwaysTrue[i] = false;
+    });
+    if (shown >= 0) wins[shown] = true;
+    else if (!gap) gap = s;
+    const seen = `${shown}|${reads.map((fn) => read(fn, s)).join('|')}`;
+    ids.forEach((id, j) => {
+      const key = ids.map((k) => (k === id ? '' : s[k])).join('|');
+      const g = groups[j].get(key);
+      if (g === undefined) groups[j].set(key, seen);
+      else if (g !== seen) groups[j].set(key, null); // null: this control changed what the reader sees here
+    });
+  }
+
+  const out = [];
+  const name = (i) => `verdict ${i + 1} (when: "${verdicts[i].when}")`;
+  const last = verdicts.length - 1;
+  const tried = exhaustive ? 'every setting' : 'every setting tried (each control end to end, from the opening values and from both ends)';
+  verdicts.forEach((v, i) => {
+    if (!whens[i]) return; // a broken expression is the page's error to report
+    if (alwaysTrue[i] && i < last) out.push({ lab, warn: !exhaustive, msg: `${name(i)} is true at ${tried}, so ${last - i === 1 ? 'the verdict after it never shows' : `the ${last - i} verdicts after it never show`} — narrow it, or move it last as the catch-all` });
+    else if (alwaysTrue[i] && verdicts.length === 1) out.push({ lab, warn: !exhaustive, msg: `its only verdict is true at ${tried}: it says the same thing whatever the reader does — give it a condition that the controls change, or put the sentence in the hint` });
+    else if (!everTrue[i]) out.push({ lab, warn: !exhaustive, msg: `${name(i)} is never true at ${tried} — a reader can never see it; check its numbers against the controls' min, max and step` });
+    else if (!wins[i]) out.push({ lab, warn: true, msg: `${name(i)} is true only where an earlier verdict already shows, so it never shows — reorder the verdicts or narrow the earlier one` });
+    else if (inputs.length > 1 && !trueAwayFromOpening[i] && settings.some(sameAsOpening)) out.push({ lab, warn: true, msg: `${name(i)} is true only at the values the Lab opens on (${show(opening)}): once the reader moves anything it is gone — tie it to what the reader changes` });
+  });
+  if (gap) out.push({ lab, warn: true, msg: `no verdict is true at ${show(gap)}, so the verdict line goes blank there — add a verdict for that case, or end with a catch-all (when: "true")` });
+  // A control that changes nothing the reader can see: no readout and no verdict moves with it.
+  for (const [j, id] of ids.entries()) {
+    if (values[j].length < 2) continue;
+    if (![...groups[j].values()].includes(null)) out.push({ lab, warn: true, msg: `moving "${inputs[j].label ?? id}" changes no readout and no verdict — drop the control, or show what it changes` });
   }
   return out;
 }

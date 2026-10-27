@@ -66,7 +66,7 @@ Done when numeric, coverage and render all show ✓. A render gate marked "skipp
 
 The **quiz review** gate fails any choice item whose options give the key away — the key clearly longest, absolute words only in the distractors, a hedge only in the key, or the key alone echoing the stem — and any Quiz Level whose key is the longest option in more than half of its items. Rewrite the options (see `references/chapter-writer.md`, Quiz) until it passes. The gate catches mechanical tells only; still read each item and ask whether a student who has not studied could pick the key.
 
-The **teaching** gate checks the writing rules of `references/chapter-writer.md` that a machine can count: no page numbers in body text, paragraph and prose-run length, a formula never left without words, an analogy before a section's first formula, enough kinds of block in a long section, the stepper share of Labs, and the phrases listed in `references/style-lexicon.json` (fail) — ⚠ entries are warnings to read, not failures. Its thresholds are in `references/teaching-rules.json`; a project may change one under `"teaching"` in `lykeion.json` only for a reason the user agreed to (a subject with long unavoidable definitions, say), never just to pass. Fix the content instead.
+The **teaching** gate checks the writing rules of `references/chapter-writer.md` that a machine can count: no page numbers in body text, paragraph and prose-run length, a formula never left without words, an analogy before a section's first formula, enough kinds of block in a long section, the stepper share of Labs, Lab verdicts that follow the controls, and the phrases listed in `references/style-lexicon.json` (fail) — ⚠ entries are warnings to read, not failures. Its thresholds are in `references/teaching-rules.json`; a project may change one under `"teaching"` in `lykeion.json` only for a reason the user agreed to (a subject with long unavoidable definitions, say), never just to pass. Fix the content instead.
 
 The **render** gate also checks the reading experience: only the three font tokens, the prose line height and measure, every chapter tab and sidebar link landing on its target, a deep link opening the right chapter, the floating back-to-top and theme buttons, and that no Lab or formula box changes height while its controls move.
 
@@ -74,7 +74,9 @@ The **render** gate also checks the reading experience: only the three font toke
 
 Have the built content compared with the cited pages and the References, and record the result in `<project>/source-check.md`.
 
-The review **must** be done by a reviewer with fresh context whenever the host can start one: a sub-agent, or another agent session the host provides. That reviewer is given only the files `references/source-checker.md` lists — never the writer's conversation — and is started with the exact message in `references/reviewer-brief.md`, with nothing added. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format, then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
+The review **must** be done by a reviewer with fresh context whenever the host can start one: a sub-agent, or another agent session the host provides. That reviewer is given only the files `references/source-checker.md` lists — never the writer's conversation — and is started with the exact message in `references/reviewer-brief.md`, with nothing added. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format. `lykeion verify` reads every `source-check-*.md` together with `source-check.md` as one review: any part with `STATUS: fail` fails the gate, so the parts need no merging by hand.
+
+Before every review round — here and in steps 8 and 9 — move the previous round's results (`source-check.md` and every `source-check-*.md`) into `<project>/_work/reviews-<timestamp>/` first, as `references/reviewer-brief.md` says. A reviewer must not see the last verdict, and a stale part left in the folder still counts in the gate.
 
 A self-review is allowed only when the host has no way to start another agent. Then re-read `references/source-checker.md` from the top first, and state the reason in the header: `Reviewer: self (no sub-agent tool in this host)`. `source-check.md` must carry `Reviewer: independent` or `Reviewer: self (reason)`; a `self` line without a reason fails the source gate. `lykeion verify` repeats the reviewer in its source gate, and a self-review shows as ⚠ with a count under the gate table. A self-review is allowed when it says why; passing it off as an independent one is not.
 
@@ -82,23 +84,32 @@ Fix every finding marked **certain**, rebuild, and re-run steps 6–7. Leave **d
 
 Steps 6–7 together get at most **3 fix rounds**. If gates still fail after round 3, stop and report what remains.
 
+**Fixes the rounds leave unreviewed.** When you fix a review's blocking findings after its last round (or the user declines another round), do not edit the reviewer's STATUS line or findings. Append to the review file:
+
+```markdown
+## Fixed after review
+- 03-classification.md §3.6 — part `p_j^2` now says 「連抽兩次都抽到第 j 種的機率」 (content/03-classification.md)
+```
+
+One line per fixed blocking finding (**certain** here, **must-fix** in steps 8–9), starting with the finding's location exactly as the reviewer wrote it, then what changed and in which file. The gate still fails — a fix nobody re-reviewed is not a pass — but `verify-report.md` lists each finding as fixed-not-re-reviewed (⚠) or still open (✗), and its headline counts them. Report the fixed ones to the user as unconfirmed.
+
 Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 
 ## 8. Teaching review
 
-Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md`. As with the source check, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent. A `self` line without a reason fails the teaching-review gate; a self-review with a reason shows as ⚠ in `lykeion verify`.
+Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md` (or one `teaching-review-<chapter>.md` per chapter reviewer; the gate reads the parts together, as in step 7). As with the source check, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent. A `self` line without a reason fails the teaching-review gate; a self-review with a reason shows as ⚠ in `lykeion verify`.
 
-Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains.
+Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. At most **2 rounds**; then report what remains, with fixes after the last round recorded under `## Fixed after review` as in step 7.
 
 Done when `lykeion verify` shows teaching review ✓ (or 2 rounds are spent).
 
 ## 9. Visual review
 
-Once the content teaches, have the rendered page judged for how it looks. Run `lykeion shots <project>`: it writes one full-page PNG per chapter, theme and viewport to `<project>/shots/`. Then follow `references/visual-reviewer.md` and record the result in `<project>/visual-review.md`. The reviewer judges the images, not the code. As with the other reviews, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent.
+Once the content teaches, have the rendered page judged for how it looks. Run `lykeion shots <project>`: it writes one full-page PNG per chapter, theme and viewport to `<project>/shots/`, and `shots/index.md`, which lists the sections each image shows. A long site is more images than one reviewer can look at: dispatch one visual reviewer per chapter (`Scope:` in `references/reviewer-brief.md`); each runs `lykeion shots <project> --scope <chapter> --segment` and gets reading-height parts of its own chapter. `lykeion shots --quick` captures only each chapter's first screen (light phone, light desktop, dark phone): use it to look at a fix on the first screen yourself, never as the images of a review. Then follow `references/visual-reviewer.md` and record the result in `<project>/visual-review.md` (or one `visual-review-<chapter>.md` per chapter reviewer, read together as in step 7). The reviewer judges the images, not the code. As with the other reviews, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent.
 
 The render gate already measures what a counter can: holes taller than half a screen, emoji used as icons, gradient text, walls of identical cards, too many left edges, and a type scale that is too wide or too flat (thresholds in `references/visual-rules.json`; a project may change one under `"visual"` in `lykeion.json` only for a reason the user agreed to). The visual review covers what it cannot: focal point, hierarchy, whether a figure belongs to its topic, mobile and dark-theme reading.
 
-A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for now; a `STATUS: fail` or a `self` line without a reason does. Fix every **must-fix** finding, rebuild, re-run `lykeion shots` and re-verify. At most **2 rounds**; then report what remains.
+A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for now; a `STATUS: fail` or a `self` line without a reason does. Fix every **must-fix** finding, rebuild, re-run `lykeion shots` and re-verify. At most **2 rounds**; then report what remains, with fixes after the last round recorded under `## Fixed after review` as in step 7.
 
 Done when `lykeion verify` shows visual review ✓ (or 2 rounds are spent, or the user chose to skip it — then report it as ⚠, never as passed).
 
@@ -107,6 +118,6 @@ Done when `lykeion verify` shows visual review ✓ (or 2 rounds are spent, or th
 Tell the user, briefly:
 
 - the Lecture Site path (and offer to open it);
-- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, visual-rule warnings (⚠), and whether the source check, the teaching review and the visual review were independent, self-reviews or (visual review only) not done;
+- the gate results from `verify-report.md`, including anything skipped or still failing, teaching warnings (⚠) left in place, visual-rule warnings (⚠), and whether the source check, the teaching review and the visual review were independent, self-reviews or (visual review only) not done; findings fixed after the last round are named as fixed but not re-reviewed;
 - every **disputed** finding, quoted with its page and Reference, for the user to decide;
 - the Palette used.

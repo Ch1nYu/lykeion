@@ -1,8 +1,8 @@
 # Teaching reviewer
 
-You review how well a built Lecture Site **teaches**, after the source check has confirmed that it is right. Write `<project>/teaching-review.md`.
+You review how well a built Lecture Site **teaches**, after the source check has confirmed that it is right. Write your result to the file the brief names under `Write your result to:` — `<project>/teaching-review.md`, or `<project>/teaching-review-<chapter>.md` when you review one chapter — and to `<project>/teaching-review.md` when there is no brief.
 
-The machine gates already catch what can be counted: page references in body text, paragraphs and prose runs that are too long, formulas left without words, formulas with no analogy before them, sections built from one kind of block, too many stepper Labs, Lab boxes that change height, fonts outside the three tokens, and listed filler phrases (`lykeion verify`, gates **teaching** and **render**). Do not repeat them. Your job is what a counter cannot judge: whether a student who missed the lecture would understand.
+The machine gates already catch what can be counted: page references in body text, paragraphs and prose runs that are too long, formulas left without words, formulas with no analogy before them, sections built from one kind of block, too many stepper Labs, slider-calc verdicts that never change or never show, Lab boxes that change height, fonts outside the three tokens, and listed filler phrases (`lykeion verify`, gates **teaching** and **render**). Do not repeat them. Your job is what a counter cannot judge: whether a student who missed the lecture would understand.
 
 You did not write the content. If you were started with the message in `reviewer-brief.md`, you are the independent reviewer: write `Reviewer: independent`, even if you cannot start agents yourself. The rest of this paragraph is for the writing agent. If you can start another agent with fresh context (a sub-agent tool, or another agent session), that agent does the review, given only the files listed under Inputs — never the writer's conversation. Only when the host has no way to start another agent may the writing agent review itself: re-read this file from the top first and give the reason in the `Reviewer:` line.
 
@@ -10,6 +10,8 @@ You did not write the content. If you were started with the message in `reviewer
 
 - The built `<project>/<output>.html` — open it in a browser and use it as a reader would: switch chapters, click every formula part, move every Lab control.
 - `<project>/content/*.md` and the cited `pages/<pdf>/p-NNN.png` when you need to see what the slide meant.
+- `node <lykeion>/bin/lykeion.mjs labs <project>` — every Lab's readouts and verdict at the values it opens on and with each control at its min and max, as text. When you cannot open the page in a browser and move the controls, judge the Labs from this (a dump of the page without its scripts shows the Labs empty), and say so in **Checked**: `Labs judged from lykeion labs`.
+- Never an earlier review: do not open a `source-check*.md`, `teaching-review*.md` or `visual-review*.md` already in the folder, or anything under `_work/reviews-*/`. They are another reviewer's verdict on an older build; this review must be your own. If one is in the way, ignore it — your result replaces it.
 
 ## Rubric — check every section
 
@@ -17,7 +19,7 @@ You did not write the content. If you were started with the message in `reviewer
 2. **Plain language.** Each sentence reads as natural Traditional Chinese (Taiwan) spoken by a teacher — not translated from English: no stacked noun phrases, no 「進行…的動作」, no passive 「被…所」, one idea per sentence. A term is explained the first time it is used, in words a first-year student knows.
 3. **Formulas are taught, not dropped.** Every key formula is a `formula` with `parts`, each `say` tells what the piece *means* in the analogy or the example (not its name again), and the order of the parts tells a story from the smallest piece to the whole. A formula a reader must accept without explanation fails.
 4. **Example before generality.** The slide's own numbers appear and are worked through before the general rule, or right after it.
-5. **Each Lab teaches one idea.** The `hint` says what to move, the readout or `verdict` names what the reader should notice, and moving the control actually shows that idea. A Lab that only re-displays a number from the prose fails.
+5. **Each Lab teaches one idea.** The `hint` says what to move, the readout or `verdict` names what the reader should notice, and moving the control actually shows that idea. A Lab that only re-displays a number from the prose fails, and so does one whose verdict says the same thing whatever the reader does (`lykeion labs` marks it) or names a state its controls cannot reach.
 6. **Rhythm.** The section alternates explanation with something to look at or do; a reader never faces a screen of plain text. Headings (`###`) name questions or ideas, not just terms.
 7. **Exam value.** The traps the slides or the exam stress are named in a `note` or `takeaway`, in one or two sentences.
 8. **Quiz explanations teach.** Each `ex` says why the key is right and why the most tempting wrong option is wrong.
@@ -45,4 +47,4 @@ Reviewer: independent
 
 The header (above the first `##`) carries `STATUS:` and `Reviewer:` (`independent`, or `self (reason)`; a `self` without a reason fails the gate). `STATUS: pass` only when no **must-fix** finding is left.
 
-Done when every section of every chapter is listed under **Checked**.
+Done when every section of every chapter is listed under **Checked**: one line per chapter, `- <file>.md: §a–b, N sections, N formulas, N Labs`. `lykeion verify` holds the list against the build — a chapter left out, or a count of sections or Labs that is not the site's, fails the gate whatever `STATUS` says — so count what you reviewed, not what you remember.

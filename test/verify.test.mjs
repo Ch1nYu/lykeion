@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate } from '../src/verify.mjs';
+import { numericGate, coverageGate, parsePages, verify, quizReviewGate, optionTells, sourceGate, teachingReviewGate, visualReviewGate } from '../src/verify.mjs';
 import { build, checkLabParams } from '../src/build.mjs';
 import { ROOT, sampleCopy } from './.project.mjs';
 
@@ -222,6 +222,119 @@ test('source gate names an unrecognised Reviewer value instead of calling it uns
   assert.equal(g.status, 'pass');
   assert.match(g.headline, /reviewer "sub-agent" not recognised/);
   assert.ok(!/not stated/.test(g.headline), g.headline);
+});
+
+// One reviewer per chapter writes `<stem>-<chapter>.md`. The gate reads the parts as one review, so
+// nobody has to merge them by hand, and one failing part fails it.
+test('review gates read per-chapter parts as one review', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'teaching-review-01.md'), sourceCheck('independent'));
+  await writeFile(join(dir, 'teaching-review-02.md'), sourceCheck('independent'));
+  const pass = await teachingReviewGate(dir);
+  assert.equal(pass.status, 'pass');
+  assert.equal(pass.headline, 'independent (from teaching-review-01.md, teaching-review-02.md)');
+  assert.equal(pass.items.length, 2);
+
+  await writeFile(join(dir, 'teaching-review-02.md'), sourceCheck('independent', 'fail'));
+  const fail = await teachingReviewGate(dir);
+  assert.equal(fail.status, 'fail');
+  assert.deepEqual(fail.items.map((i) => i.ok), [true, false]);
+  assert.match(fail.items[1].msg, /teaching-review-02\.md/);
+});
+
+test('review gates read the merged file and its parts together, and name the weakest reviewer', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'source-check.md'), sourceCheck('independent'));
+  await writeFile(join(dir, 'source-check-03.md'), 'STATUS: pass\nReviewer: self (no sub-agent tool in this host)\n\n- [disputed] x\n');
+  const g = await sourceGate(dir);
+  assert.equal(g.status, 'pass');
+  assert.equal(g.selfReview, true, 'one self-reviewed chapter makes the gate a self-review');
+  assert.equal(g.headline, 'self-review, not independent (no sub-agent tool in this host), 1 disputed item(s) for the user (from source-check.md, source-check-03.md)');
+
+  await writeFile(join(dir, 'source-check-04.md'), sourceCheck('self'));
+  const bad = await sourceGate(dir);
+  assert.equal(bad.status, 'fail');
+  assert.match(bad.items[0].msg, /see source-check-04\.md/);
+});
+
+// After the last round the writer can only answer a review, not have it re-done. `## Fixed after review`
+// tells the fixed findings (⚠) apart from the open ones (✗), but the STATUS line still decides.
+test('review gates tell findings fixed after review apart from open ones, and still fail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  const findings = [
+    'STATUS: fail', 'Reviewer: independent', '', '## Findings',
+    '- [must-fix] 03-a.md §3.6 — formula part says its name; say what it means.',
+    '- [must-fix] 03-a.md §3.6 — the Lab shows nothing.',
+    '- [must-fix][content] 04-b.md §4.2 — the analogy misleads.',
+    '- [suggestion] 04-b.md §4.3 — tie the log term back.',
+    '', '## Checked', '- 03-a.md: §3.1–3.8',
+  ];
+  await writeFile(join(dir, 'teaching-review.md'), [...findings, '', '## Fixed after review',
+    '- 03-a.md §3.6 — the part now says 「連抽兩次的機率」 (content/03-a.md)',
+    '- 04-b.md §4.2 — new analogy (content/04-b.md)', ''].join('\n'));
+  const g = await teachingReviewGate(dir);
+  assert.equal(g.status, 'fail', 'a fix nobody re-reviewed is not a pass');
+  assert.equal(g.headline, 'independent; 2 of 3 must-fix finding(s) fixed after review, not re-reviewed (from teaching-review.md)');
+  const fixed = g.items.filter((i) => i.warn && /fixed after review/.test(i.msg));
+  const open = g.items.filter((i) => /still open/.test(i.msg));
+  assert.equal(fixed.length, 2);
+  assert.equal(open.length, 1);
+  assert.equal(open[0].ok, false);
+  assert.match(open[0].msg, /teaching-review\.md: \[must-fix\] 03-a\.md §3\.6 — still open/);
+
+  // A fix line that matches no finding is a mistake the gate names.
+  await writeFile(join(dir, 'teaching-review.md'), [...findings, '', '## Fixed after review', '- 03-a.md 3.6 — typo in the location', ''].join('\n'));
+  const typo = await teachingReviewGate(dir);
+  assert.ok(typo.items.some((i) => i.ok === false && /lists “03-a\.md 3\.6”, which matches no \[must-fix\] finding/.test(i.msg)));
+
+  // Without the section the gate reads as before.
+  await writeFile(join(dir, 'teaching-review.md'), findings.join('\n'));
+  const plain = await teachingReviewGate(dir);
+  assert.equal(plain.headline, 'independent (from teaching-review.md)');
+  assert.equal(plain.items.length, 1);
+});
+
+// A review that stopped early or counted from memory lists what it did not check. The gate holds the
+// `## Checked` list against the build.
+test('review gates fail a Checked list that misses a chapter or miscounts it', async () => {
+  const dir = await sampleCopy();
+  await build(dir);
+  const checks = JSON.parse(await readFile(join(dir, 'checks.json'), 'utf8'));
+  const count = (f) => ({
+    sections: checks.sections.filter((s) => s.file === f).length,
+    labs: checks.labs.filter((l) => l.where.startsWith(`${f} `)).length,
+  });
+  const a = count('01-conditional.md'), b = count('02-binomial.md');
+  const review = (lines) => ['STATUS: pass', 'Reviewer: independent', '', '## Findings', '- none', '', '## Checked', ...lines, ''].join('\n');
+  const gate = async (lines) => {
+    await writeFile(join(dir, 'teaching-review.md'), review(lines));
+    return teachingReviewGate(dir);
+  };
+
+  const ok = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs} Labs`, `- 02-binomial.md: ${b.sections} sections, ${b.labs} Labs`]);
+  assert.equal(ok.status, 'pass', ok.items.map((i) => i.msg).join('\n'));
+  assert.ok(ok.items.some((i) => i.ok === true && /Checked covers every chapter/.test(i.msg)));
+
+  const missing = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs} Labs`]);
+  assert.equal(missing.status, 'fail', 'a STATUS: pass over a chapter nobody checked is not a pass');
+  assert.match(missing.headline, /its Checked list does not match the site/);
+  assert.ok(missing.items.some((i) => i.ok === false && /Checked lists no line for 02-binomial\.md/.test(i.msg)));
+
+  const miscount = await gate([`- 01-conditional.md: ${a.sections} sections, ${a.labs + 1} Labs`, `- 02-binomial.md: ${b.sections} sections, ${b.labs} Labs`]);
+  assert.equal(miscount.status, 'fail');
+  assert.ok(miscount.items.some((i) => i.ok === false && new RegExp(`Checked says 01-conditional\\.md has ${a.labs + 1} Labs, the site has ${a.labs}`).test(i.msg)));
+
+  // A visual review names all four theme and viewport pairs per chapter.
+  await writeFile(join(dir, 'visual-review.md'), review(['- 01-conditional.md: light+mobile, light+desktop, dark+mobile, dark+desktop', '- 02-binomial.md: light+mobile, dark+mobile']));
+  const visual = await visualReviewGate(dir);
+  assert.equal(visual.status, 'fail');
+  assert.ok(visual.items.some((i) => /Checked for 02-binomial\.md lacks light\+desktop, dark\+desktop/.test(i.msg)));
+
+  // No Checked at all only warns, so older reviews still verify.
+  await writeFile(join(dir, 'teaching-review.md'), 'STATUS: pass\nReviewer: independent\n\n## Findings\n- none\n');
+  const old = await teachingReviewGate(dir);
+  assert.equal(old.status, 'pass');
+  assert.ok(old.items.some((i) => i.warn && /has no "## Checked" list/.test(i.msg)));
 });
 
 // The report names how many reviews the writing agent did itself, under the gate table, and says

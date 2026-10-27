@@ -7,6 +7,7 @@ You write one chapter of a Lecture Site: `content/NN-<slug>.md` in the format of
 - The slides are the baseline. Teach what they teach, in their order, with their examples, numbers and notation. Every planned section exists with its `pages`.
 - Read the `.png` of every slide with a figure, table, tree or formula; the `.txt` loses layout and maths.
 - For pages listed as `suspect` in `pages/index.json` (or in the Outline), the `.txt` has wrong characters: write from the `.png` and quote nothing from the `.txt`.
+- When `lykeion.json` lists an `implementation` and the slides leave unclear what was done (which axis a split runs over, a default value, the exact form of an update), read the code and write what it does; name the file in the prose or a `note` (「依原始程式 `lib/sampling.py`」). The code settles what the slides leave open; it does not overrule what they state — when the two disagree, follow the slides and put the code's account in an `erratum`.
 - A claim that goes beyond the slides needs a Reference; put it in an `erratum` (when it corrects the slide) or say in the prose where it comes from.
 - Name a concept, theorem or paradox only when a Reference uses that name for this exact situation. When unsure, describe it plainly.
 - Attribute algorithms and methods precisely (which method uses which pruning, which library uses which split search); leave out an attribution you cannot confirm.
@@ -40,7 +41,7 @@ Write natural Traditional Chinese (Taiwan), the way a good teacher talks — not
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
 - Every decimal or percentage in your prose is a `calc` expect or a Lab readout at its default inputs in the same section, at the precision written (`99.95 %` for a readout of 0.9995). A figure the slides state that this site does not compute is quoted as `<q>90%</q>`, with the true value said in the prose if it differs; the `proseNumbers` rule fails the rest.
-- Point at another section as `§3.7`, never a bare `3.7`: the rule reads a bare section number as a decimal and fails it.
+- Point at another section as `§3.7`, never a bare `3.7`: the rule reads a bare section number as a decimal and fails it. The build fails a `§` that names no `##` section (or chapter, `§3`) of the site, and one that names a numbered `###` heading, which the reader cannot open: cite the `##` section it sits in. Another work's section goes in an erratum's `ref` or inside `<q>…</q>`.
 
 ## Code listings
 
@@ -56,6 +57,7 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 
 - opens on the slides' own example values, so the reader sees the slide's numbers first;
 - has a `hint` saying what to change and a `verdict` or readout that names what the reader should notice;
+- has verdicts that change as the reader moves the controls: each one reachable inside the sliders' `min`/`max`/`step`, never written for the opening values alone, and together covering every setting (end with `when: "true"` as the catch-all) — the `labVerdicts` rule tries every setting of a `slider-calc` and reports what it finds;
 - uses expressions that stay finite over the whole input range (guard divisions by zero and `log2(0)`);
 - prefers a Lab the reader computes with (`slider-calc`, `table`, `curve`, a custom Lab) over a `stepper` that only pages through text — the gate allows at most a third of a site's Labs to be steppers.
 

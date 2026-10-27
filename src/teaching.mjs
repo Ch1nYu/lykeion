@@ -546,6 +546,22 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
     report('sayConnects', failures, 'every formula piece ties to the analogy or the example');
   }
 
+  // 14. labVerdicts — a Lab's verdict is the one sentence that names what the reader should notice, so it
+  //     has to change as the controls move. The build tries the settings a reader can reach on every
+  //     slider-calc Lab and records what its verdicts do; this rule reports it. A verdict that can never
+  //     change (true everywhere ahead of others, or never true) fails when every setting was tried; the
+  //     rest — true only at the opening values, a setting with no verdict, a control that changes
+  //     nothing — are warnings to read.
+  if (rules.labVerdicts) {
+    if (sections.length && sections.every((s) => !Array.isArray(s.verdicts))) {
+      report('labVerdicts', [{ warn: true, msg: 'checks.json was written before Lab verdicts were recorded — run "lykeion build" again' }], '');
+    } else {
+      const failures = [];
+      for (const s of sections) for (const v of s.verdicts || []) failures.push({ warn: v.warn, msg: `${where(s)} Lab "${v.lab}": ${v.msg}` });
+      report('labVerdicts', failures, 'every slider-calc verdict changes as the controls move');
+    }
+  }
+
   const bad = items.filter((i) => i.ok === false).length;
   const warns = items.filter((i) => i.warn).length;
   // Warning items are not checks: counting them said "12 checks passed, 1 warning(s)" for 11 checks.

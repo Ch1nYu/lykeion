@@ -69,6 +69,7 @@ bars:
 verdict:
   - { when: "pa == 0.3", text: "P(A|B) = P(A) = 0.3，此時 A 與 B 獨立。" }
   - { when: "pa > 0.3", text: "P(A|B) > P(A)：B 發生讓 A 更可能，P(B|A) 也跟著被拉高。" }
+  - { when: "pa < 0.3", text: "P(A|B) < P(A)：B 發生反而讓 A 變少見，P(B|A) 也跟著被壓低。" }
 ```
 
 ```quiz 條件機率

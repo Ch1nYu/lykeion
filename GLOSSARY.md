@@ -12,6 +12,10 @@ _Avoid_: Material, input, 講義 (ambiguous with the output)
 An authoritative academic work (textbook, original paper, recognised university course page) used only to supplement or correct the Primary Source.
 _Avoid_: Citation, external source
 
+**Implementation**:
+The code behind the Primary Source's results, when the Lecture Site teaches a paper or thesis that ran experiments (listed in `lykeion.json` `implementation`). Read only where the Primary Source leaves unclear what was done; it never replaces the Primary Source.
+_Avoid_: Source code, repo
+
 **Scope**:
 The files and page ranges of the Primary Source a Lecture Site must cover, optionally narrowed or weighted by a topic list.
 _Avoid_: Range, coverage
