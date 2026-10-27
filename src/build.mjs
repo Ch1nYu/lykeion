@@ -65,6 +65,7 @@ export async function build(dir, opts = {}) {
   const teachingQuiz = [];
   // Every section number in the site, so a quiz `sec` pointing at another chapter's section is caught.
   const allSectionNums = chapters.flatMap((ch) => splitSections(ch).filter((s) => s.num).map((s) => s.num));
+  for (const ch of chapters) errors.push(...rawTextErrors(ch.file, ch.raw), ...yamlEscapeErrors(ch.meta, ch.front, `${ch.file} front matter`));
   for (const ch of chapters) {
     const sections = splitSections(ch);
     const chNum = ch.meta.chapter ?? '';
@@ -182,9 +183,58 @@ async function loadChapters(contentDir) {
     if (!m) throw new Error(`${file}: missing YAML front matter (--- … ---)`);
     const meta = yaml.load(m[1]) || {};
     if (!meta.title) throw new Error(`${file}: front matter needs "title"`);
-    out.push({ file, meta, body: m[2] });
+    out.push({ file, meta, body: m[2], raw, front: m[1] });
   }
   return out;
+}
+
+// ---------- control characters ----------
+// A TeX command can lose its backslash on the way into a file: Python's '\theta' and YAML's "\alpha"
+// both read the backslash as an escape, leaving a tab + "heta" or a bell + "lpha". KaTeX never sees
+// the damage when the math delimiter no longer parses (`$<tab>heta$` is not maths), so every gate
+// passes over a page that prints "heta". The build looks for the characters themselves.
+const BLOCK_NAMES = new Set(['quiz', 'lab', 'calc', 'note', 'formula', 'erratum', 'callout', 'analogy', 'takeaway']);
+// C0 controls and DEL, except tab, line feed and carriage return, which text does carry.
+const CONTROL = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+const ESCAPE_HINT = 'a TeX command lost its backslash to an escape (\\t, \\f, \\a, \\b, \\v, \\e in a double-quoted YAML string or a script) — write the backslash back; in YAML, put TeX in single quotes';
+// The character as its Unicode control picture (␉ for a tab), with a little context, so the message
+// shows where it is without printing an invisible character.
+const showControl = (s, at) => `${s.slice(Math.max(0, at - 12), at)}${String.fromCharCode(s.charCodeAt(at) === 0x7f ? 0x2421 : 0x2400 + s.charCodeAt(at))}${s.slice(at + 1, at + 13)}`;
+
+// Errors for one content file, by line: a control character anywhere, and a tab inside a line before a
+// lowercase letter (`\theta`, `\times`, `\text`, `\tfrac` after a lost backslash). Code listings keep
+// their tabs, and leading indentation is never a lost backslash.
+export function rawTextErrors(file, raw) {
+  const errs = [];
+  let fence = null; // null outside a fence, else { listing }
+  raw.split('\n').forEach((line, i) => {
+    const at = `${file}:${i + 1}`;
+    const bad = CONTROL.exec(line);
+    if (bad) errs.push(`${at}: control character in “${showControl(line, bad.index)}” — ${ESCAPE_HINT}`);
+    if (/^(```|~~~)/.test(line)) {
+      fence = fence ? null : { listing: !BLOCK_NAMES.has(fenceInfo(line.slice(3).replace(/^[`~]+/, '')).lang) };
+      return;
+    }
+    if (fence?.listing) return;
+    const tab = /(?<=\S.*)\t(?=[a-z])/.exec(line);
+    if (tab) errs.push(`${at}: tab before a letter in “${showControl(line, tab.index)}” — ${ESCAPE_HINT}`);
+  });
+  return errs;
+}
+
+// Errors for one parsed YAML value: a control character in a string that the source text does not
+// carry, i.e. one YAML made out of an escape ("\theta" → tab + "heta").
+export function yamlEscapeErrors(value, src, where) {
+  const errs = [];
+  const walk = (v, path) => {
+    if (typeof v === 'string') {
+      const m = /[\x00-\x09\x0B-\x1F\x7F]/.exec(v);
+      if (m && !src.includes(m[0])) errs.push(`${where}: ${path ? `"${path}" has ` : ''}a control character in “${showControl(v, m.index)}” — ${ESCAPE_HINT}`);
+    } else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
+  };
+  walk(value, '');
+  return errs;
 }
 
 // "## 3.1 Title {pages=3-5}" starts a section; text before the first one is the chapter intro.
@@ -545,7 +595,10 @@ function renderFence(token, ctx, countLab) {
 }
 
 function parseYaml(src, ctx, kind) {
-  try { return yaml.load(src); } catch (e) { ctx.errors.push(`${ctx.where}: invalid YAML in ${kind} block: ${e.message.split('\n')[0]}`); return null; }
+  let v;
+  try { v = yaml.load(src); } catch (e) { ctx.errors.push(`${ctx.where}: invalid YAML in ${kind} block: ${e.message.split('\n')[0]}`); return null; }
+  ctx.errors.push(...yamlEscapeErrors(v, src, `${ctx.where}: ${kind} block`));
+  return v;
 }
 
 // A `formula` body is TeX, unless it is a YAML mapping with a `tex` key — then it is a formula broken
