@@ -355,8 +355,15 @@ function start() {
         else b.removeAttribute('aria-current');
       });
     });
-    // The tab strip scrolls on a narrow screen: keep the open chapter visible in it.
-    chaps.querySelectorAll('button[aria-current="true"]').forEach(b => b.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    // The tab strip scrolls on a narrow screen: keep the open chapter visible in it. The strip is
+    // scrolled itself rather than through `scrollIntoView`, which in Chromium also moves the point the
+    // next Tab starts from — on load that sent the reader's first Tab past the skip link.
+    const cur = chaps.querySelector('button[aria-current="true"]');
+    if (cur) {
+      const strip = chaps.getBoundingClientRect(), tab = cur.getBoundingClientRect();
+      if (tab.left < strip.left) chaps.scrollLeft -= strip.left - tab.left;
+      else if (tab.right > strip.right) chaps.scrollLeft += tab.right - strip.right;
+    }
   }
 
   // A hash resolves to the view that owns the target element, so a section link in a later chapter
