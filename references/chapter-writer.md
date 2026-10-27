@@ -56,6 +56,7 @@ Build the Labs the Outline planned, with the generic types first (`slider-calc`,
 
 - opens on the slides' own example values, so the reader sees the slide's numbers first;
 - has a `hint` saying what to change and a `verdict` or readout that names what the reader should notice;
+- has verdicts that change as the reader moves the controls: each one reachable inside the sliders' `min`/`max`/`step`, never written for the opening values alone, and together covering every setting (end with `when: "true"` as the catch-all) — the `labVerdicts` rule tries every setting of a `slider-calc` and reports what it finds;
 - uses expressions that stay finite over the whole input range (guard divisions by zero and `log2(0)`);
 - prefers a Lab the reader computes with (`slider-calc`, `table`, `curve`, a custom Lab) over a `stepper` that only pages through text — the gate allows at most a third of a site's Labs to be steppers.
 

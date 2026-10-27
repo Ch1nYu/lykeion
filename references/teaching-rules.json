@@ -54,6 +54,7 @@
       "extends", "super", "static", "void", "delete", "do"
     ]
   },
+  "labVerdicts": true,
   "formulaParts": {
     "minParts": 2,
     "minExplained": 2,

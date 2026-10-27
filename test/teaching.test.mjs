@@ -13,7 +13,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The gate reads the `teaching` object the build writes into checks.json. These helpers build the
 // smallest object that exercises one rule, so a failure names the rule and nothing else.
 const para = (text) => ({ kind: 'p', chars: charCount(text), text });
-const sec = (blocks, extra = {}) => ({ id: 's1-1', num: '1.1', title: 'A section', file: '01-a.md', blocks, calc: [], readouts: [], ...extra });
+const sec = (blocks, extra = {}) => ({ id: 's1-1', num: '1.1', title: 'A section', file: '01-a.md', blocks, calc: [], readouts: [], verdicts: [], ...extra });
 const defaults = await loadTeachingConfig();
 
 function run(sections, { quiz = [], project = {}, config = defaults, slideText = null } = {}) {
@@ -191,10 +191,10 @@ test('lexicon fails a level:"fail" phrase and reports a level:"warn" phrase with
   assert.equal(w.ok, null);
   assert.match(w.msg, /uses “值得注意的是”/);
   assert.match(warn.headline, /warning/);
-  // The headline counts checks, so the ⚠ item must not be counted as one: "12 checks passed, 1
-  // warning(s)" for 11 checks + 1 warning reads as 12 checks and hides that only 11 ran.
-  assert.equal(warn.items.length, 12);
-  assert.equal(warn.headline, '11 checks passed, 1 warning(s)');
+  // The headline counts checks, so the ⚠ item must not be counted as one: "13 checks passed, 1
+  // warning(s)" for 12 checks + 1 warning reads as 13 checks and hides that only 12 ran.
+  assert.equal(warn.items.length, 13);
+  assert.equal(warn.headline, '12 checks passed, 1 warning(s)');
 
   // A clean sentence matches nothing.
   const ok = run([sec([para('分母不能是零，所以這裡先假設它不為零。')])]);
