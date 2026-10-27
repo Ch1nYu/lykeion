@@ -40,7 +40,7 @@ Write natural Traditional Chinese (Taiwan), the way a good teacher talks — not
 - Every number quiz item has a `calc`. Choice items whose options are numbers: compute the right option with a `calc` too.
 - Round consistently: 3 decimals unless the slides use another precision; state the precision in the question.
 - Every decimal or percentage in your prose is a `calc` expect or a Lab readout at its default inputs in the same section, at the precision written (`99.95 %` for a readout of 0.9995). A figure the slides state that this site does not compute is quoted as `<q>90%</q>`, with the true value said in the prose if it differs; the `proseNumbers` rule fails the rest.
-- Point at another section as `§3.7`, never a bare `3.7`: the rule reads a bare section number as a decimal and fails it.
+- Point at another section as `§3.7`, never a bare `3.7`: the rule reads a bare section number as a decimal and fails it. The build fails a `§` that names no `##` section (or chapter, `§3`) of the site, and one that names a numbered `###` heading, which the reader cannot open: cite the `##` section it sits in. Another work's section goes in an erratum's `ref` or inside `<q>…</q>`.
 
 ## Code listings
 

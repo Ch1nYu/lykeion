@@ -65,6 +65,7 @@ export async function build(dir, opts = {}) {
   const teachingQuiz = [];
   // Every section number in the site, so a quiz `sec` pointing at another chapter's section is caught.
   const allSectionNums = chapters.flatMap((ch) => splitSections(ch).filter((s) => s.num).map((s) => s.num));
+  const refs = sectionRefTargets(chapters, allSectionNums);
   for (const ch of chapters) errors.push(...rawTextErrors(ch.file, ch.raw), ...yamlEscapeErrors(ch.meta, ch.front, `${ch.file} front matter`));
   for (const ch of chapters) {
     const sections = splitSections(ch);
@@ -75,7 +76,7 @@ export async function build(dir, opts = {}) {
     out += `<div class="ch-head"><span class="ch-n">${esc(String(chNum).padStart(2, '0'))}</span><h2>${esc(ch.meta.title)}</h2>${ch.meta.subtitle ? `<span class="src">${esc(ch.meta.subtitle)}</span>` : ''}</div>\n`;
     for (const sec of sections) {
       const where = `${ch.file}${sec.num ? ` §${sec.num}` : ''}`;
-      const ctx = { errors, where, sec, secs: sections, allSectionNums, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [] } };
+      const ctx = { errors, where, sec, secs: sections, allSectionNums, refs, chapter: ch, levels, levelIndex, chLevels, checks, labsUsed, labSeq, labUses, project, S, quizText: teachingQuiz, teachingRules, formulaSeq: { n: 0 }, maths, teach: { calc: [], readouts: [] } };
       const md = createMarkdown(ctx);
       md.renderer.rules.fence = (tokens, i) => renderFence(tokens[i], ctx, () => labCount++);
       const tokens = md.parse(sec.body, {});
@@ -84,6 +85,7 @@ export async function build(dir, opts = {}) {
       const rendered = md.renderer.render(tokens, md.options, ctx);
       const body = sec.id && sec.num ? headingIds(rendered, sec.id) : rendered;
       for (const leak of literalMarkers(body)) errors.push(`${where}: literal ${leak} left in prose — emphasis did not close (check for a marker next to punctuation)`);
+      errors.push(...sectionRefErrors(body, where, refs));
       if (!sec.num) { out += `<div class="prose">${body}</div>\n`; continue; }
       teachingSections.push({ id: sec.id, num: sec.num, title: sec.title, file: ch.file, source: ch.meta.source || null, pages: sec.pages || null, blocks: collectBlocks(tokens), calc: ctx.teach.calc, readouts: ctx.teach.readouts });
       sectionCount++;
@@ -234,6 +236,44 @@ export function yamlEscapeErrors(value, src, where) {
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k);
   };
   walk(value, '');
+  return errs;
+}
+
+// ---------- § references ----------
+// A `§4.5` in the text promises a section the reader can open. What can be opened is a `##` section
+// (or a whole chapter, `§4`); a numbered `###` heading inside a section is not one, and a number
+// nothing carries is a dangling reference. Another work's section is cited in an erratum's `ref`, in
+// code, or quoted with <q>…</q>, which this check skips.
+function sectionRefTargets(chapters, sectionNums) {
+  const sub = new Map(); // a `###` heading's number → the section it sits in
+  for (const ch of chapters) {
+    for (const s of splitSections(ch)) {
+      let inFence = false;
+      for (const line of s.body.split('\n')) {
+        if (/^(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+        const m = !inFence && /^#{3,6}\s+(\d+(?:\.\d+)+)\.?\s/.exec(line);
+        if (m && s.num && !sub.has(m[1])) sub.set(m[1], s.num);
+      }
+    }
+  }
+  const chapterNums = chapters.map((ch) => ch.meta.chapter).filter((n) => n !== undefined && n !== null).map(String);
+  return { sections: new Set(sectionNums), chapters: new Set(chapterNums), sub };
+}
+
+export function sectionRefErrors(html, where, refs) {
+  if (!refs) return [];
+  // A Lab's sentences sit in its JSON parameters, where `<` is written \u003c.
+  const text = String(html).replace(/\\u003c/g, '<').replace(/<(cite|code|pre|q)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ');
+  const errs = [];
+  const seen = new Set();
+  for (const [, num] of text.matchAll(/§\s*(\d+(?:\.\d+)*)/g)) {
+    if (seen.has(num) || refs.sections.has(num) || (!num.includes('.') && refs.chapters.has(num))) continue;
+    seen.add(num);
+    const under = refs.sub.get(num);
+    errs.push(under
+      ? `${where}: §${num} is a ### heading inside §${under}, not a section the reader can open — cite §${under}, or make ${num} a ## section`
+      : `${where}: §${num} names no section of this site — fix the number; another work's section goes in an erratum's ref or inside <q>…</q>`);
+  }
   return errs;
 }
 
@@ -757,6 +797,7 @@ function addQuiz(items, levelArg, ctx, md) {
     const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: secId, pages: q.pages || ctx.sec.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);
+    ctx.errors.push(...sectionRefErrors([item.q, item.ex, ...(item.o || [])].join(' '), w, ctx.refs));
     ctx.levels[li].qs.push(item);
     if (num && q.calc !== undefined) ctx.checks.push({ where: w, kind: 'quiz', expr: String(q.calc), expect: q.a, tol: Math.max(Number(q.tol ?? 0), 1e-9) });
     if (num && q.calc === undefined) ctx.checks.push({ where: w, kind: 'quiz-missing-calc', expect: q.a });
