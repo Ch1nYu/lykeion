@@ -14,7 +14,7 @@ Use only the files that guide lists under Inputs. Do not ask the author question
 
 For one reviewer per chapter, add one line after the last: `Scope: check only content/<file> and the pages it cites; your Checked list covers that chapter only.` Give each such reviewer its own `{RESULT}` — `<review>-<chapter>.md`, e.g. `teaching-review-03.md`. `lykeion verify` reads every part beside the merged file as one review (any part that fails fails the gate), so the parts need no merging by hand.
 
-For the visual review, the same message works: the guide it points at says to run `lykeion shots <project>` first when the images are missing or stale, so the reviewer captures the pictures before judging them.
+For the visual review, the same message works: the guide it points at says to run `lykeion shots <project>` first when the images are missing or stale, so the reviewer captures the pictures before judging them. A long site costs a reviewer more images than it can look at; give each chapter its own visual reviewer with the `Scope:` line, and it captures only that chapter (`lykeion shots <project> --scope <chapter> --segment`).
 
 | Placeholder | Step 7 (source check) | Step 8 (teaching review) | Step 9 (visual review) |
 |---|---|---|---|

@@ -160,7 +160,7 @@ test('a chapter taller than 16384px is captured to its last line', async (t) => 
   }
 
   // The summary counts files that exist and says a view was split, so a reader is not surprised by p2.
-  const onDisk = (await readdir(res.outDir)).length;
+  const onDisk = (await readdir(res.outDir)).filter((f) => f.endsWith('.png')).length;
   assert.equal(res.files.length, onDisk, 'every file it counts is on disk');
   assert.match(res.message, new RegExp(`\\b${onDisk}\\b`));
   assert.match(res.message, /split into parts/i, 'the summary says a view came in parts');
@@ -182,7 +182,7 @@ test('shots writes one full-page PNG per chapter, theme and viewport', async (t)
   const want = slugs.flatMap((s) => ['light', 'dark'].flatMap((theme) => Object.keys(WIDTHS).map((vp) => `${s}.${theme}.${vp}.png`)));
 
   assert.equal(res.outDir, join(dir, 'shots'), 'the default output is <project>/shots');
-  assert.deepEqual((await readdir(res.outDir)).sort(), want.sort(), 'exactly the expected files, nothing else');
+  assert.deepEqual((await readdir(res.outDir)).sort(), [...want, 'index.md'].sort(), 'exactly the expected files and the index, nothing else');
   assert.equal(res.files.length, want.length);
   assert.match(res.message, new RegExp(`\\b${want.length}\\b`), 'the summary line counts the images');
   assert.ok(res.message.includes(res.outDir), 'the summary line names the output dir');
@@ -234,9 +234,74 @@ test('--out sends the PNGs there and leaves the default shots/ alone', async (t)
   assert.equal(res.ok, true, res.message);
   assert.equal(res.outDir, out);
   assert.deepEqual((await readdir(out)).sort(), [
-    '01-probe.dark.desktop.png', '01-probe.dark.mobile.png', '01-probe.light.desktop.png', '01-probe.light.mobile.png',
+    '01-probe.dark.desktop.png', '01-probe.dark.mobile.png', '01-probe.light.desktop.png', '01-probe.light.mobile.png', 'index.md',
   ]);
   await assert.rejects(stat(join(dir, 'shots')), /ENOENT/, 'the default output dir was not touched');
+});
+
+// The index tells a reviewer which image holds which section, so a finding can be traced to its image
+// and a reviewer can go straight to the part that holds a section.
+test('index.md lists every image with the sections it shows', async (t) => {
+  const dir = await sampleCopy();
+  const res = await shots(dir);
+  if (res.skipped) {
+    t.skip('no browser available');
+    return;
+  }
+  const index = await readFile(join(res.outDir, 'index.md'), 'utf8');
+  for (const f of res.files) assert.ok(index.includes(`| ${f.split('/').at(-1)} |`), `index.md lists ${f}`);
+  assert.match(index, /^## 01-conditional$/m);
+  assert.match(index, /\| 01-conditional\.light\.mobile\.png \| chapter head; §1\.1 /);
+  assert.match(res.message, /index\.md/);
+});
+
+// --quick is for checking a fix on the first screen: three viewport-sized images per chapter.
+test('--quick writes each chapter\'s first screen in light/mobile, light/desktop and dark/mobile', async (t) => {
+  const dir = await sampleCopy();
+  const res = await run([dir, '--quick']);
+  if (res.skipped) {
+    t.skip('no browser available');
+    return;
+  }
+  const pngs = (await readdir(res.outDir)).filter((f) => f.endsWith('.png')).sort();
+  assert.deepEqual(pngs, ['01-conditional', '02-binomial'].flatMap((s) => [`${s}.dark.mobile.top.png`, `${s}.light.desktop.top.png`, `${s}.light.mobile.top.png`]).sort());
+  for (const f of pngs) {
+    const { w, h } = await png(join(res.outDir, f));
+    const vp = f.includes('.mobile.') ? 'mobile' : 'desktop';
+    assert.equal(w, WIDTHS[vp]);
+    assert.equal(h, HEIGHTS[vp], `${f} is one screen`);
+  }
+  assert.match(await readFile(join(res.outDir, 'index.md'), 'utf8'), /not enough for a full review/);
+});
+
+// One visual reviewer per chapter gets only its chapter; a scope that names nothing is an error.
+test('--scope captures only the named chapters, by stem or number', async (t) => {
+  const dir = await sampleCopy();
+  await assert.rejects(run([dir, '--scope', '07'], { launch: async () => null }), /--scope "07" matches no chapter \(chapters: 01-conditional, 02-binomial\)/);
+  const res = await run([dir, '--scope', '2', '--quick']);
+  if (res.skipped) {
+    t.skip('no browser available');
+    return;
+  }
+  const pngs = (await readdir(res.outDir)).filter((f) => f.endsWith('.png'));
+  assert.equal(pngs.length, 3);
+  assert.ok(pngs.every((f) => f.startsWith('02-binomial.')), pngs.join(', '));
+});
+
+// --segment cuts every view, short or long, into reading-height parts that are read in order.
+test('--segment cuts every view into parts of one and a half screens', async (t) => {
+  const dir = await tiny();
+  const res = await run([dir, '--segment']);
+  if (res.skipped) {
+    t.skip('no browser available');
+    return;
+  }
+  for (const [vp, h] of Object.entries(HEIGHTS)) {
+    const parts = (await readdir(res.outDir)).filter((f) => f.startsWith(`01-probe.light.${vp}.p`)).sort();
+    assert.ok(parts.length > 1, `${vp} is cut into parts (${parts.join(', ')})`);
+    for (const f of parts.slice(0, -1)) assert.equal((await png(join(res.outDir, f))).h, Math.round(h * 1.5), `${f} is one and a half screens`);
+  }
+  await assert.rejects(run([dir, '--segment', '--quick']), /cannot be combined/);
 });
 
 // The CLI turns a skipped render into a failure, so a script that runs `lykeion shots` cannot read a

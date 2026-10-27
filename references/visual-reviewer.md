@@ -10,7 +10,9 @@ You did not write the content. If you were started with the message in `reviewer
 
 ## Inputs
 
-- `<project>/shots/` — one full-page PNG per chapter, per theme, per viewport: `<chapter>.<light|dark>.<mobile|desktop>.png`. A chapter too tall for one capture comes in numbered parts instead — `<chapter>.<light|dark>.<mobile|desktop>.p1.png`, `.p2.png`, … — and every part has to be looked at, in order: the parts are one page cut into pieces, so a fault can straddle a cut or sit only in the last part. If the folder is missing, or its files are older than `<project>/<output>.html`, run `lykeion shots <project>` first and review the fresh images. Do not review a page you have not seen rendered.
+- `<project>/shots/` — one full-page PNG per chapter, per theme, per viewport: `<chapter>.<light|dark>.<mobile|desktop>.png`. A chapter too tall for one capture comes in numbered parts instead — `<chapter>.<light|dark>.<mobile|desktop>.p1.png`, `.p2.png`, … — and every part has to be looked at, in order: the parts are one page cut into pieces, so a fault can straddle a cut or sit only in the last part. In parts, the top bar, the sidebar and the floating buttons appear once, in the first part, as on a reader's first screen; their absence further down is how the parts are captured, not a fault of the page. If the folder is missing, or its files are older than `<project>/<output>.html`, run `lykeion shots <project> --segment` first (add `--scope <chapter>` when the brief gives you one chapter) and review the fresh images. Do not review a page you have not seen rendered.
+- `<project>/shots/index.md` — every image of the last run with the sections it shows. Use it to name the section behind a finding, and to check that the run covers your chapters in both themes and both viewports: an index that says "first screen only" comes from `lykeion shots --quick` and is not enough for a review.
+- Images too tall to take in at once: run `lykeion shots <project> --segment` instead of cutting them up yourself. It writes every view as numbered parts of one and a half screens, each small enough to look at whole.
 - The built `<project>/<output>.html` — to find the section behind a finding, and to check anything the still images cannot show (a hover, a Lab mid-move).
 - `<project>/content/*.md` — only to know what a chapter is trying to say, so you can judge whether the visual says it.
 - Never an earlier review: do not open a `source-check*.md`, `teaching-review*.md` or `visual-review*.md` already in the folder, or anything under `_work/reviews-*/`. They are another reviewer's verdict on an older build; this review must be your own. If one is in the way, ignore it — your result replaces it.
@@ -60,4 +62,4 @@ Reviewer: independent
 
 The header (above the first `##`) carries `STATUS:` and `Reviewer:` (`independent`, or `self (reason)`; a `self` without a reason fails the gate). `STATUS: pass` only when no **must-fix** finding is left.
 
-Done when every chapter of the site is listed under **Checked**, in both themes and both viewports.
+Done when every chapter of the site is listed under **Checked**, in both themes and both viewports: `- <file>.md: light+mobile, light+desktop, dark+mobile, dark+desktop`. `lykeion verify` fails a list that leaves out a chapter or a pair, whatever `STATUS` says.
