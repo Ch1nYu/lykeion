@@ -19,8 +19,9 @@
   --fs-lg:1.5rem; --fs-ch:clamp(3rem,7vw,4.6rem); --fs-title:clamp(1.8rem,3.4vw,2.4rem);
   --fs-stars:2.6rem;
   --side:300px;
-  /* reading rhythm: one measure for prose, two gaps for block spacing */
+  /* reading rhythm: one measure for prose, two gaps for block spacing, one column for the sheet */
   --measure:34em;
+  --col:1000px;
   --gap-sec:104px;
   --gap-block:40px;
   --top-h:0px;
@@ -114,8 +115,10 @@ a{color:var(--accent); text-underline-offset:3px}
 .confirm div{display:flex; gap:8px}
 .scrim{display:none}
 main{min-width:0; padding-block:40px 120px; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px))}
-.sheet{max-width:1000px; margin:0 auto}
-.prose{max-width:44rem}
+/* One reading column. The sheet is the column, and prose, formula cards, tables, Labs and the chapter
+   pager all fill it, so their left and right edges line up; a paragraph keeps its own --measure, so a
+   wider column does not make a longer line. */
+.sheet{max-width:var(--col); margin:0 auto}
 
 /* ---------- floating actions ---------- */
 .fab{position:fixed; right:max(18px,env(safe-area-inset-right,0px)); bottom:max(18px,env(safe-area-inset-bottom,0px)); z-index:55; display:flex; flex-direction:column; gap:10px}
@@ -216,7 +219,7 @@ kbd{font-family:var(--f-mono)}
 .erratum cite{display:block; font-style:normal; font-family:var(--f-body); font-size:var(--fs-sm); color:var(--muted); margin-top:6px}
 
 /* the intuition card that comes before a formula, and the one-line conclusion that closes an idea */
-.analogy{display:grid; grid-template-columns:minmax(0,1fr); gap:6px; background:var(--card); border:1px solid var(--rule); border-radius:16px; padding:18px 22px; margin-block:calc(var(--gap-block) * .8); max-width:40em}
+.analogy{display:grid; grid-template-columns:minmax(0,1fr); gap:6px; background:var(--card); border:1px solid var(--rule); border-radius:16px; padding:18px 22px; margin-block:calc(var(--gap-block) * .8)}
 .analogy > .tag{font-family:var(--f-display); font-size:var(--fs-body); color:var(--ink); letter-spacing:0}
 .analogy .body{color:var(--ink-2); font-size:var(--fs-body); line-height:1.85}
 .analogy .body > :first-child{margin-top:0}
@@ -357,9 +360,18 @@ input[type=range]:active::-moz-range-thumb{transform:scale(1.15)}
 input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 5px var(--accent-soft)}
 input[type=number]{font-family:var(--f-body); font-size:var(--fs-md); width:5.2em; padding:5px 8px; border:1px solid var(--rule-strong); border-radius:8px; background:var(--card); color:var(--ink); font-variant-numeric:tabular-nums}
 .readouts{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px}
-/* A readout cell is as wide as its column, so a long label wraps inside 150px and the whole Lab grows
-   a line taller while a Lab is being driven. One column on a phone gives every value the full width. */
-@media (max-width:600px){.readouts{grid-template-columns:minmax(0,1fr)}}
+/* Two columns on a phone keep a cluster of values visible beside the Lab's bars and verdict, instead
+   of six readouts costing six rows of scrolling. */
+@media (max-width:600px){
+  .readouts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* An odd count would leave the last tile alone with half a row empty; let it take the row. */
+  .readouts > .ro:last-child:nth-child(odd){grid-column:1/-1}
+}
+/* Six to eight tiles would wrap unevenly (5 + 1, 5 + 2) under auto-fill; balance them into equal rows. */
+@media (min-width:601px){
+  .readouts:has(> .ro:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
+  .readouts:has(> .ro:nth-child(7):last-child),.readouts:has(> .ro:nth-child(8):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
+}
 .ro{background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column}
 .ro span{font-size:var(--fs-xs); color:var(--muted); font-family:var(--f-body); letter-spacing:.03em}
 /* A readout keeps its width across values: tabular digits plus room for the longest short value. */

@@ -233,7 +233,7 @@ Every number a worked example states must have a `calc` entry, so `verify` can r
 
 Common keys: `tag` (badge, e.g. `LAB A`), `title`, `hint`. Any `text` or `note` value is rendered as inline Markdown with maths.
 A `label` is plain text, not maths: write 「向量維度 d」 or 「除以根號 d」, not `d_k` or `√d`. The `plainMath` rule reads every `label` and fails the ones that type maths (a lone letter with digits or subscript digits, such as `x1` or `A₁`, is allowed).
-Labs break out of the reading column, so put them at the top level of a section (not inside a list).
+Labs fill the reading column like any other block, so put them at the top level of a section (not inside a list): the build closes the prose around a Lab.
 
 **`slider-calc`** — sliders in, computed readouts out.
 
