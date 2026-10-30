@@ -252,7 +252,7 @@ verdict: [{ when: "pa == 0.3", text: "P(A|B) = P(A)，此時 A 與 B 獨立。" 
 
 A bar with `min < 0` is drawn from a zero line: negative values grow left in the second series colour, positive values grow right, and the number beside it keeps its sign. Use it for any quantity that can be negative (a difference, a dot product, a correlation) instead of wrapping the expression in `abs()`, which makes the bar disagree with the readout.
 
-`active` takes the same kind of expression as `expr` and marks the bar whose expression is truthy for the current inputs: its fill switches to another series colour (the second series colour, or the accent on a negative signed bar, which already fills with the second), its track takes the accent tint and border, and its label and number go accent and underlined (never bold, which could wrap a label). Use it when the bars are a fixed distribution and a slider picks one of them — otherwise every bar looks alike and the reader cannot see the choice:
+`active` takes the same kind of expression as `expr` and marks the bar whose expression is truthy for the current inputs: its fill switches to another series colour (the second series colour, or the accent on a negative signed bar, which already fills with the second), its track keeps the neutral background but takes the accent border, and its label and number go accent and underlined (never bold, which could wrap a label). Use it when the bars are a fixed distribution and a slider picks one of them — otherwise every bar looks alike and the reader cannot see the choice:
 
 ```yaml
 inputs: [{ id: k, label: k, min: 0, max: 10, step: 1, value: 2 }]
