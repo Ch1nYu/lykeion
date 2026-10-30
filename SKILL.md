@@ -1,6 +1,7 @@
 ---
 name: lykeion
 description: Lecture slides → a verified, interactive single-file teaching site (Lecture Site) with Labs, quizzes and source-checked content. Use when the user wants course slides or lecture PDFs turned into a study / teaching web page (做成講堂、教學網頁、講義網站), or wants a chapter added to or rewritten in an existing Lecture Site (a folder with lykeion.json).
+disable-model-invocation: true
 ---
 
 # lykeion
