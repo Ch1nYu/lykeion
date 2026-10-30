@@ -18,7 +18,11 @@ Lykeion.registerLab('stepper', function (root, p, api) {
   var prev = H('button', { type: 'button', class: 'btn' }, '←');
   prev.setAttribute('aria-label', '上一步');
   var next = H('button', { type: 'button', class: 'btn primary' }, '下一步');
-  controls.appendChild(seg); controls.appendChild(prev); controls.appendChild(next);
+  // The two actions travel as one item, so a bar too narrow for the whole row moves them together
+  // instead of dropping `下一步` onto a row of its own.
+  var nav = H('div', { class: 'stepnav' });
+  nav.appendChild(prev); nav.appendChild(next);
+  controls.appendChild(seg); controls.appendChild(nav);
   root.appendChild(controls);
 
   // Only the states the author named get a legend entry: a label is content, not a default.

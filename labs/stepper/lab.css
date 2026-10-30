@@ -8,3 +8,13 @@
    Defaulted column with no sign. min-width:0 lets the cell shrink so the scroll box gets the overflow. */
 .step-view > *{min-width:0}
 .chip small{font-size:.75rem; color:var(--muted)}
+/* The two actions are one flex item of the control bar, so a bar too narrow for the whole row moves
+   them together rather than dropping `下一步` onto a row of its own. */
+.stepnav{display:flex; align-items:center; gap:10px}
+/* A phone has no room for the step chips and the two actions on one line. Left to wrap on their own,
+   the chips take the first row with `←` pushed to its far right and `下一步` drops alone to a second,
+   so the pair that walks the steps is split across rows. Give the chips the row to themselves and let
+   the two actions share the next one; from 481px up the bar keeps the single row it has always had. */
+@media (max-width:480px){
+  .lab[data-lab="stepper"] .controls > .seg{flex:1 0 100%}
+}

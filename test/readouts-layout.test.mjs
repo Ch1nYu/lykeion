@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from '../src/build.mjs';
 import { launchBrowser } from '../src/browser.mjs';
-import { sampleCopy } from './.project.mjs';
+import { sampleCopy, tiny } from './.project.mjs';
 
 // The readout grid and the reading column are layout promises, not content: only a measurement of the
 // built page can tell whether they hold. The fixture is built once for the file and every test reads
@@ -29,10 +29,10 @@ const siteUrl = async () => {
 
 // Show a chapter: a Lab mounts the first time its view is shown, so a hidden view has no readouts to
 // measure. `noScroll` keeps the router's smooth scroll out of the way.
-const open = async (t, width, view) => {
+const open = async (t, width, view, target) => {
   if (!browser) { t.skip('no browser available'); return null; }
   const page = await browser.newPage({ viewport: { width, height: 900 }, colorScheme: 'light' });
-  await page.goto(await siteUrl(), { waitUntil: 'domcontentloaded' });
+  await page.goto(target || (await siteUrl()), { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(400);
   await page.evaluate((id) => window.Lykeion.show(id, { noScroll: true }), view);
   await page.waitForTimeout(200);
@@ -60,28 +60,104 @@ const readoutGrid = (page, tag) => page.evaluate((tag) => {
 
 test('six readouts make a 3×2 block on desktop and a 2×3 block on a phone', async (t) => {
   // Six tiles under auto-fill break 5 + 1 at 1280 (the orphan card the visual review found), and one
-  // per row at 375 costs six rows of scrolling for six numbers that are meant to be compared.
-  const desktop = await open(t, 1280, 'ch2');
+  // per row at 375 costs six rows of scrolling for six numbers that are meant to be compared. The
+  // sample's own six-readout Lab became a stepper, so this probe builds one: a slider whose six
+  // readouts are the only thing measured.
+  const dir = await tiny([
+    '```lab slider-calc',
+    'tag: LAB SIX',
+    'title: 六個讀值',
+    'inputs: [{ id: x, label: x, min: 0, max: 1, step: 0.1, value: 0.5 }]',
+    'outputs:',
+    '  - { label: 甲, expr: "x" }',
+    '  - { label: 乙, expr: "x * 2" }',
+    '  - { label: 丙, expr: "x + 1" }',
+    '  - { label: 丁, expr: "x / 2" }',
+    '  - { label: 戊, expr: "x * x" }',
+    '  - { label: 己, expr: "1 - x" }',
+    '```',
+  ].join('\n'));
+  const probeUrl = pathToFileURL(join(dir, 'probe.html')).href;
+
+  const desktop = await open(t, 1280, 'ch1', probeUrl);
   if (!desktop) return;
   try {
-    const d = await readoutGrid(desktop, 'LAB D');
-    assert.ok(d, 'LAB D is on the page');
-    assert.equal(d.n, 6, 'LAB D shows six readouts');
+    const d = await readoutGrid(desktop, 'LAB SIX');
+    assert.ok(d, 'LAB SIX is on the page');
+    assert.equal(d.n, 6, 'LAB SIX shows six readouts');
     assert.equal(d.cols, 3, `desktop: six readouts sit in three columns, got ${d.cols}`);
     assert.equal(d.rows, 2, `desktop: six readouts sit in two rows, got ${d.rows}`);
   } finally {
     await desktop.close();
   }
 
-  const mobile = await open(t, 375, 'ch2');
+  const mobile = await open(t, 375, 'ch1', probeUrl);
   if (!mobile) return;
   try {
-    const m = await readoutGrid(mobile, 'LAB D');
-    assert.ok(m, 'LAB D is on the page');
+    const m = await readoutGrid(mobile, 'LAB SIX');
+    assert.ok(m, 'LAB SIX is on the page');
     assert.equal(m.cols, 2, `phone: six readouts sit in two columns, got ${m.cols}`);
     assert.equal(m.rows, 3, `phone: six readouts sit in three rows, got ${m.rows}`);
   } finally {
     await mobile.close();
+  }
+});
+
+// A row that stops short of the grid's right edge reads as an unfinished layout: the tiles end at the
+// halfway mark and a band of card background runs beside them. The promise is about the picture, so it
+// is measured at the two ends of the row — the first tile starts where the grid starts, the last ends
+// where the grid ends — rather than by a declared column count.
+const assertRowFills = (g, label) => {
+  assert.equal(g.rows, 1, `${label}: the tiles share one row, got ${g.rows}`);
+  const first = g.cells[0];
+  const last = g.cells[g.cells.length - 1];
+  assert.ok(Math.abs(first.left - g.left) <= 2, `${label}: the first tile starts at the grid's left edge (${first.left} vs ${g.left})`);
+  assert.ok(Math.abs(last.right - g.right) <= 2, `${label}: the last tile ends at the grid's right edge (${last.right} vs ${g.right})`);
+};
+
+test('three readouts fill their row on desktop', async (t) => {
+  // Under auto-fill the reading width resolves to five tracks, so LAB A's three tiles filled only the
+  // first three of them and left a band of card to their right.
+  const page = await open(t, 1280, 'ch1');
+  if (!page) return;
+  try {
+    const g = await readoutGrid(page, 'LAB A');
+    assert.ok(g, 'LAB A is on the page');
+    assert.equal(g.n, 3, 'LAB A shows three readouts');
+    assert.equal(g.cols, 3, `desktop: three readouts sit in three columns, got ${g.cols}`);
+    assertRowFills(g, 'desktop');
+  } finally {
+    await page.close();
+  }
+});
+
+test('a single readout fills its row on desktop', async (t) => {
+  // LAB E has one readout: in one of five tracks it read as a lone card, not as the Lab's one answer.
+  const page = await open(t, 1280, 'ch2');
+  if (!page) return;
+  try {
+    const g = await readoutGrid(page, 'LAB E');
+    assert.ok(g, 'LAB E is on the page');
+    assert.equal(g.n, 1, 'LAB E shows one readout');
+    assertRowFills(g, 'desktop');
+  } finally {
+    await page.close();
+  }
+});
+
+test('eight readouts make a 4×2 block on desktop', async (t) => {
+  // LAB G's two series are meant to be compared down the columns, so the eight tiles keep the 4-per-row
+  // balance the six-tile rule gives; filling the row must not turn them into a 5 + 3 or a 6 + 2.
+  const page = await open(t, 1280, 'ch2');
+  if (!page) return;
+  try {
+    const g = await readoutGrid(page, 'LAB G');
+    assert.ok(g, 'LAB G is on the page');
+    assert.equal(g.n, 8, 'LAB G shows eight readouts');
+    assert.equal(g.cols, 4, `desktop: eight readouts sit in four columns, got ${g.cols}`);
+    assert.equal(g.rows, 2, `desktop: eight readouts sit in two rows, got ${g.rows}`);
+  } finally {
+    await page.close();
   }
 });
 

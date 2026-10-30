@@ -367,8 +367,17 @@ input[type=number]{font-family:var(--f-body); font-size:var(--fs-md); width:5.2e
   /* An odd count would leave the last tile alone with half a row empty; let it take the row. */
   .readouts > .ro:last-child:nth-child(odd){grid-column:1/-1}
 }
-/* Six to eight tiles would wrap unevenly (5 + 1, 5 + 2) under auto-fill; balance them into equal rows. */
+/* `auto-fill` reserves as many tracks as the reading width allows — five at 1280 — and a row that holds
+   fewer tiles than that stops short of the grid's right edge: three tiles end at the halfway mark with
+   a band of card beside them (LAB A), and a single tile is one fifth of the row (LAB E). A row with
+   exactly one column per tile fills the width it is given, and equal 1fr columns keep the tiles equal.
+   Six to eight tiles take the balanced rules below instead. */
 @media (min-width:601px){
+  .readouts:has(> .ro:last-child:nth-child(1)){grid-template-columns:minmax(0,1fr)}
+  .readouts:has(> .ro:last-child:nth-child(2)){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readouts:has(> .ro:last-child:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+  .readouts:has(> .ro:last-child:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
+  .readouts:has(> .ro:last-child:nth-child(5)){grid-template-columns:repeat(5,minmax(0,1fr))}
   .readouts:has(> .ro:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
   .readouts:has(> .ro:nth-child(7):last-child),.readouts:has(> .ro:nth-child(8):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 }
