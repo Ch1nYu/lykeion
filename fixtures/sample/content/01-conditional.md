@@ -17,7 +17,7 @@ source: sample.pdf
 
 令 $P(B)$ 是桌布 B 佔整張桌子的比例；$P(A \cap B)$ 是 A 與 B 重疊、也就是落在桌布裡的那一塊佔整張桌子的比例。用重疊比例除以桌布比例，得到桌布內 A 所佔的比例，這就是條件機率：
 
-```formula BAYES
+```formula CONDITIONAL
 tex: "P(A \\mid B) = \\frac{P(A \\cap B)}{P(B)}"
 parts:
   - { tex: "P(A \\mid B)", say: "左邊是「已知 B 之後」的機率，也就是只低頭看桌布以內的 A。" }
@@ -84,7 +84,7 @@ bars:
 verdict:
   - { when: "pa == 0.3", text: "P(A|B) = P(A) = 0.3，此時 A 與 B 獨立。" }
   - { when: "pa > 0.3", text: "觀察到 B 時，A 的機率較高（正相關）；這表示一起變動，不代表 B 造成 A。" }
-  - { when: "true", text: "觀察到 B 時，A 的機率較低（負相關）；這表示一起變動，不代表 B 造成 A。" }
+  - { when: "true", text: "觀察到 B 時，A 的機率較低（負相關）：兩者變動方向相反，但這不代表 B 造成 A。" }
 ```
 
 ```quiz 條件機率
@@ -128,13 +128,31 @@ hint: 從左邊開始，跟著篩檢例子看分子與分母各代表哪一群�
 
 以篩檢為例，敏感度 0.9 乘上盛行率 0.01，得到真陽性比例 0.009；偽陽率 0.1 乘上健康比例 0.99，得到偽陽比例 0.099；兩者相加是陽性總比例 0.108。
 
+```lab slider-calc
+tag: LAB B
+title: 拉動盛行率，看陽性結果有多可信
+hint: 敏感度與特異度都固定 0.9；拉動盛行率 P(D)，看陽性的人裡真病與偽陽各佔多少
+inputs: [{ id: d, label: "P(D)", min: 0.01, max: 0.3, step: 0.01, value: 0.01 }]
+outputs:
+  - { label: 真陽比例, expr: "0.9 * d" }
+  - { label: 偽陽比例, expr: "0.1 * (1 - d)" }
+  - { label: "P(D|+)", expr: "0.9 * d / (0.9 * d + 0.1 * (1 - d))" }
+bars:
+  - { label: 陽性中真的有病, expr: "0.9 * d / (0.9 * d + 0.1 * (1 - d))", max: 1 }
+  - { label: 陽性中其實沒病, expr: "0.1 * (1 - d) / (0.9 * d + 0.1 * (1 - d))", max: 1 }
+verdict:
+  - { when: "d <= 0.01", text: "盛行率 1%：陽性的人裡只有約 8.3% 真的有病，其餘約 91.7% 是偽陽。" }
+  - { when: "d >= 0.1", text: "疾病變常見後，真陽追上偽陽，陽性結果才比較可信。" }
+  - { when: "true", text: "盛行率還低時，沒病的人太多，偽陽人數仍壓過真陽。" }
+```
+
 ```erratum
 text: 講義寫「事前機率與事後機率永遠不會相同」，這句話是錯的：$A$ 與 $B$ 獨立時，$P(A \mid B)$ 就等於 $P(A)$；只有在不獨立時兩者才不同。
 ref: Ross, *A First Course in Probability*, 10th ed., §3.4
 ```
 
 ```lab stepper
-tag: LAB B
+tag: LAB C
 title: 一步一步算出一個事後機率
 hint: 想知道檢驗陽性時真的生病的機率
 legend: { good: 想算的那一項, muted: 已算過的部分 }

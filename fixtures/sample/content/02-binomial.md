@@ -25,7 +25,32 @@ parts:
 hint: 先看有幾種排法，再看每種排法的機率
 ```
 
-其中 $\binom{n}{k}$ 數的是「哪幾次成功」，$p^{k}(1-p)^{n-k}$ 是其中一種排法的機率。以 $n=10$、$k=3$、$p=0.3$ 為例，$\binom{10}{3}\times0.3^3\times0.7^7\approx0.267$。換一組數字：$n=10$、$k=2$、$p=0.5$ 時是 $45/1024\approx0.044$。
+把每個 k 對應到的機率列成一張表、或畫成一排長條，這張表就叫**機率質量函數**；上面的式子是它的公式，後面 LAB E 的長條圖就是這張表。其中 $\binom{n}{k}$ 數的是「哪幾次成功」，$p^{k}(1-p)^{n-k}$ 是其中一種排法的機率。以 $n=10$、$k=3$、$p=0.3$ 為例，$\binom{10}{3}\times0.3^3\times0.7^7\approx0.267$。換一組數字：$n=10$、$k=2$、$p=0.5$ 時是 $45/1024\approx0.044$。
+
+```lab stepper
+tag: LAB D
+title: 看 C(10,2) 這 45 種排法怎麼來
+hint: 每次試驗結果只有成功或失敗；成功算入 k，失敗算入 n-k
+legend: { good: 成功，計入 k, muted: 失敗，計入 n-k, info: 計數 }
+steps:
+  - label: 一次試驗
+    text: 以抽檢零件為例：先約定「合格」算成功，每個零件合格的機率是 p。每次試驗只有成功或失敗兩種結果。
+    chips:
+      - { text: "合格：成功", state: good, note: "計入 k" }
+      - { text: "不合格：失敗", state: muted, note: "計入 n-k" }
+  - label: 分兩類
+    text: 抽檢 n=10 個零件，結果剛好 k=2 個合格、n-k=8 個不合格。
+    chips:
+      - { text: "成功 k = 2", state: good }
+      - { text: "失敗 n-k = 8", state: muted }
+      - { text: "共 n = 10 次", state: info }
+  - label: 算機率
+    text: 2 個成功可以落在 10 次中的任何位置，有 C(10,2)=45 種排列。p=0.5 時每一種排列的機率都是 $0.5^{2} \times 0.5^{8} = 1/1024$，合起來就是 $45/1024\approx0.044$。
+    chips:
+      - { text: "45 種排列", state: info, note: "C(10,2)" }
+      - { text: "每種機率 1/1024", state: info }
+      - { text: "總機率 0.044", state: good }
+```
 
 ```calc
 - { expr: "binomPmf(10, 2, 0.5)", expect: 0.044, note: "fair coin, exactly two heads in ten" }
@@ -53,25 +78,29 @@ print(round(pmf, 3))  # 0.044
 ```
 
 ```lab slider-calc
-tag: LAB C
+tag: LAB E
 title: 固定 n、p，選不同成功次數 k
-hint: n=10、p=0.5 固定；下方長條是 k=0…10 的完整分布，移動 k 看它落在高峰還是尾巴
+hint: n=10、p=0.5 固定；下方長條是 k=0…10 的完整分布，移動 k 看標出的那一根落在高峰還是尾巴
 inputs:
   - { id: k, label: 成功次數, min: 0, max: 10, step: 1, value: 2 }
 outputs:
   - { label: "P(X=k)", expr: "binomPmf(10, k, 0.5)" }
 bars:
-  - { label: "k=0", expr: "binomPmf(10, 0, 0.5)", max: 0.25 }
-  - { label: "k=1", expr: "binomPmf(10, 1, 0.5)", max: 0.25 }
-  - { label: "k=2", expr: "binomPmf(10, 2, 0.5)", max: 0.25 }
-  - { label: "k=3", expr: "binomPmf(10, 3, 0.5)", max: 0.25 }
-  - { label: "k=4", expr: "binomPmf(10, 4, 0.5)", max: 0.25 }
-  - { label: "k=5", expr: "binomPmf(10, 5, 0.5)", max: 0.25 }
-  - { label: "k=6", expr: "binomPmf(10, 6, 0.5)", max: 0.25 }
-  - { label: "k=7", expr: "binomPmf(10, 7, 0.5)", max: 0.25 }
-  - { label: "k=8", expr: "binomPmf(10, 8, 0.5)", max: 0.25 }
-  - { label: "k=9", expr: "binomPmf(10, 9, 0.5)", max: 0.25 }
-  - { label: "k=10", expr: "binomPmf(10, 10, 0.5)", max: 0.25 }
+  - { label: "k=0", expr: "binomPmf(10, 0, 0.5)", max: 0.25, active: "k == 0" }
+  - { label: "k=1", expr: "binomPmf(10, 1, 0.5)", max: 0.25, active: "k == 1" }
+  - { label: "k=2", expr: "binomPmf(10, 2, 0.5)", max: 0.25, active: "k == 2" }
+  - { label: "k=3", expr: "binomPmf(10, 3, 0.5)", max: 0.25, active: "k == 3" }
+  - { label: "k=4", expr: "binomPmf(10, 4, 0.5)", max: 0.25, active: "k == 4" }
+  - { label: "k=5", expr: "binomPmf(10, 5, 0.5)", max: 0.25, active: "k == 5" }
+  - { label: "k=6", expr: "binomPmf(10, 6, 0.5)", max: 0.25, active: "k == 6" }
+  - { label: "k=7", expr: "binomPmf(10, 7, 0.5)", max: 0.25, active: "k == 7" }
+  - { label: "k=8", expr: "binomPmf(10, 8, 0.5)", max: 0.25, active: "k == 8" }
+  - { label: "k=9", expr: "binomPmf(10, 9, 0.5)", max: 0.25, active: "k == 9" }
+  - { label: "k=10", expr: "binomPmf(10, 10, 0.5)", max: 0.25, active: "k == 10" }
+verdict:
+  - { when: "k == 5", text: "k=5 是高峰（0.246）：成功一半最常見。" }
+  - { when: "k <= 2 || k >= 8", text: "這一根在尾巴：要連續偏向成功或失敗，排法很少，機率很小。" }
+  - { when: "true", text: "這一根在高峰旁邊：離 k=5 越遠，排法越少，長條越短。" }
 ```
 
 ```quiz 二項分布
@@ -117,32 +146,56 @@ parts:
   - { tex: "(X)", say: "X 是 n 次試驗中的成功次數。" }
   - { tex: "=", say: "把各次獨立試驗的變異數加起來。" }
   - { tex: "n", say: "有 n 次獨立的 0/1 記錄，每次的散布都一樣，所以加 n 次。" }
-  - { tex: "p(1-p)", say: "單次記錄的變異數：成功離平均 p 有 1-p 遠、失敗離平均 p 有 p 遠，按機率加權後就是 p(1-p)。" }
+  - { tex: "p(1-p)", say: "單次記錄的變異數：成功離平均 p 有 1-p 遠、失敗離平均 p 有 p 遠；把這兩個距離各自平方、再按機率加權，就是 p(1-p)。" }
 hint: 變異數越大，結果越分散；對變異數開平方得到標準差，單位就回到成功次數
 ```
 
 在同一個 n 下，$p(1-p)$ 在 $p=0.5$ 時最大（$0.5 \times 0.5 = 0.25$），所以這時二項分布的變異數最大。以 $n=10$ 比較：$p=0.5$ 時變異數是 2.5、標準差約 1.58；$p=0.3$ 時變異數是 2.1、標準差約 1.45。標準差和成功次數同單位，可以讀成「結果通常離平均約幾次」。
 
 ```lab slider-calc
-tag: LAB D
-title: 拉動 n，比較幾個成功次數的機率
-hint: 拉動 n，比較 k=3、5、7 在 p=0.5 和 p=0.3 時的機率；這六個讀值不代表完整分布
+tag: LAB F
+title: 拉動 p，看變異數什麼時候最大
+hint: n=10 固定；拉動 p，看 p(1-p) 和變異數怎麼跟著變
+inputs: [{ id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }]
+outputs:
+  - { label: "p(1-p)", expr: "p * (1 - p)" }
+  - { label: "Var(X)", expr: "10 * p * (1 - p)" }
+  - { label: 標準差, expr: "sqrt(10 * p * (1 - p))" }
+bars:
+  - { label: "Var(X)", expr: "10 * p * (1 - p)", max: 2.5 }
+verdict:
+  - { when: "p == 0.5", text: "p(1-p) 在這裡最大（0.25），所以 n 相同時，p=0.5 的結果最散。" }
+  - { when: "p < 0.5", text: "p 越靠近 0，幾乎每次都失敗，成功次數擠在 0 附近，變異數變小。" }
+  - { when: "true", text: "p 越靠近 1，幾乎每次都成功，成功次數擠在 n 附近，變異數也變小。" }
+```
+
+變異數說的是散布；分布的高峰則落在期望值 $np$ 附近。下面固定看 k=3、5、7 三個位置，拉動 n 讓 np 移動：
+
+```lab slider-calc
+tag: LAB G
+title: 拉動 n，看哪一格的機率最大
+hint: 拉動 n，比較 p=0.5 和 p=0.3 兩組讀值，看每組最大的那一格最靠近哪個 np
 inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]
 outputs:
+  - { label: "np, p=0.5", expr: "n * 0.5" }
   - { label: "k=3, p=0.5", expr: "binomPmf(n, 3, 0.5)" }
   - { label: "k=5, p=0.5", expr: "binomPmf(n, 5, 0.5)" }
   - { label: "k=7, p=0.5", expr: "binomPmf(n, 7, 0.5)" }
+  - { label: "np, p=0.3", expr: "n * 0.3" }
   - { label: "k=3, p=0.3", expr: "binomPmf(n, 3, 0.3)" }
   - { label: "k=5, p=0.3", expr: "binomPmf(n, 5, 0.3)" }
   - { label: "k=7, p=0.3", expr: "binomPmf(n, 7, 0.3)" }
+verdict:
+  - { when: "n == 10", text: "n=10：p=0.5 時 k=5 最大（np=5），p=0.3 時 k=3 最大（np=3）。高峰就在期望值附近。" }
+  - { when: "true", text: "每組三格裡最大的，都是最靠近 np 的那個 k。n 變大時 np 往右移，最大的那格也往右換；分布同時攤開，每一格的機率都變小。" }
 ```
 
-要用常態分布近似二項分布，先看成功和失敗兩種結果的期望次數是否都夠大：
+要用常態分布近似二項分布，先看成功和失敗兩種結果的期望次數是否都夠大。兩個期望次數都 ≥ 5 時，分布的兩端才不會被 0 或 n 擋住，長條圖才會接近左右對稱的鐘形。上一節 n=10、p=0.5 的長條圖，兩個期望次數都是 5，左右已經對稱。
 
 ```lab slider-calc
-tag: LAB E
-title: 拉動 n 與 p，看常態近似什麼時候可以用
-hint: 兩個期望次數都要 ≥ 5 是常用經驗法則；本 Lab 只檢查這個判準，不顯示分布或近似誤差
+tag: LAB H
+title: 檢查常態近似的經驗法則
+hint: 拉動 n 與 p；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
 inputs:
   - { id: n, label: n, min: 4, max: 40, step: 1, value: 10 }
   - { id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }
@@ -151,34 +204,9 @@ outputs:
   - { label: "n(1-p)", expr: "n * (1 - p)" }
   - { label: 判準, expr: "n * p >= 5 && n * (1 - p) >= 5 ? 1 : 0", labels: { "1": "符合經驗法則", "0": "未達經驗法則" } }
 verdict:
-  - { when: "n * p < 5", text: "np 小於 5，未符合常用經驗法則；本 Lab 只顯示判準，不代表實際分布形狀。" }
-  - { when: "n * (1 - p) < 5", text: "n(1-p) 小於 5，未符合常用經驗法則；本 Lab 只顯示判準，不代表實際分布形狀。" }
-  - { when: "n * p >= 5 && n * (1 - p) >= 5", text: "兩個期望次數都達到常用經驗門檻；這是篩選條件，不代表近似一定準確，也不是近似誤差的直接測量。" }
-```
-
-```lab stepper
-tag: LAB F
-title: 看 C(10,2) 這 45 種排法怎麼來
-hint: 每次試驗結果只有成功或失敗；成功算入 k，失敗算入 n-k
-legend: { good: 成功，計入 k, muted: 失敗，計入 n-k, info: 計數 }
-steps:
-  - label: 一次試驗
-    text: 以抽檢零件為例：先約定「合格」算成功，每個零件合格的機率是 p。每次試驗只有成功或失敗兩種結果。
-    chips:
-      - { text: "合格：成功", state: good, note: "計入 k" }
-      - { text: "不合格：失敗", state: muted, note: "計入 n-k" }
-  - label: n 次試驗分兩類
-    text: 抽檢 n=10 個零件，結果剛好 k=2 個合格、n-k=8 個不合格。
-    chips:
-      - { text: "成功 k = 2", state: good }
-      - { text: "失敗 n-k = 8", state: muted }
-      - { text: "共 n = 10 次", state: info }
-  - label: 數排列、算機率
-    text: 2 個成功可以落在 10 次中的任何位置，有 C(10,2)=45 種排列。p=0.5 時每一種排列的機率都是 $0.5^{2} \times 0.5^{8} = 1/1024$，合起來就是 $45/1024\approx0.044$。
-    chips:
-      - { text: "45 種排列", state: info, note: "C(10,2)" }
-      - { text: "每種機率 1/1024", state: info }
-      - { text: "總機率 0.044", state: good }
+  - { when: "n * p < 5", text: "np 小於 5：成功次數擠在 0 附近，左端被擋住，形狀偏一邊。" }
+  - { when: "n * (1 - p) < 5", text: "n(1-p) 小於 5：成功次數擠在 n 附近，右端被擋住，形狀偏一邊。" }
+  - { when: "true", text: "兩個期望次數都 ≥ 5：兩端都有空間，形狀接近鐘形。這是篩選條件，不保證近似一定準確。" }
 ```
 
 ```calc
