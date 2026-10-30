@@ -475,6 +475,23 @@ function start() {
   // Two states only: the button flips between light and dark relative to whatever is showing now.
   // The stored value is still three-way, so a reader who never pressed it keeps following the system.
   const themeBtn = $('#themeBtn');
+  // A phone's reading column reaches the screen edge, so a button fixed in the corner sits on the end
+  // of every line that runs under it. There the one theme button moves into the top bar as a normal
+  // control. It is the same element either way: one toggle, one label, one listener, so no second
+  // copy exists for Tab to find.
+  const phone = matchMedia('(max-width: 600px)');
+  const fab = themeBtn.parentElement;
+  const barIn = $('.in', topbar);
+  function placeThemeBtn() {
+    const home = phone.matches ? barIn : fab;
+    if (themeBtn.parentElement === home) return;
+    home.append(themeBtn);
+    // The bar is one row taller or shorter now, and `--top-h` is the sidebar's top and a deep link's
+    // scroll offset.
+    measureTop();
+  }
+  placeThemeBtn();
+  phone.addEventListener('change', placeThemeBtn);
   const effectiveTheme = () => (store.data.theme === 'system' ? (darkQ.matches ? 'dark' : 'light') : store.data.theme);
   function syncTheme() {
     const t = effectiveTheme();
@@ -582,13 +599,20 @@ function start() {
   }
 
   let ticking = false;
+  // The last scroll offset a frame saw, so the next one knows which way the reader is moving.
+  let lastY = document.documentElement.scrollTop;
   window.addEventListener('scroll', () => {
     if (ticking) return; ticking = true;
     requestAnimationFrame(() => {
       const h = document.documentElement; const p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
       $('#readbar').style.width = (p * 100).toFixed(1) + '%';
       // A faded button is still in the tab order, so it is taken out of it too, not just hidden.
-      const up = h.scrollTop > window.innerHeight;
+      const y = h.scrollTop;
+      // On a phone a fixed button has nowhere to sit but on the column, so back-to-top is a control
+      // for the moment the reader turns around — shown while they scroll up past the first screen,
+      // gone as soon as they scroll down or come back near the top. Wider screens keep the old rule.
+      const up = phone.matches ? y < lastY && y > window.innerHeight : y > window.innerHeight;
+      lastY = y;
       toTop.classList.toggle('show', up);
       toTop.tabIndex = up ? 0 : -1;
       toTop.setAttribute('aria-hidden', up ? 'false' : 'true');

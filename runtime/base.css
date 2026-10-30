@@ -381,7 +381,10 @@ input[type=number]{font-family:var(--f-body); font-size:var(--fs-md); width:5.2e
   .readouts:has(> .ro:nth-child(6):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
   .readouts:has(> .ro:nth-child(7):last-child),.readouts:has(> .ro:nth-child(8):last-child){grid-template-columns:repeat(4,minmax(0,1fr))}
 }
-.ro{background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column}
+/* The label and the value are content-wide, not stretched to the tile: the runtime pulses a value that
+   changes with `transform:scale(1.12)`, and a full-width box scaled up leaves its container — the left
+   edge of the number is briefly clipped by the Lab's `overflow:hidden`. Left-aligned either way. */
+.ro{background:var(--paper); border:1px solid var(--rule); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; align-items:flex-start}
 .ro span{font-size:var(--fs-xs); color:var(--muted); font-family:var(--f-body); letter-spacing:.03em}
 /* A readout keeps its width across values: tabular digits plus room for the longest short value. */
 .ro b{font-family:var(--f-body); font-size:var(--fs-h3); font-weight:600; font-variant-numeric:tabular-nums; min-width:5.5ch; transition:color .3s}
@@ -520,6 +523,19 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
   .topbar .chaps{display:none}
   /* `flex:none` undoes the strip's `flex:1 1 auto`, which would stretch the tabs down the drawer. */
   .chaps-side{display:flex; flex:none; flex-wrap:wrap; align-items:flex-start; align-content:flex-start; gap:6px; overflow:visible; padding-bottom:2px}
+  /* The reading column runs to the screen edge here, so a button fixed in the corner sits on the end
+     of every line that passes under it. The theme toggle is a normal control at the end of the top
+     bar instead: the runtime moves the one button into `.in`, so these rules follow where it sits
+     and there is never a second, hidden copy for Tab to reach. */
+  .fab #themeBtn{display:none}
+  .topbar #themeBtn{flex:none; width:36px; height:36px; padding:0; display:grid; place-items:center; border-radius:50%;
+    border:1px solid var(--rule-strong); background:var(--card); color:var(--ink); cursor:pointer; transition:border-color .2s, color .2s}
+  .topbar #themeBtn:hover{border-color:var(--accent); color:var(--accent)}
+  .topbar #themeBtn svg{width:18px; height:18px}
+  /* Only the back-to-top button is left in the stack, and only while it is shown; the container must
+     not hold a hole over the text when it is empty. */
+  .fab{pointer-events:none}
+  .fab button{pointer-events:auto}
 }
 @media (max-width:560px){
   :root{--fs-body:1.06rem; --fs-h2:1.5rem}
