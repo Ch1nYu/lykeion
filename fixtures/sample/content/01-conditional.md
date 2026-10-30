@@ -77,11 +77,12 @@ inputs:
 outputs:
   - { label: "P(A∩B)", expr: "pa * 0.4" }
   - { label: "P(B|A)", expr: "pa * 0.4 / 0.3" }
-  - { label: 判準, expr: "pa == 0.3 ? 1 : pa > 0.3 ? 2 : 0", labels: { "1": "獨立", "2": "正相關", "0": "負相關" } }
+  - { label: 判準, expr: "pa == 0 ? 3 : pa == 0.3 ? 1 : pa > 0.3 ? 2 : 0", labels: { "3": "互斥", "1": "獨立", "2": "正相關", "0": "負相關" } }
 bars:
   - { label: "P(A∩B)", expr: "pa * 0.4", max: 0.4 }
   - { label: "P(B|A)", expr: "pa * 0.4 / 0.3", max: 1 }
 verdict:
+  - { when: "pa == 0", text: "P(A∩B) = 0：A 與 B 互斥，不可能同時發生。這和獨立不一樣：獨立時 P(A|B) 還是原來的 0.3。" }
   - { when: "pa == 0.3", text: "P(A|B) = P(A) = 0.3，此時 A 與 B 獨立。" }
   - { when: "pa > 0.3", text: "觀察到 B 時，A 的機率較高（正相關）；這表示一起變動，不代表 B 造成 A。" }
   - { when: "true", text: "觀察到 B 時，A 的機率較低（負相關）：兩者變動方向相反，但這不代表 B 造成 A。" }
@@ -126,7 +127,7 @@ parts:
 hint: 從左邊開始，跟著篩檢例子看分子與分母各代表哪一群人
 ```
 
-以篩檢為例，敏感度 0.9 乘上盛行率 0.01，得到真陽性比例 0.009；偽陽率 0.1 乘上健康比例 0.99，得到偽陽比例 0.099；兩者相加是陽性總比例 0.108。
+以篩檢為例，敏感度 0.9 乘上盛行率 0.01，得到真陽性比例 0.009；偽陽率 0.1 乘上健康比例 0.99，得到偽陽比例 0.099；兩者相加是陽性總比例 0.108。分子除以分母：$0.009/0.108 \approx 0.083$，所以驗出陽性的人只有約 8.3% 真的有病，遠低於敏感度的 0.9。
 
 ```lab slider-calc
 tag: LAB B
@@ -138,8 +139,8 @@ outputs:
   - { label: 偽陽比例, expr: "0.1 * (1 - d)" }
   - { label: "P(D|+)", expr: "0.9 * d / (0.9 * d + 0.1 * (1 - d))" }
 bars:
-  - { label: 陽性中真的有病, expr: "0.9 * d / (0.9 * d + 0.1 * (1 - d))", max: 1 }
-  - { label: 陽性中其實沒病, expr: "0.1 * (1 - d) / (0.9 * d + 0.1 * (1 - d))", max: 1 }
+  - { label: 真的有病, expr: "0.9 * d / (0.9 * d + 0.1 * (1 - d))", max: 1 }
+  - { label: 其實沒病, expr: "0.1 * (1 - d) / (0.9 * d + 0.1 * (1 - d))", max: 1 }
 verdict:
   - { when: "d <= 0.01", text: "盛行率 1%：陽性的人裡只有約 8.3% 真的有病，其餘約 91.7% 是偽陽。" }
   - { when: "d >= 0.1", text: "疾病變常見後，真陽追上偽陽，陽性結果才比較可信。" }
@@ -155,17 +156,17 @@ ref: Ross, *A First Course in Probability*, 10th ed., §3.4
 tag: LAB C
 title: 一步一步算出一個事後機率
 hint: 想知道檢驗陽性時真的生病的機率
-legend: { good: 想算的那一項, muted: 已算過的部分 }
+legend: { good: 這次要算的那一項, info: 給定或對照的數字 }
 steps:
   - label: 1-給定
     text: 盛行率 $P(D) = 0.01$，檢驗敏感度 $P(+ \mid D) = 0.9$。
-    chips: [{ text: "P(D) = 0.01", state: good }, { text: "P(+|D) = 0.90", state: good }]
+    chips: [{ text: "P(D) = 0.01", state: info }, { text: "P(+|D) = 0.90", state: info }]
   - label: 2-展開分母
     text: 全機率公式把 $P(+)$ 拆成生病與健康兩條路。
-    chips: [{ text: "P(+|D)P(D) = 0.009", state: good, note: "真陽" }, { text: "P(+|¬D)P(¬D) = 0.099", state: good, note: "偽陽" }]
+    chips: [{ text: "P(+|D)P(D) = 0.009", state: info, note: "真陽" }, { text: "P(+|¬D)P(¬D) = 0.099", state: info, note: "偽陽" }]
   - label: 3-相除
     text: 分子只佔分母的一小塊，所以事後機率遠小於敏感度。
-    chips: [{ text: "P(D|+) = 0.009/0.108", state: good, note: "≈ 0.083" }, { text: "P(¬D|+) = 0.099/0.108", state: muted, note: "≈ 0.917" }]
+    chips: [{ text: "P(D|+) = 0.009/0.108", state: good, note: "≈ 0.083" }, { text: "P(¬D|+) = 0.099/0.108", state: info, note: "≈ 0.917" }]
 ```
 
 ```calc

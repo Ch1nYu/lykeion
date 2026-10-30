@@ -31,21 +31,21 @@ hint: 先看有幾種排法，再看每種排法的機率
 tag: LAB D
 title: 看 C(10,2) 這 45 種排法怎麼來
 hint: 每次試驗結果只有成功或失敗；成功算入 k，失敗算入 n-k
-legend: { good: 成功，計入 k, muted: 失敗，計入 n-k, info: 計數 }
+legend: { good: 成功，計入 k, info: 失敗（計入 n-k）與計數 }
 steps:
   - label: 一次試驗
     text: 以十枚銅板為例：先約定「正面」算成功，每一枚正面朝上的機率是 p。換成別的試驗也一樣，先說好哪一種結果算成功。
     chips:
       - { text: "正面：成功", state: good, note: "計入 k" }
-      - { text: "反面：失敗", state: muted, note: "計入 n-k" }
+      - { text: "反面：失敗", state: info, note: "計入 n-k" }
   - label: 分兩類
     text: 丟 n=10 枚銅板，結果剛好 k=2 枚正面、n-k=8 枚反面。
     chips:
       - { text: "成功 k = 2", state: good }
-      - { text: "失敗 n-k = 8", state: muted }
+      - { text: "失敗 n-k = 8", state: info }
       - { text: "共 n = 10 次", state: info }
   - label: 算機率
-    text: 10 個位置先挑第 1 個成功，有 10 種選法；再挑第 2 個，剩 9 種。但「先 3 後 7」和「先 7 後 3」是同一種排法，所以要除以 2：$10 \times 9 / 2 = 45$ 種。p=0.5 時每一種排法的機率都是 $0.5^{2} \times 0.5^{8} = 1/1024$，合起來就是 $45/1024\approx0.044$。
+    text: 10 個位置先挑第 1 個成功，有 10 種選法；再挑第 2 個，剩 9 種。但先挑第 3 個位置、再挑第 7 個，和先挑第 7 個、再挑第 3 個，挑到的是同一組位置；每一組都被算了兩次，所以要除以 2：$10 \times 9 / 2 = 45$ 種。p=0.5 時每一種排法的機率都是 $0.5^{2} \times 0.5^{8} = 1/1024$，合起來就是 $45/1024\approx0.044$。
     chips:
       - { text: "10 × 9 / 2 = 45", state: info, note: "C(10,2)" }
       - { text: "每種機率 1/1024", state: info }
@@ -111,6 +111,7 @@ verdict:
   calc: "binomPmf(10, 2, 0.5)"
   ex: 每種排法的機率是 $0.5^{10}=1/1024$；共有 $\binom{10}{2}=45$ 種，所以 $P(X=2)=45\times1/1024=45/1024\approx0.044$。
 - q: $n = 10$、$p = 0.3$，期望值是多少？
+  sec: "2.2"
   o: [3, 0.3, 7, 2.1]
   a: 0
   ex: $E[X]=np=10\times0.3=3$，因為每次成功機率是 0.3，做十次後平均成功 3 次；0.3 是單次成功率；2.1 是變異數 $np(1-p)$，衡量結果散布，不是平均；7 是 $n(1-p)$，是平均失敗次數。
@@ -175,20 +176,21 @@ verdict:
 ```lab slider-calc
 tag: LAB G
 title: 拉動 n，看哪一格的機率最大
-hint: 拉動 n，比較 p=0.5 和 p=0.3 兩組讀值，看每組最大的那一格最靠近哪個 np
+hint: 拉動 n，看兩組長條裡被標出的最大那一根，和上方的 np 比一比
 inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]
 outputs:
   - { label: "np, p=0.5", expr: "n * 0.5" }
-  - { label: "k=3, p=0.5", expr: "binomPmf(n, 3, 0.5)" }
-  - { label: "k=5, p=0.5", expr: "binomPmf(n, 5, 0.5)" }
-  - { label: "k=7, p=0.5", expr: "binomPmf(n, 7, 0.5)" }
   - { label: "np, p=0.3", expr: "n * 0.3" }
-  - { label: "k=3, p=0.3", expr: "binomPmf(n, 3, 0.3)" }
-  - { label: "k=5, p=0.3", expr: "binomPmf(n, 5, 0.3)" }
-  - { label: "k=7, p=0.3", expr: "binomPmf(n, 7, 0.3)" }
+bars:
+  - { label: "p=0.5, k=3", expr: "binomPmf(n, 3, 0.5)", max: 0.35, active: "binomPmf(n, 3, 0.5) >= binomPmf(n, 5, 0.5) && binomPmf(n, 3, 0.5) >= binomPmf(n, 7, 0.5)" }
+  - { label: "p=0.5, k=5", expr: "binomPmf(n, 5, 0.5)", max: 0.35, active: "binomPmf(n, 5, 0.5) >= binomPmf(n, 3, 0.5) && binomPmf(n, 5, 0.5) >= binomPmf(n, 7, 0.5)" }
+  - { label: "p=0.5, k=7", expr: "binomPmf(n, 7, 0.5)", max: 0.35, active: "binomPmf(n, 7, 0.5) >= binomPmf(n, 3, 0.5) && binomPmf(n, 7, 0.5) >= binomPmf(n, 5, 0.5)" }
+  - { label: "p=0.3, k=3", expr: "binomPmf(n, 3, 0.3)", max: 0.35, active: "binomPmf(n, 3, 0.3) >= binomPmf(n, 5, 0.3) && binomPmf(n, 3, 0.3) >= binomPmf(n, 7, 0.3)" }
+  - { label: "p=0.3, k=5", expr: "binomPmf(n, 5, 0.3)", max: 0.35, active: "binomPmf(n, 5, 0.3) >= binomPmf(n, 3, 0.3) && binomPmf(n, 5, 0.3) >= binomPmf(n, 7, 0.3)" }
+  - { label: "p=0.3, k=7", expr: "binomPmf(n, 7, 0.3)", max: 0.35, active: "binomPmf(n, 7, 0.3) >= binomPmf(n, 3, 0.3) && binomPmf(n, 7, 0.3) >= binomPmf(n, 5, 0.3)" }
 verdict:
-  - { when: "n == 10", text: "n=10：p=0.5 時 k=5 最大（np=5），p=0.3 時 k=3 最大（np=3）。高峰就在期望值附近。" }
-  - { when: "true", text: "每組三格裡最大的，都是最靠近 np 的那個 k。n 變大時 np 往右移，最大的那格也換到更右邊；同一格的機率在 np 靠近它時變大，離開它之後才變小。" }
+  - { when: "n == 10", text: "n=10：p=0.5 那組標出 k=5（np=5），p=0.3 那組標出 k=3（np=3）。被標出的那根，就是三格裡最靠近 np 的 k。" }
+  - { when: "true", text: "每組被標出的那根，都是三格裡最靠近 np 的 k；np 往右移，標記也跟著換到右邊。這裡只抽三格，真正的高峰在最接近 np 的整數附近。" }
 ```
 
 要用常態分布近似二項分布，先看成功和失敗兩種結果的期望次數是否都夠大。兩個期望次數都 ≥ 5 時，分布的兩端才不會被 0 或 n 擋住，長條圖才會接近左右對稱的鐘形。上一節 n=10、p=0.5 的長條圖，兩個期望次數都是 5，左右已經對稱。
