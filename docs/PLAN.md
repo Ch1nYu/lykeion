@@ -76,6 +76,7 @@ lykeion/                       # public repo
 - `docs/workflow.md` (agent-neutral): ask Depth → `extract` → Outline (+ suggested unused Palette) → user approval (skipped when the user says to proceed without review) → write chapters (parallel if sub-agents exist, otherwise sequential) → build → verify → fix loop → report. Incremental mode: add/rewrite one chapter, rebuild, re-verify all, keep reader-progress keys stable.
 - `SKILL.md`: thin Claude Code entry. Write both with the `writing-for-agents` skill.
 - Status (2026-10-24): `SKILL.md` states how it resolves its own directory (`<repo>` is the folder holding it, with the Claude Code location as the example), so a host can run the CLI without guessing where the skill was installed.
+- Sample verification TODO: `fixtures/sample/lykeion.json` cites placeholder `sample.pdf` but the public fixture contains no source pages or References; the source gate must fail/dispute rather than claim external verification. Decide whether to add openly licensed source materials or support a clear not-applicable outcome for original public samples. LAB C is now a discrete slider-calc (integer k, one P(X=k) readout), so the old connected-curve problem is gone; the sample still has no full distribution view (a k=0…n bar/stem plot with the selected k marked), which the teaching review lists as a suggestion.
 
 ### M7 — Acceptance (maintainer machine only)
 - Regenerate the Data Mining Lecture Site from the fixture paths in `~/.config/lykeion/config.json` at Standard depth.
