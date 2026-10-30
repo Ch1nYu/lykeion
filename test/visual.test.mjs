@@ -391,6 +391,7 @@ test('an emoji heading fails the real render gate at both widths', async (t) => 
 
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-visual-'));
   await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+  await build(dir); // checks.json and the page are gitignored artefacts, absent from a fresh clone
   const htmlPath = await builtHtml(dir);
   const html = await readFile(htmlPath, 'utf8');
   await writeFile(htmlPath, html.replace('</body>', '<style>#ch1 h2::before{content:"⭐"}</style>\n</body>'));
