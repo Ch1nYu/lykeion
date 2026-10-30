@@ -418,6 +418,17 @@ svg .tick{font-family:var(--f-body); font-size:11px; fill:var(--muted); font-var
 .hbar.signed .track i{position:absolute; top:0; bottom:0; transition:left .45s cubic-bezier(.2,.8,.2,1), width .45s cubic-bezier(.2,.8,.2,1)}
 .hbar.signed .track i.neg{background:var(--s2)}
 .hbar.signed .track u{position:absolute; top:-1px; bottom:-1px; width:2px; margin-left:-1px; background:var(--ink-2); z-index:1}
+/* Active bar: the bar the current inputs pick out of a fixed distribution (k = 2 of a pmf, say).
+   The fill switches to the second series colour and the track takes the accent tint and border, so the
+   mark survives both themes and a bar whose fill is empty (value 0) is still findable; the label and
+   the number go accent and bold. Only colour and weight change — no padding, margin or font-size — so
+   the Lab keeps its height as the mark moves under the slider. */
+.hbar.active > span:first-child,.hbar.active > b{color:var(--accent); font-weight:700}
+.hbar.active .track{background:var(--accent-soft); border-color:var(--accent)}
+.hbar.active .track i,.hbar.active .track i.pos,.hbar.active .track i.neg{background:var(--s2)}
+/* A signed bar already fills negative values with --s2, so the marked one takes the accent instead:
+   every marked bar then differs in fill from the same bar unmarked. */
+.hbar.active.signed .track i.neg{background:var(--accent)}
 
 /* ---------- quiz ---------- */
 .quiz{background:var(--card); border:1px solid var(--rule-strong); border-radius:20px; box-shadow:var(--shadow); padding:22px; display:flex; flex-direction:column; gap:20px}

@@ -4,8 +4,9 @@
                | { id, label, value, options: [{ value, label }] }], segmented buttons (categorical)
      outputs: [{ label, expr, digits?, best?: "min"|"max", labels?: { "1": "Yes", "0": "No" } }],
               expr uses input ids + LykeionMath; labels show text for exact values
-     bars?:   [{ label, expr, min?, max? }],                       optional horizontal bars (0..max);
-              min < 0 draws a centre-zero bar, so a signed value never needs abs()
+     bars?:   [{ label, expr, min?, max?, active? }],               optional horizontal bars (0..max);
+              min < 0 draws a centre-zero bar, so a signed value never needs abs();
+              active is an expr that marks the bar the inputs currently pick (e.g. "k == 2")
      verdict?: [{ when, text }]                                    first true "when" expr shows its text
    } */
 
@@ -25,7 +26,9 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
   var H = api.H, esc = api.esc;
   var ids = (p.inputs || []).map(function (i) { return i.id; });
   var outs = (p.outputs || []).map(function (o) { return Object.assign({ fn: LykeionMath.compile(o.expr, ids) }, o); });
-  var bars = (p.bars || []).map(function (b) { return Object.assign({ fn: LykeionMath.compile(b.expr, ids) }, b); });
+  var bars = (p.bars || []).map(function (b) {
+    return Object.assign({ fn: LykeionMath.compile(b.expr, ids), act: b.active == null ? null : LykeionMath.compile(b.active, ids) }, b);
+  });
   var verdicts = (p.verdict || []).map(function (v) { return { fn: LykeionMath.compile(v.when, ids), text: v.text }; });
   var state = {};
 
@@ -99,6 +102,8 @@ Lykeion.registerLab('slider-calc', function (root, p, api) {
         fill.style.width = sliderBarGeom(bv[i], 0, scale).width * 100 + '%';
       }
       b.el.querySelector('b').textContent = api.fmt(bv[i], b.digits == null ? 3 : b.digits);
+      // Marking is a class only: no box metric changes, so the Lab keeps its height as the mark moves.
+      b.el.classList.toggle('active', !!b.act && !!b.act(state));
     });
     if (!verdictStack) return;
     for (var k = 0; k < verdicts.length; k++) { if (verdicts[k].fn(state)) { verdictStack.show(k); return; } }

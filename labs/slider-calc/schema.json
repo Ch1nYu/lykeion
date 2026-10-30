@@ -1,2 +1,2 @@
 { "keys": ["tag", "title", "hint", "id", "inputs", "outputs", "bars", "verdict"],
-  "items": { "inputs": ["id", "label", "min", "max", "step", "value", "unit", "options"], "outputs": ["label", "expr", "digits", "best", "labels"], "bars": ["label", "expr", "min", "max", "digits"], "verdict": ["when", "text"] } }
+  "items": { "inputs": ["id", "label", "min", "max", "step", "value", "unit", "options"], "outputs": ["label", "expr", "digits", "best", "labels"], "bars": ["label", "expr", "min", "max", "digits", "active"], "verdict": ["when", "text"] } }
