@@ -2,6 +2,10 @@
    display on .step-view itself would turn the stack into a column and make the Lab as tall as every
    step at once. The old 12px column gap therefore moves inside each cell. */
 .step-view > *{display:flex; flex-direction:column; row-gap:12px}
+/* Every step is as tall as the tallest one, so a short step left that difference as one empty band
+   under its last chip, framed by the card border, which read as content that failed to load. Centred,
+   the spare height splits above and below the step instead. */
+.step-view > *{justify-content:center}
 /* A flex item's automatic minimum size is its content, so a step whose only child is a .tablewrap
    holding a wide table refused to shrink: the box grew past the Lab, and the Lab's overflow:hidden (its
    rounded corners) cut the table off before .tablewrap could scroll it. At 375px that lost the dm's
