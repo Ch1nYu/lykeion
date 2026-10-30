@@ -66,7 +66,7 @@ hint: 獨立時桌布和 A 的重疊比例，等於兩者各自比例相乘
 - { expr: "0.108", expect: 0.108, note: "total positive-test probability" }
 ```
 
-那 $P(A \mid B)$ 最大可以到多少？因為 $P(A) = 0.3$、$P(B) = 0.4$ 固定，聯合機率不能超過 $P(A)$，所以 $P(A \mid B)$ 最大是 $0.3/0.4 = 0.75$。再看聯合機率 $P(A \cap B) = P(A \mid B)P(B)$，可知 $P(B \mid A) = P(A \cap B)/P(A)$ 也不會超過 1。
+那 $P(A \mid B)$ 最大可以到多少？因為 $P(A) = 0.3$、$P(B) = 0.4$ 固定，聯合機率不能超過 $P(A)$，所以 $P(A \mid B)$ 最大是 $0.3/0.4 = 0.75$。把 $P(A \mid B)$ 拉到 0.75 時，聯合機率剛好等於 $P(A) = 0.3$，也就是 A 全部落在桌布上；這時 $P(B \mid A) = 0.3/0.3 = 1$，正是它的上限，拉下面的滑桿就看得到。
 
 ```lab slider-calc
 tag: LAB A
