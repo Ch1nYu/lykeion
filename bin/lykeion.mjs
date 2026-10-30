@@ -17,6 +17,7 @@ const COMMANDS = {
   verify: () => import('../src/verify.mjs'),
   shots: () => import('../src/shots.mjs'),
   palette: () => import('../src/palette.mjs'),
+  doctor: () => import('../src/doctor.mjs'),
 };
 
 const USAGE = `usage: lykeion <command> [options]
@@ -28,6 +29,7 @@ commands:
   verify    run the verification gates on a built Lecture Site
   shots     capture the built Lecture Site as full-page PNGs (chapter × theme × viewport)
   palette   check Palettes / render the Palette Specimen
+  doctor    check this install can run build and verify (Node, dependencies, browser)
 
 Run "lykeion <command> --help" for details.`;
 
