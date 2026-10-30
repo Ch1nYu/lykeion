@@ -146,14 +146,24 @@ test('a single readout fills its row on desktop', async (t) => {
 });
 
 test('eight readouts make a 4×2 block on desktop', async (t) => {
-  // LAB G's two series are meant to be compared down the columns, so the eight tiles keep the 4-per-row
-  // balance the six-tile rule gives; filling the row must not turn them into a 5 + 3 or a 6 + 2.
-  const page = await open(t, 1280, 'ch2');
+  // Two series of four are meant to be compared down the columns, so eight tiles keep the 4-per-row
+  // balance; filling the row must not turn them into a 5 + 3 or a 6 + 2. A probe Lab, like the six-tile
+  // test, so the rule does not depend on the sample keeping an eight-readout Lab.
+  const dir = await tiny([
+    '```lab slider-calc',
+    'tag: LAB EIGHT',
+    'title: 八個讀值',
+    'inputs: [{ id: x, label: x, min: 0, max: 1, step: 0.1, value: 0.5 }]',
+    'outputs:',
+    ...['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛'].map((l, i) => `  - { label: ${l}, expr: "x + ${i}" }`),
+    '```',
+  ].join('\n'));
+  const page = await open(t, 1280, 'ch1', pathToFileURL(join(dir, 'probe.html')).href);
   if (!page) return;
   try {
-    const g = await readoutGrid(page, 'LAB G');
-    assert.ok(g, 'LAB G is on the page');
-    assert.equal(g.n, 8, 'LAB G shows eight readouts');
+    const g = await readoutGrid(page, 'LAB EIGHT');
+    assert.ok(g, 'LAB EIGHT is on the page');
+    assert.equal(g.n, 8, 'LAB EIGHT shows eight readouts');
     assert.equal(g.cols, 4, `desktop: eight readouts sit in four columns, got ${g.cols}`);
     assert.equal(g.rows, 2, `desktop: eight readouts sit in two rows, got ${g.rows}`);
   } finally {

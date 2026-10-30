@@ -160,7 +160,8 @@ test('the active-bar styles touch colour and weight only, from palette tokens', 
   const marked = rules.map((r) => r.body).join(';');
   assert.match(marked, /background:var\(--s2\)/, 'the marked fill uses the second series colour');
   assert.match(marked, /background:var\(--accent-soft\)/, 'the marked track takes the accent tint');
-  assert.match(marked, /font-weight:700/, 'the marked label and number go bold');
+  assert.match(marked, /text-decoration:underline/, 'the marked label and number are underlined');
+  assert.doesNotMatch(marked, /font-weight/, 'the mark keeps the weight, so a label cannot wrap when marked');
   // The signed bar's negative fill is the same --s2, so the active rule has to out-specify it.
   const sels = rules.map((r) => r.sel).join(',');
   assert.match(sels, /\.hbar\.active \.track i\.neg/, 'the active rule overrides the signed negative fill');
