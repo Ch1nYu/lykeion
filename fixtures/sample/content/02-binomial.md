@@ -130,11 +130,11 @@ n 次試驗的成功次數就是 n 個記錄相加：$X = Z_1 + Z_2 + \dots + Z_
 ```formula EXPECTATION
 tex: "E[X] = np"
 parts:
-  - { tex: "E", say: "E 表示長期重複試驗的平均值。" }
-  - { tex: "[X]", say: "X 是成功次數，所以 E[X] 是平均成功次數。" }
-  - { tex: "=", say: "X 是 n 個 0/1 記錄的和，期望值可以逐項相加。" }
-  - { tex: "n", say: "總共有 n 個記錄，也就是 n 次獨立試驗。" }
-  - { tex: "p", say: "每個記錄的期望值是 E[Z] = 1·p + 0·(1-p) = p，n 個加起來是 np。" }
+  - { tex: "E", say: "把尺放平、讓它自己找到平衡點：所有結果按機率配重後求重心。" }
+  - { tex: "[X]", say: "放上尺的是成功次數 X，所以平衡點就是平均成功次數。" }
+  - { tex: "=", say: "X 是 n 枚銅板的 0/1 記錄相加，平衡點也可以一枚一枚相加。" }
+  - { tex: "n", say: "n 枚銅板疊在同一把尺上，每枚的平衡點都一樣，合起來就放大 n 倍。" }
+  - { tex: "p", say: "單枚銅板的平衡點：1 和 0 按 p 與 1-p 配重，E[Z] = 1·p + 0·(1-p) = p。" }
 hint: 例如 n=10、p=0.5 時，平均成功次數是 5
 ```
 
@@ -143,10 +143,10 @@ hint: 例如 n=10、p=0.5 時，平均成功次數是 5
 ```formula VARIANCE
 tex: "Var(X) = np(1-p)"
 parts:
-  - { tex: "Var", say: "Var 是變異數的縮寫，表示結果散開的程度。" }
-  - { tex: "(X)", say: "X 是 n 次試驗中的成功次數。" }
-  - { tex: "=", say: "把各次獨立試驗的變異數加起來。" }
-  - { tex: "n", say: "有 n 次獨立的 0/1 記錄，每次的散布都一樣，所以加 n 次。" }
+  - { tex: "Var", say: "量重量離平衡點擺得多開：離得越遠、配重越多，數字越大。" }
+  - { tex: "(X)", say: "量的是成功次數 X 在尺上的擺幅，單位是「次數的平方」。" }
+  - { tex: "=", say: "銅板互不影響，各自的擺幅可以直接相加。" }
+  - { tex: "n", say: "n 枚互不影響的銅板，每枚擺得一樣開，相加就是 n 倍。" }
   - { tex: "p(1-p)", say: "單次記錄的變異數：成功離平均 p 有 1-p 遠、失敗離平均 p 有 p 遠；把這兩個距離各自平方、再按機率加權，就是 p(1-p)。" }
 hint: 變異數越大，結果越分散；對變異數開平方得到標準差，單位就回到成功次數
 ```
@@ -199,18 +199,40 @@ verdict:
 ```lab slider-calc
 tag: LAB H
 title: 檢查常態近似的經驗法則
-hint: 拉動 n 與 p；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
+hint: 拉動 n 與 p，看下方 k=0…n 的長條什麼時候像鐘形；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
 inputs:
-  - { id: n, label: n, min: 4, max: 40, step: 1, value: 10 }
+  - { id: n, label: n, min: 4, max: 20, step: 1, value: 10 }
   - { id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }
 outputs:
   - { label: np, expr: "n * p" }
   - { label: "n(1-p)", expr: "n * (1 - p)" }
   - { label: 判準, expr: "n * p >= 5 && n * (1 - p) >= 5 ? 1 : 0", labels: { "1": "符合經驗法則", "0": "未達經驗法則" } }
+bars:
+  - { label: "k=0", expr: "binomPmf(n, 0, p)" }
+  - { label: "k=1", expr: "binomPmf(n, 1, p)" }
+  - { label: "k=2", expr: "binomPmf(n, 2, p)" }
+  - { label: "k=3", expr: "binomPmf(n, 3, p)" }
+  - { label: "k=4", expr: "binomPmf(n, 4, p)" }
+  - { label: "k=5", expr: "binomPmf(n, 5, p)" }
+  - { label: "k=6", expr: "binomPmf(n, 6, p)" }
+  - { label: "k=7", expr: "binomPmf(n, 7, p)" }
+  - { label: "k=8", expr: "binomPmf(n, 8, p)" }
+  - { label: "k=9", expr: "binomPmf(n, 9, p)" }
+  - { label: "k=10", expr: "binomPmf(n, 10, p)" }
+  - { label: "k=11", expr: "binomPmf(n, 11, p)" }
+  - { label: "k=12", expr: "binomPmf(n, 12, p)" }
+  - { label: "k=13", expr: "binomPmf(n, 13, p)" }
+  - { label: "k=14", expr: "binomPmf(n, 14, p)" }
+  - { label: "k=15", expr: "binomPmf(n, 15, p)" }
+  - { label: "k=16", expr: "binomPmf(n, 16, p)" }
+  - { label: "k=17", expr: "binomPmf(n, 17, p)" }
+  - { label: "k=18", expr: "binomPmf(n, 18, p)" }
+  - { label: "k=19", expr: "binomPmf(n, 19, p)" }
+  - { label: "k=20", expr: "binomPmf(n, 20, p)" }
 verdict:
-  - { when: "n * p < 5 && p < 0.5", text: "np 小於 5 而且 p 偏小：成功很罕見，分布擠向 0，右邊拖一條長尾。" }
-  - { when: "n * (1 - p) < 5 && p > 0.5", text: "n(1-p) 小於 5 而且 p 偏大：失敗很罕見，分布擠向 n，左邊拖一條長尾。" }
-  - { when: "n * p < 5 || n * (1 - p) < 5", text: "n 太小：只有 n+1 格，鐘形還看不出來；把 n 拉大就會接近鐘形。" }
+  - { when: "p <= 0.2 && n * p < 5", text: "p 很小、np 又不到 5：成功真的很罕見，分布擠向 0，右邊拖一條長尾。" }
+  - { when: "p >= 0.8 && n * (1 - p) < 5", text: "p 很大、n(1-p) 又不到 5：失敗真的很罕見，分布擠向 n，左邊拖一條長尾。" }
+  - { when: "n * p < 5 || n * (1 - p) < 5", text: "有一個期望次數不到 5，不符合經驗法則：鐘形的一邊可能被 0 或 n 削掉，但不代表分布一定歪，例如 n=10、p=0.4 只是剛好落在邊界。" }
   - { when: "true", text: "兩個期望次數都 ≥ 5：兩端都有空間，形狀接近鐘形。這是篩選條件，不保證近似一定準確。" }
 ```
 
