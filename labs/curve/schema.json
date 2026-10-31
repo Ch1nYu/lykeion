@@ -1,2 +1,2 @@
-{ "keys": ["tag", "title", "hint", "id", "x", "y", "inputs", "curves", "marker"],
-  "items": { "inputs": ["id", "label", "min", "max", "step", "value", "unit"], "curves": ["label", "expr"] } }
+{ "keys": ["tag", "title", "hint", "id", "x", "y", "inputs", "curves", "marker", "discrete", "outputs", "verdict"],
+  "items": { "inputs": ["id", "label", "min", "max", "step", "value", "unit"], "curves": ["label", "expr"], "outputs": ["label", "expr", "digits", "best", "labels"], "verdict": ["when", "text"] } }

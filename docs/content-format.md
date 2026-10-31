@@ -303,7 +303,21 @@ inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]   # optional 
 curves: [{ label: "p = 0.5", expr: "x > n ? 0 : binomPmf(n, x, 0.5)" }, { label: "p = 0.3", expr: "x > n ? 0 : binomPmf(n, x, 0.3)" }]
 y: { label: "P(X=k)", min: 0, max: 0.3 }    # optional; default fits the curves
 marker: { label: k, value: 3 }   # optional x marker (slider) with live readouts per curve
+discrete: true                   # optional: one column per integer x, rising from y = 0
+outputs: [{ label: np, expr: "n * 0.5" }]            # optional readouts, as in slider-calc
+verdict: [{ when: "n * 0.5 < 5", text: "成功次數的期望不到 5。" }]
 ```
+
+`discrete: true` draws one column per integer x from `x.min` to `x.max` instead of the 200-point
+line, so a distribution can be shown in the plot's fixed height instead of a row list that would grow
+with n. Columns rise from y = 0, a non-finite value draws nothing, and a value of 0 draws no column at
+all (a zero column would only be invisible ink). Without `discrete` the Lab is unchanged.
+
+`outputs` and `verdict` are `slider-calc`'s, with the same keys and the same markup (`.readouts`,
+`.ro`, `.verdict`), evaluated over the slider inputs rather than x: `outputs` show `label, expr,
+digits, best, labels`, and the first true `verdict` `when` shows its text in a stacked box that keeps
+the Lab's height. The build evaluates `outputs` at the values the Lab opens on, exactly as it does for
+`slider-calc`, so prose numbers can be checked against them.
 
 **Custom Labs** — `<project>/labs/<type>/lab.js` calling `Lykeion.registerLab('<type>', (root, params, api) => { … })`. `api` provides `H`, `S` (DOM/SVG builders), `esc`, `fmt`, `setVal`, `setSeg`, `onSeg`, `fillRange`, `toast`, `reduceMotion`; `LykeionMath.compile(expr, names)` evaluates expressions. A custom Lab must pass `lykeion verify` like any other.
 

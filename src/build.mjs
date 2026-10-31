@@ -779,11 +779,15 @@ function labReadouts(type, p, ctx) {
     const state = {};
     names.forEach((row, r) => row.forEach((n, c) => { state[n] = Number(p.values?.[r]?.[c]) || 0; }));
     for (const o of p.outputs || []) readout(o.label, o.expr, [].concat(...names), state);
-  } else if (type === 'curve' && p.marker) {
-    // The curve Lab reads its curves at the marker, which opens on `marker.value` (or the middle of x).
-    const X = p.x || { min: 0, max: 1 };
-    const x = Number(p.marker.value ?? (X.min + X.max) / 2);
-    for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
+  } else if (type === 'curve') {
+    // The curve Lab's `outputs` are slider-calc's, read over the inputs the Lab opens on.
+    for (const o of p.outputs || []) readout(o.label, o.expr, ids, inputState);
+    if (p.marker) {
+      // Its curves are read at the marker, which opens on `marker.value` (or the middle of x).
+      const X = p.x || { min: 0, max: 1 };
+      const x = Number(p.marker.value ?? (X.min + X.max) / 2);
+      for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
+    }
   }
   return out;
 }
