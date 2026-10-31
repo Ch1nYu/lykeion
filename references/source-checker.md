@@ -41,6 +41,8 @@ Reviewer: independent
 
 The `Reviewer:` line is required and belongs in the header, above the first `##` heading: `independent` when someone other than the content's author reviewed it, or `self` with the reason in parentheses — `Reviewer: self (no sub-agent tool in this host)`. A `self` line without a reason fails the gate. `lykeion verify` repeats the answer in its source gate, so a self-review shows up as ⚠ in `verify-report.md` instead of reading like an independent review.
 
+When the project has no Primary Source at all (e.g. the bundled sample), the writer — not the reviewer — writes only `STATUS: n/a (reason)`; `verify` shows the gate as not run, never as a pass.
+
 `STATUS: pass` only when there are no **certain** findings left; disputed findings alone do not fail the gate.
 
 Done when every section of every chapter is listed under **Checked** with its page count.

@@ -162,11 +162,18 @@ const REVIEWERS = {
   self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see {file}', warn: true },
 };
 
-async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending' }) {
+async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending', allowNA = false }) {
   let txt;
   try { txt = await readFile(join(dir, file), 'utf8'); } catch {
     const warn = missingStatus === 'warn';
     return { name, status: missingStatus, headline: awaiting, items: [{ ok: null, warn: warn || undefined, msg: missing }] };
+  }
+  // `STATUS: n/a (reason)`: the gate cannot apply (e.g. no Primary Source). Shown as not run, never as a pass.
+  const na = allowNA && /^STATUS:\s*n\/a\b\s*(?:\(([^)]*)\))?/im.exec(txt);
+  if (na) {
+    const why = na[1]?.trim();
+    if (!why) return { name, status: 'fail', headline: `n/a without a reason (from ${file})`, items: [{ ok: false, msg: `STATUS: n/a needs a reason, e.g. STATUS: n/a (no Primary Source) — see ${file}` }] };
+    return { name, status: 'skipped', headline: `not applicable (${why}) (from ${file})`, items: [{ ok: null, msg: `not applicable: ${why} — NOT source-checked` }] };
   }
   const m = /^STATUS:\s*(pass|fail)/im.exec(txt);
   const status = m ? m[1].toLowerCase() : 'fail';
@@ -201,7 +208,7 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
 
 export function sourceGate(dir) {
   return reviewGate({
-    name: 'source', dir, file: 'source-check.md', countDisputed: true,
+    name: 'source', dir, file: 'source-check.md', countDisputed: true, allowNA: true,
     awaiting: 'awaiting agent review (references/source-checker.md)',
     missing: 'source-check.md not found: the agent must review claims against the cited pages',
   });

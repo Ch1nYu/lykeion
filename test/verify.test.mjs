@@ -275,3 +275,18 @@ test('quiz review passes balanced items, numeric options and the level-wide habi
   assert.equal(habit.status, 'fail');
   assert.match(habit.items.at(-1).msg, /right option is the longest in 4\/4 items/);
 });
+
+// A project with no Primary Source (the bundled sample) cannot be source-checked at all. The writer
+// marks the gate not applicable with a reason; the report shows it as not run, never as a pass.
+test('source gate treats STATUS: n/a with a reason as not applicable', async () => {
+  const g = await sourceGateWith('STATUS: n/a (sample fixture has no Primary Source)\n');
+  assert.equal(g.status, 'skipped');
+  assert.equal(g.headline, 'not applicable (sample fixture has no Primary Source) (from source-check.md)');
+  assert.equal(g.items[0].ok, null);
+});
+
+test('source gate fails STATUS: n/a without a reason', async () => {
+  const g = await sourceGateWith('STATUS: n/a\n');
+  assert.equal(g.status, 'fail');
+  assert.match(g.items[0].msg, /needs a reason/);
+});
