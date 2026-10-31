@@ -176,7 +176,7 @@ verdict:
 ```lab curve
 tag: LAB F
 title: 拉動 n，看最高的柱子在哪裡
-hint: 拉動 n，看兩組柱子最高的那一根落在哪個 k，和上方的 np 比一比
+hint: 拉動 n，看兩組柱子最高的那一根落在哪個 k，和圖下方的 np 比一比
 inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]
 outputs:
   - { label: "np, p=0.5", expr: "n * 0.5" }
