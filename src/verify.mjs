@@ -714,9 +714,11 @@ async function renderGate(htmlPath, visual = null) {
     // under the reader's hand. Every control is driven (each slider to its ends and three steps
     // between, each enabled button once) and the box height is sampled after every change. Both
     // widths are measured, because a control that fits on one line at 1280 can wrap at 375.
-    const labStability = async (target, width) => {
-      const found = await target.evaluate(() => [...document.querySelectorAll('.lab[data-lab]')]
-        .map((l) => ({ id: l.id, type: l.dataset.lab, view: l.closest('.view')?.id || '' })));
+    // `skipTypes` exempts Lab types whose promise is narrower at one width only (see the 375px call).
+    const labStability = async (target, width, { skipTypes = [] } = {}) => {
+      const found = (await target.evaluate(() => [...document.querySelectorAll('.lab[data-lab]')]
+        .map((l) => ({ id: l.id, type: l.dataset.lab, view: l.closest('.view')?.id || '' }))))
+        .filter((l) => !skipTypes.includes(l.type));
       const out = [];
       for (const lab of found) {
         await target.evaluate((v) => window.Lykeion.show(v, { noScroll: true }), lab.view);
@@ -1049,11 +1051,17 @@ async function renderGate(htmlPath, visual = null) {
     add(mob.scrollW <= 376 && mob.over.length === 0, mob.scrollW <= 376 && !mob.over.length ? 'no horizontal overflow at 375px' : `overflow at 375px: page width ${mob.scrollW}px${mob.over.length ? `; overflowing: ${mob.over.join(', ')}` : ''}`);
 
     // The same stability promise at 375px, where a control that fits beside its label at 1280 wraps
-    // onto a second line.
-    const narrow = (await labStability(m, 375)).filter((l) => l.swing > 2);
+    // onto a second line. A stepper is the one exemption: below 481px it deliberately lays out only
+    // the current step, so its box follows that step's own height instead of reserving the tallest
+    // one (labs/stepper/lab.css) — on a phone a four-line step would otherwise sit in ~200px of
+    // empty card. The page moves a little as the reader steps, which is the trade a phone can
+    // afford; the 1280px check above still holds steppers to the tallest-step height, and every
+    // other Lab type is still measured here.
+    const narrowAll = await labStability(m, 375, { skipTypes: ['stepper'] });
+    const narrow = narrowAll.filter((l) => l.swing > 2);
     add(narrow.length === 0, narrow.length
       ? `${narrow.length} Labs resize while their controls move at 375px: ${narrow.slice(0, 5).map((l) => `Lab ${l.id} (${l.type}): height ${l.start}px → ${l.worst.h}px (${l.swing}px swing) after ${l.worst.control}`).join('; ')} — text that changes length must use api.stack`
-      : `every Lab keeps its height while its controls move at 375px (${stats.labs.length} Labs)`);
+      : `every Lab keeps its height while its controls move at 375px (${narrowAll.length} Labs; stepper exempt)`);
     await m.click('#menuBtn');
     const opened = await m.evaluate(() => document.getElementById('side').classList.contains('open'));
     await m.keyboard.press('Escape');

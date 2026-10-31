@@ -280,6 +280,8 @@ A chip `state` is one of `good`, `bad`, `muted`, `info` (or omitted for a plain 
 
 `legend` is optional and only renders the entries you name — its swatches are the chip markup itself, so a swatch cannot drift from the chips it explains.
 
+On a phone (480px and narrower) only the current step is laid out, so the Lab takes the height of the step the reader is on and the page moves a little as they step; from 481px up every step reserves the tallest height, so stepping never moves the page.
+
 **`table`** — editable contingency table or matrix with live outputs.
 
 ```yaml

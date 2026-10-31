@@ -18,7 +18,15 @@
 /* A phone has no room for the step chips and the two actions on one line. Left to wrap on their own,
    the chips take the first row with `←` pushed to its far right and `下一步` drops alone to a second,
    so the pair that walks the steps is split across rows. Give the chips the row to themselves and let
-   the two actions share the next one; from 481px up the bar keeps the single row it has always had. */
+   the two actions share the next one; from 481px up the bar keeps the single row it has always had.
+
+   A phone also has no room for the tallest step's height around a short one: on a 375px screen a
+   four-line step sat in ~200px of empty card, which reads as content that failed to load. Below
+   481px only the current step is laid out, so the Lab follows the height of the step the reader is
+   on — the page moves a little as they step, which is the trade a phone can afford. From 481px up
+   every step still reserves the tallest height, so nothing moves (the render gate's 1280px check).
+   The live region stays laid out: it is what carries the new step's text to a screen reader. */
 @media (max-width:480px){
   .lab[data-lab="stepper"] .controls > .seg{flex:1 0 100%}
+  .lab[data-lab="stepper"] .step-view.stack > *:not(.on):not(.sr-only){display:none}
 }
