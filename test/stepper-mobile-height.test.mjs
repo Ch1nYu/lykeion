@@ -24,7 +24,7 @@ const siteUrl = async () => {
   return url;
 };
 
-// LAB D (ch2) names three steps of very different height, so it is the case the decision is about.
+// LAB C (ch2) names three steps of very different height, so it is the case the decision is about.
 const openLabD = async (width) => {
   const page = await browser.newPage({ viewport: { width, height: 900 }, colorScheme: 'light' });
   await page.goto(await siteUrl(), { waitUntil: 'domcontentloaded' });
@@ -32,8 +32,8 @@ const openLabD = async (width) => {
   await page.evaluate(() => window.Lykeion.show('ch2', { noScroll: true }));
   await page.waitForTimeout(200);
   const id = await page.evaluate(() => [...document.querySelectorAll('.lab')]
-    .find((l) => l.querySelector('.lab-head .tag')?.textContent.trim() === 'LAB D')?.id || null);
-  assert.ok(id, 'LAB D is on the page');
+    .find((l) => l.querySelector('.lab-head .tag')?.textContent.trim() === 'LAB C')?.id || null);
+  assert.ok(id, 'LAB C is on the page');
   return { page, id };
 };
 
@@ -69,7 +69,7 @@ test('at 375px the stepper Lab follows the current step instead of reserving the
   const { page, id } = await openLabD(375);
   try {
     const seen = await stepThrough(page, id);
-    assert.equal(seen.length, 3, 'LAB D has three steps');
+    assert.equal(seen.length, 3, 'LAB C has three steps');
     // Only the current step is laid out; the others would each add their height to the grid row.
     for (const s of seen) {
       assert.deepEqual(s.displays.filter((d) => d !== 'none'), ['flex'], `exactly one step is laid out, got ${s.displays.join(', ')}`);

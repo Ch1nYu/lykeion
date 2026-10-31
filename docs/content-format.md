@@ -298,7 +298,7 @@ verdict: [{ when: "k == nk", text: "成功與失敗各半，變異數最大。" 
 **`curve`** — functions of x, optionally controlled by sliders.
 
 ```yaml
-x: { label: k, min: 0, max: 20 }
+x: { label: k, min: 0, max: 20 }        # max: "n" ends the axis at a slider instead
 inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]   # optional parameters
 curves: [{ label: "p = 0.5", expr: "x > n ? 0 : binomPmf(n, x, 0.5)" }, { label: "p = 0.3", expr: "x > n ? 0 : binomPmf(n, x, 0.3)" }]
 y: { label: "P(X=k)", min: 0, max: 0.3 }    # optional; default fits the curves
@@ -312,6 +312,15 @@ verdict: [{ when: "n * 0.5 < 5", text: "成功次數的期望不到 5。" }]
 line, so a distribution can be shown in the plot's fixed height instead of a row list that would grow
 with n. Columns rise from y = 0, a non-finite value draws nothing, and a value of 0 draws no column at
 all (a zero column would only be invisible ink). Without `discrete` the Lab is unchanged.
+
+`x.min` and `x.max` are numbers, or an expression over the Lab's inputs: `max: "n"` ends the axis at
+the `n` slider and follows it as it moves, while a bare `max: 20` keeps a fixed axis. An expression is
+re-evaluated on every draw, and the build evaluates it at the values the Lab opens on, so a bad one is
+a build error naming the Lab. Leaving out `y.min` / `y.max` fits the y axis to the curves (and to 0),
+so a discrete plot's tallest column reaches the top of the plot.
+
+On a narrow screen (≤480px) the chart draws a narrower, taller viewBox so its tick labels stay
+readable instead of shrinking with the chart; the desktop chart is unchanged.
 
 `outputs` and `verdict` are `slider-calc`'s, with the same keys and the same markup (`.readouts`,
 `.ro`, `.verdict`), evaluated over the slider inputs rather than x: `outputs` show `label, expr,

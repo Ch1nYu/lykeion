@@ -1,0 +1,8 @@
+/* On a phone the chart used to be the desktop 560×300 viewBox scaled to ~310 CSS px, which rendered
+   its 11px tick labels at ~6px — unreadable. Below 480px the Lab draws a 300-unit-wide viewBox instead
+   (labs/curve/lab.js, `layout()`), so the scale stays near 1:1 and this larger in-SVG label size lands
+   at ~13 CSS px at a 375px viewport and never below 11px down to a ~315px viewport. Above the
+   breakpoint nothing changes: the desktop chart keeps 560×300 and the 11px labels from base.css. */
+@media (max-width:480px){
+  .lab[data-lab="curve"] svg.viz .tick{font-size:13px}
+}

@@ -132,13 +132,13 @@ test('three readouts fill their row on desktop', async (t) => {
 });
 
 test('a single readout fills its row on desktop', async (t) => {
-  // LAB E has one readout: in one of five tracks it read as a lone card, not as the Lab's one answer.
+  // LAB D has one readout: in one of five tracks it read as a lone card, not as the Lab's one answer.
   const page = await open(t, 1280, 'ch2');
   if (!page) return;
   try {
-    const g = await readoutGrid(page, 'LAB E');
-    assert.ok(g, 'LAB E is on the page');
-    assert.equal(g.n, 1, 'LAB E shows one readout');
+    const g = await readoutGrid(page, 'LAB D');
+    assert.ok(g, 'LAB D is on the page');
+    assert.equal(g.n, 1, 'LAB D shows one readout');
     assertRowFills(g, 'desktop');
   } finally {
     await page.close();

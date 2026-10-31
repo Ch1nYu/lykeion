@@ -5,7 +5,9 @@
              outputs?: [...slider-calc outputs],   readouts over the inputs (never x)
              verdict?: [{ when, text }] }          first true "when" shows its text
    `discrete` draws the curves as columns rising from y = 0, one slot per integer x, so a distribution
-   can be shown in the fixed-height plot instead of a row list that would grow with n. */
+   can be shown in the fixed-height plot instead of a row list that would grow with n.
+   `x.min` and `x.max` are numbers or expressions over the Lab's inputs (`max: "n"`), re-read on every
+   draw, so a discrete axis can end at the input instead of at a fixed bound. */
 Lykeion.registerLab('curve', function (root, p, api) {
   var H = api.H, S = api.S, esc = api.esc;
   var X = p.x || { min: 0, max: 1, label: 'x' };
@@ -19,18 +21,45 @@ Lykeion.registerLab('curve', function (root, p, api) {
   var verdicts = (p.verdict || []).map(function (v) { return { fn: LykeionMath.compile(v.when, inIds), text: v.text }; });
   var discrete = !!p.discrete;
   var state = {};
-  var W = 560, Hh = 300, pad = { l: 46, r: 16, t: 14, b: 40 };
-  var marker = p.marker ? { x: Number(p.marker.value != null ? p.marker.value : (X.min + X.max) / 2), label: p.marker.label || X.label } : null;
+  // x.min / x.max are a number or an expression over the inputs, so `max: "n"` ends the axis at n and
+  // follows the slider. Numbers keep working unchanged; an expression is re-read on every draw.
+  var xBound = function (v, dflt) {
+    if (v == null) return function () { return dflt; };
+    if (typeof v === 'number') return function () { return v; };
+    var fn = LykeionMath.compile(String(v), inIds);
+    return function () { var n = fn(state); return Number.isFinite(n) ? n : dflt; };
+  };
+  var xMinOf = xBound(X.min, 0), xMaxOf = xBound(X.max, 1);
+  // The chart's own coordinate system. A 560-unit-wide viewBox is scaled to ~310 CSS px on a phone,
+  // which renders the 11px tick labels at ~6px: below 480px the plot draws a 300-unit-wide box instead,
+  // so the scale stays near 1:1 and lab.css raises the in-SVG label size to match. Desktop keeps the
+  // 560×300 box, its paddings and its 11px labels exactly as before.
+  var NARROW = '(max-width: 480px)';
+  function isNarrow() { return typeof matchMedia === 'function' && matchMedia(NARROW).matches; }
+  function layout() {
+    return isNarrow()
+      ? { w: 300, h: 300, pad: { l: 40, r: 10, t: 16, b: 36 }, yTitleAbove: true }
+      : { w: 560, h: 300, pad: { l: 46, r: 16, t: 14, b: 40 }, yTitleAbove: false };
+  }
+  var marker = null, markerInput = null;
 
   var controls = H('div', { class: 'controls' });
   inputs.forEach(function (inp) { state[inp.id] = Number(inp.value); controls.appendChild(slider(inp.id, inp.label, inp.min, inp.max, inp.step || 1, inp.value, function (v) { state[inp.id] = v; draw(); })); });
-  if (marker) controls.appendChild(slider('__marker', marker.label, X.min, X.max, (X.max - X.min) / 100, marker.x, function (v) { marker.x = v; draw(); }));
+  if (p.marker) {
+    // The marker opens inside the axis the Lab opens on, which may itself be an expression of the inputs.
+    var xOpen = [xMinOf(), xMaxOf()];
+    marker = { x: Number(p.marker.value != null ? p.marker.value : (xOpen[0] + xOpen[1]) / 2), label: p.marker.label || X.label };
+    var mctl = slider('__marker', marker.label, xOpen[0], xOpen[1], Math.abs(xOpen[1] - xOpen[0]) / 100 || 1, marker.x, function (v) { marker.x = v; draw(); });
+    markerInput = mctl.querySelector('input');
+    controls.appendChild(mctl);
+  }
   if (controls.children.length) root.appendChild(controls);
 
   var legend = H('div', { class: 'legend' }, curves.map(function (c) { return '<span><i style="background:' + c.color + '"></i>' + esc(c.label) + '</span>'; }).join(''));
   root.appendChild(legend);
   var wrap = H('div', { class: 'vizwrap' });
-  var svg = S('svg', { class: 'viz', viewBox: '0 0 ' + W + ' ' + Hh, role: 'img', 'aria-label': (p.title || '') + ' ' + curves.map(function (c) { return c.label; }).join(', ') });
+  var L0 = layout();
+  var svg = S('svg', { class: 'viz', viewBox: '0 0 ' + L0.w + ' ' + L0.h, role: 'img', 'aria-label': (p.title || '') + ' ' + curves.map(function (c) { return c.label; }).join(', ') });
   wrap.appendChild(svg); root.appendChild(wrap);
   // The marker's per-curve values and the outputs share one readout grid, so both read the same way.
   var ro = H('div', { class: 'readouts', 'aria-live': 'polite' });
@@ -70,10 +99,22 @@ Lykeion.registerLab('curve', function (root, p, api) {
     verdictStack.show(-1);
   }
   function draw() {
+    var xmin = xMinOf(), xmax = xMaxOf();
+    if (xmax === xmin) xmax = xmin + 1; // a collapsed range still needs a scale to divide by
+    var L = layout(), W = L.w, Hh = L.h, pad = L.pad;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh);
+    // The marker's slider carries the axis bounds, which move with an input when x.max is an expression.
+    if (markerInput) {
+      markerInput.setAttribute('min', xmin);
+      markerInput.setAttribute('max', xmax);
+      markerInput.setAttribute('step', (xmax - xmin) / 100);
+      if (marker.x < xmin) { marker.x = xmin; markerInput.value = xmin; }
+      else if (marker.x > xmax) { marker.x = xmax; markerInput.value = xmax; }
+    }
     var xs = null, pts;
     if (discrete) {
       // One sample per integer x: the columns are the distribution, not a smoothed line.
-      var lo = Math.ceil(Math.min(X.min, X.max)), hi = Math.floor(Math.max(X.min, X.max));
+      var lo = Math.ceil(Math.min(xmin, xmax)), hi = Math.floor(Math.max(xmin, xmax));
       xs = [];
       for (var k = lo; k <= hi; k++) xs.push(k);
       pts = curves.map(function (c) {
@@ -83,7 +124,7 @@ Lykeion.registerLab('curve', function (root, p, api) {
       var N = 200;
       pts = curves.map(function (c) {
         var a = [];
-        for (var i = 0; i <= N; i++) { var x = X.min + (X.max - X.min) * i / N, v = c.fn(Object.assign({ x: x }, state)); a.push([x, Number.isFinite(v) ? v : NaN]); }
+        for (var i = 0; i <= N; i++) { var x = xmin + (xmax - xmin) * i / N, v = c.fn(Object.assign({ x: x }, state)); a.push([x, Number.isFinite(v) ? v : NaN]); }
         return a;
       });
     }
@@ -91,7 +132,7 @@ Lykeion.registerLab('curve', function (root, p, api) {
     var ymin = p.y && p.y.min != null ? p.y.min : Math.min.apply(null, all.concat([0]));
     var ymax = p.y && p.y.max != null ? p.y.max : Math.max.apply(null, all.concat([1e-9]));
     if (ymax === ymin) ymax = ymin + 1;
-    var sx = function (x) { return pad.l + (x - X.min) / (X.max - X.min) * (W - pad.l - pad.r); };
+    var sx = function (x) { return pad.l + (x - xmin) / (xmax - xmin) * (W - pad.l - pad.r); };
     var sy = function (y) { return Hh - pad.b - (y - ymin) / (ymax - ymin) * (Hh - pad.t - pad.b); };
     // A discrete x is a slot, not a point: its column (and its label) sit in the middle of the slot.
     var band = discrete && xs.length ? (W - pad.l - pad.r) / xs.length : 0;
@@ -101,10 +142,10 @@ Lykeion.registerLab('curve', function (root, p, api) {
     // Shared "nice numbers" ticks (LykeionMath.ticks) on both axes. The ends are drawn as
     // ticks but only labelled when already round (ends[i]); otherwise the label is skipped
     // so it can never sit on top of the axis end.
-    var xt = LykeionMath.ticks(X.min, X.max), yt = LykeionMath.ticks(ymin, ymax);
+    var xt = LykeionMath.ticks(xmin, xmax), yt = LykeionMath.ticks(ymin, ymax);
     var showX = function (v, i) {
-      if (v === X.min) return xt.ends[0];
-      if (v === X.max) return xt.ends[1];
+      if (v === xmin) return xt.ends[0];
+      if (v === xmax) return xt.ends[1];
       return true;
     };
     var showY = function (v, i) {
@@ -125,7 +166,12 @@ Lykeion.registerLab('curve', function (root, p, api) {
     S('line', { x1: pad.l, x2: W - pad.r, y1: Hh - pad.b, y2: Hh - pad.b }, ax);
     S('line', { x1: pad.l, x2: pad.l, y1: pad.t, y2: Hh - pad.b }, ax);
     S('text', { x: (W + pad.l) / 2, y: Hh - 6, class: 'tick', 'text-anchor': 'middle' }, svg).textContent = X.label || 'x';
-    if (p.y && p.y.label) S('text', { x: 12, y: (Hh - pad.b + pad.t) / 2, class: 'tick', 'text-anchor': 'middle', transform: 'rotate(-90 12 ' + (Hh - pad.b + pad.t) / 2 + ')' }, svg).textContent = p.y.label;
+    // On a phone the labels are three times their desktop size, so a rotated y title would run into
+    // the tick labels beside it: the narrow plot puts the title above the axis instead.
+    if (p.y && p.y.label) {
+      if (L.yTitleAbove) S('text', { x: pad.l, y: 11, class: 'tick', 'text-anchor': 'start' }, svg).textContent = p.y.label;
+      else S('text', { x: 12, y: (Hh - pad.b + pad.t) / 2, class: 'tick', 'text-anchor': 'middle', transform: 'rotate(-90 12 ' + (Hh - pad.b + pad.t) / 2 + ')' }, svg).textContent = p.y.label;
+    }
     if (discrete) {
       // Columns rise from y = 0 (or the floor of a fixed range), side by side when there are several
       // curves. A value of 0 draws nothing: a zero column would only be an invisible sliver of ink.
@@ -156,4 +202,11 @@ Lykeion.registerLab('curve', function (root, p, api) {
     updateReadouts();
   }
   draw();
+  // Rotating the phone or resizing the window crosses the breakpoint: redraw in the other viewBox.
+  if (typeof matchMedia === 'function') {
+    var mq = matchMedia(NARROW);
+    var onBreak = function () { draw(); };
+    if (mq.addEventListener) mq.addEventListener('change', onBreak);
+    else if (mq.addListener) mq.addListener(onBreak);
+  }
 });

@@ -782,10 +782,26 @@ function labReadouts(type, p, ctx) {
   } else if (type === 'curve') {
     // The curve Lab's `outputs` are slider-calc's, read over the inputs the Lab opens on.
     for (const o of p.outputs || []) readout(o.label, o.expr, ids, inputState);
+    // `x.min` / `x.max` are a number or an expression over those inputs (`max: "n"`), so the axis is
+    // evaluated the way the Lab evaluates it at its opening values; a bad one fails the build.
+    const X = p.x || {};
+    const bound = (key, fallback) => {
+      const v = X[key];
+      if (v == null) return fallback;
+      if (typeof v === 'number') return v;
+      try {
+        const value = ctx.maths.compile(String(v), ids)(inputState);
+        if (Number.isFinite(value)) return value;
+        ctx.errors.push(`${ctx.where}: Lab "${type}" x.${key} "${v}" is not a finite number at its default inputs`);
+      } catch (e) {
+        ctx.errors.push(`${ctx.where}: Lab "${type}" x.${key} "${v}" fails at its default inputs: ${e.message.split('\n')[0]}`);
+      }
+      return fallback;
+    };
+    const xMin = bound('min', 0), xMax = bound('max', 1);
     if (p.marker) {
       // Its curves are read at the marker, which opens on `marker.value` (or the middle of x).
-      const X = p.x || { min: 0, max: 1 };
-      const x = Number(p.marker.value ?? (X.min + X.max) / 2);
+      const x = Number(p.marker.value ?? (xMin + xMax) / 2);
       for (const c of p.curves || []) readout(c.label, c.expr, ['x', ...ids], { ...inputState, x });
     }
   }

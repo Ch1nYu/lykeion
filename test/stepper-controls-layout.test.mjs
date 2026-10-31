@@ -61,14 +61,14 @@ const overlaps = (a, b) => Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
 const oneRow = (boxes) => boxes.every((b) => overlaps(b, boxes[0]));
 
 test('a phone puts the step chips on their own row and keeps ← with 下一步 below them', async (t) => {
-  // LAB D names three steps. On one line the chips push `←` to the far right of the first row and
+  // LAB C names three steps. On one line the chips push `←` to the far right of the first row and
   // `下一步` drops alone to a second, so the two buttons that walk the steps are split across rows.
   const page = await open(t, 375, 'ch2');
   if (!page) return;
   try {
-    const c = await controls(page, 'LAB D');
-    assert.ok(c, 'LAB D is on the page');
-    assert.equal(c.chips.length, 3, 'LAB D shows three step chips');
+    const c = await controls(page, 'LAB C');
+    assert.ok(c, 'LAB C is on the page');
+    assert.equal(c.chips.length, 3, 'LAB C shows three step chips');
     assert.equal(c.nav.length, 2, 'the stepper shows ← and 下一步');
     assert.ok(oneRow(c.chips), `the step chips share one row, got ${c.chips.map((b) => b.top).join(', ')}`);
     assert.ok(oneRow(c.nav), `← and 下一步 share one row, got ${c.nav.map((b) => b.top).join(', ')}`);
@@ -85,9 +85,9 @@ test('a desktop keeps the chips and both actions on one row', async (t) => {
   const page = await open(t, 1280, 'ch2');
   if (!page) return;
   try {
-    const c = await controls(page, 'LAB D');
-    assert.ok(c, 'LAB D is on the page');
-    assert.equal(c.chips.length, 3, 'LAB D shows three step chips');
+    const c = await controls(page, 'LAB C');
+    assert.ok(c, 'LAB C is on the page');
+    assert.equal(c.chips.length, 3, 'LAB C shows three step chips');
     assert.equal(c.nav.length, 2, 'the stepper shows ← and 下一步');
     assert.ok(oneRow([...c.chips, ...c.nav]), `chips and actions share one row, got ${[...c.chips, ...c.nav].map((b) => b.top).join(', ')}`);
   } finally {

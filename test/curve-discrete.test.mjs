@@ -186,6 +186,60 @@ test('without discrete the curve is still one 200-point path', () => {
   assert.equal(moves.length, 201, '200 intervals → 201 points');
 });
 
+// ---------- the x axis follows an input (criterion 1) ----------
+
+const spanLab = (x, extra = {}) => ({
+  discrete: true,
+  x,
+  inputs: [{ id: 'n', label: 'n', min: 4, max: 20, step: 1, value: 10 }],
+  curves: [{ label: 'P(X=k)', expr: '1 / (n + 1)' }],
+  ...extra,
+});
+
+// The x tick labels are the middle-anchored .tick texts; the axis title sits there too, so drop it.
+const xTicks = (root, label) => byTag(root, 'text')
+  .filter((e) => e.attrs.class === 'tick' && e.attrs['text-anchor'] === 'middle' && e.textContent !== label)
+  .map((e) => e.textContent);
+
+test('x.max as an expression ends the axis at the input and follows it', () => {
+  const root = mountLab(spanLab({ label: 'k', min: 0, max: 'n' }));
+  assert.equal(byTag(root, 'rect').length, 11, 'k = 0…10 columns');
+  assert.deepEqual(xTicks(root, 'k'), ['0', '2', '4', '6', '8', '10']);
+  const n = sliderOf(root, 0);
+  n.value = '12';
+  n.listeners.input();
+  assert.equal(byTag(root, 'rect').length, 13, 'k = 0…12 once n = 12');
+  assert.deepEqual(xTicks(root, 'k'), ['0', '2', '4', '6', '8', '10', '12'], 'the axis ends at n, not at a fixed bound');
+});
+
+test('x.min is an expression too, so the axis can show a window that follows an input', () => {
+  const root = mountLab(spanLab({ label: 'k', min: 'n - 2', max: 'n' }));
+  assert.equal(byTag(root, 'rect').length, 3, 'k = n-2…n');
+  assert.deepEqual(xTicks(root, 'k'), ['8', '9', '10'], 'only the integers of that window get a label');
+});
+
+test('a numeric x.max keeps a fixed axis, whatever the sliders do', () => {
+  const root = mountLab(spanLab({ label: 'k', min: 0, max: 20 }));
+  assert.equal(byTag(root, 'rect').length, 21, 'the axis is 0…20 from the start');
+  const n = sliderOf(root, 0);
+  n.value = '20';
+  n.listeners.input();
+  assert.equal(byTag(root, 'rect').length, 21, 'and stays 0…20 at n = 20');
+  assert.deepEqual(xTicks(root, 'k'), ['0', '5', '10', '15', '20']);
+});
+
+test('a marker opens inside an expression axis, and its slider follows the axis', () => {
+  const root = mountLab(spanLab({ label: 'k', min: 0, max: 'n' }, { marker: { label: 'k' } }));
+  const marker = () => byClass(root, 'ctl')[1].querySelector('input');
+  assert.equal(Number(marker().attrs.max), 10, 'the marker slider opens on 0…10');
+  assert.equal(Number(marker().value), 5, 'the marker opens in the middle of the axis');
+  assert.equal(byTag(root, 'circle').length, 1, 'the marker reads its curve');
+  const n = sliderOf(root, 0);
+  n.value = '20';
+  n.listeners.input();
+  assert.equal(Number(marker().attrs.max), 20, 'and grows with n');
+});
+
 // ---------- readouts (criterion 2) ----------
 
 test('outputs render in a .readouts grid and update as the sliders move', () => {
@@ -269,6 +323,33 @@ test('a bad outputs expr is a build error naming the Lab', async () => {
   await assert.rejects(() => build(dir), /Lab "curve" "半數" fails at its default inputs/);
 });
 
+test('a bad x.max expression is a build error naming the Lab', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-curve-x-'));
+  await writeFile(join(dir, 'lykeion.json'), JSON.stringify({ title: 'Curve x probe', output: 'probe.html', scope: [] }));
+  await mkdir(join(dir, 'content'), { recursive: true });
+  await writeFile(join(dir, 'content', '01-probe.md'), [
+    '---',
+    'chapter: 1',
+    'title: Probe',
+    'short: probe',
+    'source: sample.pdf',
+    '---',
+    '',
+    '## 1.1 A section {pages=1}',
+    '',
+    '```lab curve',
+    'tag: LAB BAD',
+    'title: 壞掉的 x 軸',
+    'inputs: [{ id: n, label: n, min: 4, max: 20, step: 1, value: 10 }]',
+    'discrete: true',
+    'x: { label: k, min: 0, max: "n *" }',
+    'curves: [{ label: "P", expr: "x / n" }]',
+    '```',
+    '',
+  ].join('\n'));
+  await assert.rejects(() => build(dir), /Lab "curve" x\.max "n \*" fails at its default inputs/);
+});
+
 // ---------- the built sample (criterion 6) ----------
 
 let browser = null;
@@ -287,29 +368,141 @@ const openSample = async (t, width) => {
   return page;
 };
 
-const labH = (page) => page.evaluate(() => {
-  const lab = [...document.querySelectorAll('.lab')].find((l) => l.querySelector('.lab-head .tag')?.textContent.trim() === 'LAB H');
+const labG = (page) => page.evaluate(() => {
+  const lab = [...document.querySelectorAll('.lab')].find((l) => l.querySelector('.lab-head .tag')?.textContent.trim() === 'LAB G');
   if (!lab) return null;
-  const n = lab.querySelector('input[type="range"]');
-  const count = () => ({ cols: lab.querySelectorAll('svg.viz rect').length, readouts: lab.querySelectorAll('.readouts > .ro').length });
-  const at = count();
-  n.value = '20';
-  n.dispatchEvent(new Event('input', { bubbles: true }));
-  const grown = count();
-  return { ...at, grown: grown.cols, bars: lab.querySelectorAll('.bars2').length, rows: lab.querySelectorAll('.hbar').length };
+  const svg = lab.querySelector('svg.viz');
+  const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+  const box = svg.getBoundingClientRect();
+  const scale = box.width / vb[2];
+  const texts = [...svg.querySelectorAll('text.tick')];
+  const rects = [...svg.querySelectorAll('rect')];
+  const axis = [...svg.querySelectorAll('g.axis line')];
+  const xNums = texts.filter((t) => t.getAttribute('text-anchor') === 'middle' && /^-?\d/.test(t.textContent));
+  const num = (el, k) => Number(el.getAttribute(k));
+  return {
+    viewBox: vb,
+    scale,
+    width: box.width,
+    cols: rects.length,
+    readouts: lab.querySelectorAll('.readouts > .ro').length,
+    bars: lab.querySelectorAll('.bars2').length,
+    rows: lab.querySelectorAll('.hbar').length,
+    topY: Math.min(...rects.map((r) => num(r, 'y'))),
+    leftEdge: Math.min(...rects.map((r) => num(r, 'x'))),
+    rightEdge: Math.max(...rects.map((r) => num(r, 'x') + num(r, 'width'))),
+    axisTop: num(axis[1], 'y1'),
+    axisLeft: num(axis[0], 'x1'),
+    axisRight: num(axis[0], 'x2'),
+    lastXLabel: xNums.length ? xNums[xNums.length - 1].textContent : null,
+    labels: texts.map((t) => t.textContent),
+    fontPx: texts.map((t) => parseFloat(getComputedStyle(t).fontSize) * scale),
+    boxPx: texts.map((t) => t.getBoundingClientRect().height),
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  };
 });
 
-test('LAB H is columns up to k = n, not a 21-row list', async (t) => {
+const growLabG = (page, n) => page.evaluate((n) => {
+  const lab = [...document.querySelectorAll('.lab')].find((l) => l.querySelector('.lab-head .tag')?.textContent.trim() === 'LAB G');
+  const input = lab.querySelector('input[type="range"]');
+  input.value = n;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}, String(n));
+
+test('LAB G is columns up to k = n, not a 21-row list', async (t) => {
   const page = await openSample(t, 1280);
   if (!page) return;
   try {
-    const h = await labH(page);
-    assert.ok(h, 'LAB H is in the built sample');
+    const h = await labG(page);
+    assert.ok(h, 'LAB G is in the built sample');
     assert.equal(h.bars, 0, 'no slider-calc bar list is left behind');
     assert.equal(h.rows, 0, 'no hbar rows are left behind');
     assert.equal(h.cols, 11, 'n = 10 opens on 11 columns, k = 0…10');
-    assert.equal(h.grown, 21, 'n = 20 draws all 21 columns, k = 0…20');
     assert.equal(h.readouts, 3, 'the three outputs keep their readout grid');
+    await growLabG(page, 20);
+    const grown = await labG(page);
+    assert.equal(grown.cols, 21, 'n = 20 draws all 21 columns, k = 0…20');
+  } finally {
+    await page.close();
+  }
+});
+
+// Criterion 5: with `x.max: n` and no y bounds, the bars fill the plot at the opening values.
+test('LAB G ends its x axis at n and fits the y axis to the tallest column', async (t) => {
+  const page = await openSample(t, 1280);
+  if (!page) return;
+  try {
+    const at = await labG(page);
+    assert.ok(at, 'LAB G is in the built sample');
+    assert.equal(at.lastXLabel, '10', 'the x axis ends at the opening n');
+    assert.ok(Math.abs(at.topY - at.axisTop) < 0.6, `the tallest column reaches the top of the plot (${at.topY} vs ${at.axisTop})`);
+    assert.ok(at.leftEdge - at.axisLeft < 6 && at.leftEdge >= at.axisLeft - 0.5, `the columns start at the left end of the axis (${at.leftEdge} vs ${at.axisLeft})`);
+    assert.ok(at.axisRight - at.rightEdge < 6, `the last column ends at the right end of the axis (${at.rightEdge} vs ${at.axisRight})`);
+    await growLabG(page, 20);
+    const grown = await labG(page);
+    assert.equal(grown.lastXLabel, '20', 'the x axis follows n');
+    assert.ok(Math.abs(grown.topY - grown.axisTop) < 0.6, `and the y axis refits the taller column (${grown.topY} vs ${grown.axisTop})`);
+  } finally {
+    await page.close();
+  }
+});
+
+// Criterion 4: the phone fix must not move the desktop chart by a pixel.
+test('a numeric-x curve keeps its desktop chart at 1280px', async (t) => {
+  const dir = await tiny([
+    '固定 x 軸的曲線圖；手機版的調整不該改到桌機版。',
+    '',
+    '```lab curve',
+    'tag: LAB N',
+    'title: 固定 x 軸',
+    'x: { label: x, min: 0, max: 20 }',
+    'curves: [{ label: "f(x)", expr: "x / 20" }]',
+    '```',
+  ].join('\n'));
+  if (!browser) { t.skip('no browser available'); return; }
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: 'light' });
+  try {
+    await page.goto(pathToFileURL(join(dir, 'probe.html')).href, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.Lykeion.show('ch1', { noScroll: true }));
+    await page.waitForTimeout(200);
+    const info = await page.evaluate(() => {
+      const svg = document.querySelector('.lab svg.viz');
+      if (!svg) return null;
+      const texts = [...svg.querySelectorAll('text.tick')];
+      return {
+        viewBox: svg.getAttribute('viewBox'),
+        font: texts.map((x) => parseFloat(getComputedStyle(x).fontSize)),
+        xTicks: texts.filter((x) => x.getAttribute('text-anchor') === 'middle' && /^-?\d/.test(x.textContent))
+          .map((x) => [x.textContent, Number(x.getAttribute('x'))]),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+    assert.ok(info, 'the curve Lab is on the page');
+    assert.equal(info.viewBox, '0 0 560 300', 'the desktop chart keeps the 560×300 viewBox');
+    for (const f of info.font) assert.equal(f, 11, 'the desktop tick labels keep their 11px size');
+    // The old geometry: 46 units of left padding, 16 of right, so 0…20 maps onto 498 units.
+    const want = [['0', 46], ['5', 170.5], ['10', 295], ['15', 419.5], ['20', 544]];
+    assert.deepEqual(info.xTicks.map(([t]) => t), want.map(([t]) => t));
+    info.xTicks.forEach(([, x], i) => assert.ok(Math.abs(x - want[i][1]) < 0.6, `${want[i][0]} sits at ${x}, expected ${want[i][1]}`));
+    assert.equal(info.overflow, 0, 'and it does not overflow the page');
+  } finally {
+    await page.close();
+  }
+});
+
+// Criterion 3: the tick labels must still be readable on a 375px phone.
+test('at 375px every curve tick and axis label renders at 11px or more', async (t) => {
+  const page = await openSample(t, 375);
+  if (!page) return;
+  try {
+    const at = await labG(page);
+    assert.ok(at, 'LAB G is in the built sample');
+    assert.ok(at.viewBox[2] < 560, `the narrow chart draws a narrower viewBox (${at.viewBox[2]})`);
+    assert.ok(at.labels.length >= 8, `the chart still has its ticks and axis labels (${at.labels.length})`);
+    at.fontPx.forEach((px, i) => assert.ok(px >= 11, `"${at.labels[i]}" renders at ${px.toFixed(2)}px`));
+    at.boxPx.forEach((px, i) => assert.ok(px >= 11, `"${at.labels[i]}" has a ${px.toFixed(2)}px box`));
+    assert.equal(at.overflow, 0, 'no horizontal page overflow');
   } finally {
     await page.close();
   }
