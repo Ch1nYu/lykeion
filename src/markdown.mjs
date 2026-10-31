@@ -57,8 +57,21 @@ function mathPlugin(md, ctx) {
       break;
     }
     if (q === -1) return false;
-    if (!silent) { const t = state.push('math_inline', 'math', 0); t.content = s.slice(p + 1, q); }
-    state.pos = q + 1;
+    // CJK punctuation binds to the maths it follows: `$np$。` must not break between the two (a 375px
+    // phone left a line holding only the 。), and a space typed between them must not show as a gap. The
+    // punctuation stays a text token — the build reads prose from it — and the pair sits in one
+    // `.mnb` unit that base.css keeps unbroken. Maths followed by anything else is untouched.
+    const tail = /^[ \t]*([。，、；：）」』？！]+)/.exec(s.slice(q + 1));
+    if (!silent) {
+      if (tail) state.push('math_nb_open', 'span', 1).attrs = [['class', 'mnb']];
+      const t = state.push('math_inline', 'math', 0);
+      t.content = s.slice(p + 1, q);
+      if (tail) {
+        state.push('text', '', 0).content = tail[1];
+        state.push('math_nb_close', 'span', -1);
+      }
+    }
+    state.pos = q + 1 + (tail ? tail[0].length : 0);
     return true;
   });
   // block $$ … $$ (may span lines)

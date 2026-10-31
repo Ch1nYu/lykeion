@@ -81,6 +81,39 @@ test('a section title with maths gives a plain-text label without TeX and withou
   assert.match(sec, /<span class="t">縮放用 <span class="katex"><math/);
 });
 
+// ---------- inline maths and the CJK punctuation after it ----------
+// `$np$。` is one unit: a break between the formula and the 。 left a line holding only the
+// punctuation on a 375px phone. The build wraps the two in `.mnb`, and base.css keeps it unbroken.
+const MATH = '<span class="katex"><math[\\s\\S]*?<\\/math><\\/span>';
+
+test('CJK punctuation right after inline maths is wrapped with it, in a unit that cannot break', async () => {
+  const { html } = render('結果是 $np$。下一句');
+  // The formula and the 。 sit inside one wrapper, and the rest of the sentence follows it.
+  assert.match(html, new RegExp(`^結果是 <span class="mnb">${MATH}。</span>下一句$`), html);
+  const css = await readFile(join(ROOT, 'runtime', 'base.css'), 'utf8');
+  const rule = /\.mnb\s*\{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'base.css styles the .mnb wrapper');
+  assert.match(rule[1], /white-space\s*:\s*nowrap/, `the wrapper must not break: .mnb{${rule[1]}}`);
+});
+
+test('a space between inline maths and the CJK punctuation after it is dropped', () => {
+  assert.match(render('$np$ 。').html, new RegExp(`^<span class="mnb">${MATH}。</span>$`));
+  assert.match(render('$n=10$ 、').html, new RegExp(`^<span class="mnb">${MATH}、</span>$`));
+});
+
+test('maths followed by a CJK character is left alone', () => {
+  const { html } = render('$x$ 和 $y$');
+  assert.doesNotMatch(html, /mnb/, html);
+  assert.match(html, / 和 /, html);
+});
+
+test('display maths is not wrapped', () => {
+  const ctx = { errors: [], where: 'x.md §1.1' };
+  const html = createMarkdown(ctx).render('$$x$$');
+  assert.match(html, /<div class="formula"><span class="katex"><math/);
+  assert.doesNotMatch(html, /mnb/, html);
+});
+
 // ---------- code listings ----------
 // A listing is a first-class part of the format: a plain fenced block with a language, an optional
 // caption from `title="…"`, and no syntax highlighting (Lecture Sites must work offline).

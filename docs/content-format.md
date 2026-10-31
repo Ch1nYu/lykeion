@@ -117,6 +117,7 @@ The build rejects a parts formula whose pieces, joined with whitespace removed, 
 - Maths in a heading (`## 3.1 縮放用 $\sqrt{d_k}$`, `### 除以 $\sqrt{d_k}$`) reaches the sidebar, the top bar and the pager as rendered maths: a label copies the heading's markup, not its text, so the TeX source never appears next to the marks. The plain-text label the runtime keeps for toasts and `Lykeion.views()` flattens the formula to marks (`√(dk)`), never `dk\sqrt{d_k}`.
 - A number is not a formula: `$0.5$` inherits the maths face and baseline and reads as a word from another language, so write numbers as text and keep `$…$` for expressions. The `teaching` gate enforces this (`numericMath`), and also fails maths typed as plain text (`√d_k`, `\sqrt`, `x^2`, `QKᵀ`, `x_{i}`) — `plainMath`.
 - Inline maths that is much taller than its line would stretch line boxes and break the reading rhythm, so `.prose math` is set at `font-size:.92em` with `line-height:1` and the line box keeps its pitch. The render gate measures it (`inline maths` check).
+- CJK punctuation written right after inline maths (`$np$。`, `$n = 10$、`) stays on the formula's line: the build wraps the two in one no-break unit, and a space typed between them is dropped.
 
 ## Code listings
 
