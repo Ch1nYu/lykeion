@@ -199,7 +199,7 @@ verdict:
 ```lab curve
 tag: LAB G
 title: 檢查常態近似的經驗法則
-hint: 拉動 n 與 p，看 k=0…20 的柱子什麼時候像鐘形；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
+hint: 拉動 n 與 p，看 k=0…n 的柱子什麼時候像鐘形；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
 inputs:
   - { id: n, label: n, min: 4, max: 20, step: 1, value: 10 }
   - { id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }
@@ -208,8 +208,8 @@ outputs:
   - { label: "n(1-p)", expr: "n * (1 - p)" }
   - { label: 判準, expr: "n * p >= 5 && n * (1 - p) >= 5 ? 1 : 0", labels: { "1": "符合經驗法則", "0": "未達經驗法則" } }
 discrete: true
-x: { label: k, min: 0, max: 20 }
-y: { label: "P(X=k)", min: 0, max: 0.9 }
+x: { label: k, min: 0, max: "n" }
+y: { label: "P(X=k)" }
 curves:
   - { label: "P(X=k)", expr: "x > n ? 0 : binomPmf(n, x, p)" }
 verdict:
