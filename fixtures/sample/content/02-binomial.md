@@ -196,10 +196,10 @@ verdict:
 
 要用常態分布近似二項分布，先看成功和失敗兩種結果的期望次數是否都夠大。兩個期望次數都 ≥ 5 時，分布的兩端才不會被 0 或 n 擋住，長條圖才會接近左右對稱的鐘形。上一節 n=10、p=0.5 的長條圖，兩個期望次數都是 5，左右已經對稱。
 
-```lab slider-calc
+```lab curve
 tag: LAB H
 title: 檢查常態近似的經驗法則
-hint: 拉動 n 與 p，看下方 k=0…n 的長條什麼時候像鐘形；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
+hint: 拉動 n 與 p，看 k=0…20 的柱子什麼時候像鐘形；np 與 n(1-p) 都 ≥ 5 是常用經驗法則
 inputs:
   - { id: n, label: n, min: 4, max: 20, step: 1, value: 10 }
   - { id: p, label: p, min: 0.05, max: 0.95, step: 0.05, value: 0.3 }
@@ -207,28 +207,11 @@ outputs:
   - { label: np, expr: "n * p" }
   - { label: "n(1-p)", expr: "n * (1 - p)" }
   - { label: 判準, expr: "n * p >= 5 && n * (1 - p) >= 5 ? 1 : 0", labels: { "1": "符合經驗法則", "0": "未達經驗法則" } }
-bars:
-  - { label: "k=0", expr: "binomPmf(n, 0, p)" }
-  - { label: "k=1", expr: "binomPmf(n, 1, p)" }
-  - { label: "k=2", expr: "binomPmf(n, 2, p)" }
-  - { label: "k=3", expr: "binomPmf(n, 3, p)" }
-  - { label: "k=4", expr: "binomPmf(n, 4, p)" }
-  - { label: "k=5", expr: "binomPmf(n, 5, p)" }
-  - { label: "k=6", expr: "binomPmf(n, 6, p)" }
-  - { label: "k=7", expr: "binomPmf(n, 7, p)" }
-  - { label: "k=8", expr: "binomPmf(n, 8, p)" }
-  - { label: "k=9", expr: "binomPmf(n, 9, p)" }
-  - { label: "k=10", expr: "binomPmf(n, 10, p)" }
-  - { label: "k=11", expr: "binomPmf(n, 11, p)" }
-  - { label: "k=12", expr: "binomPmf(n, 12, p)" }
-  - { label: "k=13", expr: "binomPmf(n, 13, p)" }
-  - { label: "k=14", expr: "binomPmf(n, 14, p)" }
-  - { label: "k=15", expr: "binomPmf(n, 15, p)" }
-  - { label: "k=16", expr: "binomPmf(n, 16, p)" }
-  - { label: "k=17", expr: "binomPmf(n, 17, p)" }
-  - { label: "k=18", expr: "binomPmf(n, 18, p)" }
-  - { label: "k=19", expr: "binomPmf(n, 19, p)" }
-  - { label: "k=20", expr: "binomPmf(n, 20, p)" }
+discrete: true
+x: { label: k, min: 0, max: 20 }
+y: { label: "P(X=k)", min: 0, max: 0.9 }
+curves:
+  - { label: "P(X=k)", expr: "x > n ? 0 : binomPmf(n, x, p)" }
 verdict:
   - { when: "p <= 0.2 && n * p < 5", text: "p 很小、np 又不到 5：成功真的很罕見，分布擠向 0，右邊拖一條長尾。" }
   - { when: "p >= 0.8 && n * (1 - p) < 5", text: "p 很大、n(1-p) 又不到 5：失敗真的很罕見，分布擠向 n，左邊拖一條長尾。" }
