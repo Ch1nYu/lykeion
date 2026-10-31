@@ -172,29 +172,30 @@ verdict:
   - { when: "true", text: "p 超過 0.5 以後，成功越來越常發生，結果擠向 n；往右拉，變異數反而變小。" }
 ```
 
-變異數說的是散布；分布的高峰則落在期望值 $np$ 附近。下面固定看 k=3、5、7 三個位置，拉動 n 讓 np 移動：
+變異數說的是散布；分布的高峰則落在期望值 $np$ 附近。下面把兩組 p 的整個分布畫出來，拉動 n 讓 np 移動：
 
-```lab slider-calc
+```lab curve
 tag: LAB F
-title: 拉動 n，看哪一格的機率最大
-hint: 拉動 n，看兩組長條裡被標出的最大那一根，和上方的 np 比一比
+title: 拉動 n，看最高的柱子在哪裡
+hint: 拉動 n，看兩組柱子最高的那一根落在哪個 k，和上方的 np 比一比
 inputs: [{ id: n, label: n, min: 4, max: 20, step: 2, value: 10 }]
 outputs:
   - { label: "np, p=0.5", expr: "n * 0.5" }
   - { label: "np, p=0.3", expr: "n * 0.3" }
-bars:
-  - { label: "p=0.5, k=3", expr: "binomPmf(n, 3, 0.5)", max: 0.35, active: "binomPmf(n, 3, 0.5) >= binomPmf(n, 5, 0.5) && binomPmf(n, 3, 0.5) >= binomPmf(n, 7, 0.5)" }
-  - { label: "p=0.5, k=5", expr: "binomPmf(n, 5, 0.5)", max: 0.35, active: "binomPmf(n, 5, 0.5) >= binomPmf(n, 3, 0.5) && binomPmf(n, 5, 0.5) >= binomPmf(n, 7, 0.5)" }
-  - { label: "p=0.5, k=7", expr: "binomPmf(n, 7, 0.5)", max: 0.35, active: "binomPmf(n, 7, 0.5) >= binomPmf(n, 3, 0.5) && binomPmf(n, 7, 0.5) >= binomPmf(n, 5, 0.5)" }
-  - { label: "p=0.3, k=3", expr: "binomPmf(n, 3, 0.3)", max: 0.35, active: "binomPmf(n, 3, 0.3) >= binomPmf(n, 5, 0.3) && binomPmf(n, 3, 0.3) >= binomPmf(n, 7, 0.3)" }
-  - { label: "p=0.3, k=5", expr: "binomPmf(n, 5, 0.3)", max: 0.35, active: "binomPmf(n, 5, 0.3) >= binomPmf(n, 3, 0.3) && binomPmf(n, 5, 0.3) >= binomPmf(n, 7, 0.3)" }
-  - { label: "p=0.3, k=7", expr: "binomPmf(n, 7, 0.3)", max: 0.35, active: "binomPmf(n, 7, 0.3) >= binomPmf(n, 3, 0.3) && binomPmf(n, 7, 0.3) >= binomPmf(n, 5, 0.3)" }
+discrete: true
+x: { label: k, min: 0, max: "n" }
+y: { label: "P(X=k)" }
+curves:
+  - { label: "p = 0.5", expr: "x > n ? 0 : binomPmf(n, x, 0.5)" }
+  - { label: "p = 0.3", expr: "x > n ? 0 : binomPmf(n, x, 0.3)" }
 verdict:
-  - { when: "n == 10", text: "n=10：p=0.5 那組標出 k=5（np=5），p=0.3 那組標出 k=3（np=3）。被標出的那根，就是三格裡最靠近 np 的 k。" }
-  - { when: "true", text: "每組被標出的那根，都是三格裡最靠近 np 的 k；np 往右移，標記也跟著換到右邊。這裡只抽三格，真正的高峰在最接近 np 的整數附近。" }
+  - { when: "n == 10", text: "n=10：p=0.5 那組最高在 k=5（np=5），p=0.3 那組最高在 k=3（np=3）。最高的柱子就站在 np 上。" }
+  - { when: "true", text: "np 往右移，兩組的最高柱子也跟著往右；np 不是整數時，最高的那根落在最接近 np 的整數附近。" }
 ```
 
-要用常態分布近似二項分布，先看成功和失敗兩種結果的期望次數是否都夠大。兩個期望次數都 ≥ 5 時，分布的兩端才不會被 0 或 n 擋住，長條圖才會接近左右對稱的鐘形。上一節 n=10、p=0.5 的長條圖，兩個期望次數都是 5，左右已經對稱。
+**常態分布**是一條左右對稱的鐘形曲線，形狀只由平均數和標準差決定，機率有現成的表可查。二項分布的長條夠對稱時，就能用這條曲線代替一長串 $\binom{n}{k}$ 的計算，這叫**常態近似**。
+
+要先確認成功和失敗兩種結果的期望次數都夠大。兩個期望次數都 ≥ 5 時，分布的兩端才不會被 0 或 n 擋住，長條圖才會接近左右對稱的鐘形。上一節 n=10、p=0.5 的長條圖，兩個期望次數都是 5，左右已經對稱。
 
 ```lab curve
 tag: LAB G
@@ -242,5 +243,5 @@ verdict:
 - q: 什麼時候適合用常態分布近似二項分布？
   o: [np 與 n(1-p) 都夠大時, n 大於 30 且 p 任意時, p 接近 0.5 而 n 很小時, np 大於 1 且 p 很小時]
   a: 0
-  ex: 兩個期望次數都夠大，鐘形才會成形；例如 $n=30$、$p=0.01$ 時，$np=0.3$，所以只看 n 大於 30 並不足夠。
+  ex: 常態分布是對稱的鐘形，二項分布的長條要兩端都不被 0 或 n 擋住才會像它，所以 np 與 n(1-p) 都要夠大。只看 n 不夠：$n=30$、$p=0.01$ 時 $np=0.3$，分布擠在 0。p 接近 0.5 但 n 很小也不行：n=4 時期望次數只有 2，長條太少，連不成鐘形。
 ```
