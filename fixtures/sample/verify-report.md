@@ -1,7 +1,7 @@
 # Verify report — lykeion 範例講堂
 
-- Built: 2026-10-30T18:08:56.652Z
-- Verified: 2026-10-30T18:09:21.595Z
+- Built: 2026-11-01T11:08:49.628Z
+- Verified: 2026-11-01T11:09:15.240Z
 - Result: **FAIL**
 
 | Gate | Status | Summary |
@@ -10,10 +10,10 @@
 | coverage | ✓ pass | every scope page is cited |
 | quiz review | ✓ pass | no level has a guessable key |
 | teaching | ✓ pass | 13 checks passed |
-| render | ✓ pass | 40 checks passed |
-| source | ✗ fail | independent, 1 disputed item(s) for the user (from source-check.md) |
+| render | ✓ pass | 39 checks passed |
+| source | – skipped | not applicable (sample fixture has no Primary Source: sample.pdf is a placeholder) (from source-check.md) |
 | teaching review | ✗ fail | independent (from teaching-review.md) |
-| visual review | ⚠ warn | visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md) |
+| visual review | ✗ fail | independent (from visual-review.md) |
 
 ## numeric
 
@@ -71,7 +71,7 @@
 - ✓ formulaExplained: every formula is followed by prose that explains it
 - ✓ analogyBeforeFormula: every section that has a formula opens with an analogy
 - ✓ minBlockKinds: every section over 900 chars of prose uses at least 2 non-prose kinds
-- ✓ stepperShare: 2 of 6 Labs are steppers
+- ✓ stepperShare: 1 of 7 Labs are steppers
 - ✓ lexicon: no entry of style-lexicon.json matches (22 entries)
 - ✓ plainMath: no maths typed as plain text
 - ✓ numericMath: every number in maths is part of an expression
@@ -82,28 +82,27 @@
 ## render
 
 - ✓ skip link “跳到內容” is the first Tab stop, visible when focused, and Enter moves focus into main
-- ✓ 103 formulas rendered as MathML; 0 TeX errors
+- ✓ 113 formulas rendered as MathML; 0 TeX errors
 - ✓ no TeX residue in any visible text (prose, sidebar, top bar, pager, toast)
 - ✓ all in-page links resolve
 - ✓ 4 views (home, ch1, ch2, quizCh), exactly one shown at a time (home)
 - ✓ sidebar lists only the shown view (home: 3 links, ch1: 2 links / 2 sections + 2 sub-links, ch2: 2 links / 2 sections, quizCh: 2 links)
-- ✓ 6 Labs mounted
+- ✓ 7 Labs mounted
 - ✓ 2 code listings, each with a focusable copy button (2 labelled with a language)
-- ✓ all 234 text elements use --f-display or --f-body (--f-mono only inside pre/code/kbd)
-- ✓ 30 reading paragraphs: line-height ≥ 1.7 and width ≤ 40em
+- ✓ all 323 text elements use --f-display or --f-body (--f-mono only inside pre/code/kbd)
+- ✓ 32 reading paragraphs: line-height ≥ 1.7 and width ≤ 40em
 - ✓ every stack shows at most one variant
-- ✓ 6 formula-parts blocks keep their height across 29 pieces and show exactly one explanation each
-- ✓ 15 paragraphs with inline maths keep their line spacing
+- ✓ 6 formula-parts blocks keep their height across 27 pieces and show exactly one explanation each
+- ✓ 18 paragraphs with inline maths keep their line spacing
 - ✓ no heading carries maths
 - ✓ Lab lab-1 (slider-calc): slider → output changed
-- ✓ Lab lab-2 (stepper): button → output changed
-- ✓ Lab lab-3 (slider-calc): slider → output changed
+- ✓ Lab lab-2 (slider-calc): slider → output changed
+- ✓ Lab lab-3 (stepper): button → output changed
 - ✓ Lab lab-4 (slider-calc): slider → output changed
 - ✓ Lab lab-5 (slider-calc): slider → output changed
-- ✓ Lab lab-6 (stepper): button → output changed
-- ✓ Lab lab-2 (stepper): stepper legend: 2 swatches match the chip states they name
-- ✓ Lab lab-6 (stepper): stepper legend: 3 swatches match the chip states they name
-- ✓ every Lab keeps its height while its controls move at 1280px (6 Labs)
+- ✓ Lab lab-6 (curve): slider → output changed
+- ✓ Lab lab-7 (curve): slider → output changed
+- ✓ every Lab keeps its height while its controls move at 1280px (7 Labs)
 - ✓ Quiz Level 1 “條件機率”: 3 questions answered with the key → all accepted
 - ✓ Quiz Level 2 “二項分布”: 3 questions answered with the key → all accepted
 - ✓ 4 chapter tabs each show exactly their own view
@@ -117,14 +116,14 @@
 - ✓ a malformed hash (#%) still shows exactly one view (home)
 - ✓ no console or page errors (desktop)
 - ✓ no horizontal overflow at 375px
-- ✓ every Lab keeps its height while its controls move at 375px (6 Labs)
+- ✓ every Lab keeps its height while its controls move at 375px (6 Labs; stepper exempt)
 - ✓ mobile drawer opens and closes with Esc
 - ✓ dark theme applies (body background rgb(28, 26, 22))
 - ✓ no console or page errors (mobile, dark)
 
 ## source
 
-- ✗ see source-check.md
+- – not applicable: sample fixture has no Primary Source: sample.pdf is a placeholder — NOT source-checked
 
 ## teaching review
 
@@ -132,4 +131,4 @@
 
 ## visual review
 
-- ⚠ visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md
+- ✗ see visual-review.md
