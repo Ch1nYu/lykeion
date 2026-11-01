@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, cp, readFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, cp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,9 +18,12 @@ async function gateWith(text) {
   return visualReviewGate(dir);
 }
 
+// Review results are untracked artefacts of a local review run; drop them so these tests see the
+// sample as the repository ships it, with no review done yet.
 async function sampleCopy() {
   const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
   await cp(join(ROOT, 'fixtures', 'sample'), dir, { recursive: true });
+  for (const f of ['source-check.md', 'teaching-review.md', 'visual-review.md']) await rm(join(dir, f), { force: true });
   return dir;
 }
 
