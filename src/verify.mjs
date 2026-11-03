@@ -162,7 +162,7 @@ const REVIEWERS = {
   self: { how: 'self-review, not independent', msg: 'reviewed by the writing agent, not independently — see {file}', warn: true },
 };
 
-async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending', allowNA = false }) {
+async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = false, missingStatus = 'pending', allowNA = false, roundCap = 0 }) {
   let txt;
   try { txt = await readFile(join(dir, file), 'utf8'); } catch {
     const warn = missingStatus === 'warn';
@@ -197,13 +197,46 @@ async function reviewGate({ name, dir, file, awaiting, missing, countDisputed = 
     msg: reviewer ? `Reviewer "${reviewer}" is not a value the gate knows (use independent or self); the STATUS line still decides — see {file}` : 'reviewer not stated: the header has no Reviewer line (independent or self) — see {file}',
     warn: true,
   };
+  // A review at its round cap closes once the writer answers each of its must-fix findings (closeAtCap).
+  const closed = status === 'fail' && roundCap ? closeAtCap(txt, head, roundCap) : null;
+  if (closed?.ok) {
+    return {
+      name, status: 'warn', closedAtCap: true, selfReview: reviewer === 'self',
+      headline: `closed at the round cap (round ${closed.round}): ${closed.fixed} must-fix fixed${closed.declined ? `, ${closed.declined} declined` : ''}, not re-reviewed (from ${file})`,
+      items: [{ ok: null, warn: true, msg: `round ${closed.round} was the last review; every must-fix has a [fixed] or [declined] line under ## Fixes, and those fixes were not reviewed again — see ${file}` }],
+    };
+  }
+  const unanswered = closed?.missing.length
+    ? [{ ok: false, msg: `round cap reached: ${closed.missing.length} must-fix without a [fixed] or [declined] line under ## Fixes: ${closed.missing.join('; ')} — see ${file}` }]
+    : [];
   return {
     name,
     status,
     selfReview: reviewer === 'self',
     headline: `${r.how}${reason ? ` (${reason})` : ''}${disputed ? `, ${disputed} disputed item(s) for the user` : ''} (from ${file})`,
-    items: [{ ok: status === 'pass', warn: r.warn, msg: r.msg.replace('{file}', file) }],
+    items: [{ ok: status === 'pass', warn: r.warn, msg: r.msg.replace('{file}', file) }, ...unanswered],
   };
+}
+
+// The writer closes a review at its round cap under `## Fixes`, one line per must-fix of that last round:
+// `- [fixed] <location> — what changed` or `- [declined] <location> — why not`. The location is the
+// finding's text between its tags and the first ` — `, copied from the finding, so each answer pairs
+// with one finding. A review with no Round line counts as round 1, so older projects verify as before.
+function closeAtCap(txt, head, cap) {
+  const round = Number(/^Round:\s*(\d+)/im.exec(head)?.[1] || 1);
+  if (round < cap) return null;
+  const section = (title) => (txt.split(new RegExp(`^##\\s+${title}\\s*$`, 'im'))[1] || '').split(/^##\s/m)[0];
+  const lines = (title, tag) => section(title).split('\n').filter((l) => tag.test(l));
+  const where = (l) => l.replace(/^-\s*(?:\[[^\]]*\]\s*)+/, '').split(' — ')[0].trim();
+  const answers = lines('Fixes', /^-\s*\[(?:fixed|declined)\]/i).map((l) => ({ at: where(l), declined: /^-\s*\[declined\]/i.test(l) }));
+  let fixed = 0, declined = 0;
+  const missing = [];
+  for (const at of lines('Findings', /^-\s*\[must-fix\]/i).map(where)) {
+    const i = answers.findIndex((a) => a.at === at);
+    if (i < 0) { missing.push(at); continue; }
+    if (answers.splice(i, 1)[0].declined) declined++; else fixed++;
+  }
+  return { ok: !missing.length && fixed + declined > 0, round, fixed, declined, missing };
 }
 
 export function sourceGate(dir) {
@@ -216,7 +249,7 @@ export function sourceGate(dir) {
 
 export function teachingReviewGate(dir) {
   return reviewGate({
-    name: 'teaching review', dir, file: 'teaching-review.md',
+    name: 'teaching review', dir, file: 'teaching-review.md', roundCap: 2,
     awaiting: 'awaiting agent review (references/teaching-reviewer.md)',
     missing: 'teaching-review.md not found: the agent must review the writing against references/teaching-reviewer.md',
   });
@@ -226,7 +259,7 @@ export function teachingReviewGate(dir) {
 // has not done one yet is warned about (⚠) instead of failed — the headline says how to do it.
 export function visualReviewGate(dir) {
   return reviewGate({
-    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn',
+    name: 'visual review', dir, file: 'visual-review.md', missingStatus: 'warn', roundCap: 2,
     awaiting: 'visual review not done — run `lykeion shots` and review the images (references/visual-reviewer.md)',
     missing: 'visual-review.md not found: run `lykeion shots <project>`, then review the PNGs against references/visual-reviewer.md',
   });
@@ -1116,13 +1149,20 @@ function luminanceOf(css) {
 }
 
 // ---------- report ----------
+// A pass with gates not yet run, or with reviews closed at the round cap, says so in the result line.
+function resultNote(gates) {
+  if (gates.some((g) => g.status === 'pending' || g.status === 'skipped')) return 'PASS (with gates not yet run — see below)';
+  if (gates.some((g) => g.closedAtCap)) return 'PASS (with reviews closed at the round cap — see below)';
+  return 'PASS';
+}
+
 function formatReport(project, checksFile, gates, ok) {
   const lines = [
     `# Verify report — ${project.title}`,
     '',
     `- Built: ${checksFile.built}`,
     `- Verified: ${new Date().toISOString()}`,
-    `- Result: **${ok ? (gates.some((g) => g.status === 'pending' || g.status === 'skipped') ? 'PASS (with gates not yet run — see below)' : 'PASS') : 'FAIL'}**`,
+    `- Result: **${ok ? resultNote(gates) : 'FAIL'}**`,
     '',
     '| Gate | Status | Summary |',
     '|---|---|---|',
@@ -1131,6 +1171,8 @@ function formatReport(project, checksFile, gates, ok) {
   ];
   const selfReviews = gates.filter((g) => g.selfReview).length;
   if (selfReviews) lines.push(`⚠ ${selfReviews} review(s) by the writing agent itself — not an independent check.`, '');
+  const closedAtCap = gates.filter((g) => g.closedAtCap).length;
+  if (closedAtCap) lines.push(`⚠ ${closedAtCap} review(s) closed at the round cap — their last fixes were not reviewed again.`, '');
   for (const g of gates) {
     lines.push(`## ${g.name}`, '');
     const sorted = [...g.items].sort((a, b) => (a.ok === false ? -1 : 0) - (b.ok === false ? -1 : 0));

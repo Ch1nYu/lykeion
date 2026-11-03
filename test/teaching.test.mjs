@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { teachingGate, loadTeachingConfig, plainText, charCount, markedText, unmark, termsOf } from '../src/teaching.mjs';
-import { teachingReviewGate, sourceGate, verify, loadSlideText } from '../src/verify.mjs';
+import { teachingReviewGate, sourceGate, visualReviewGate, verify, loadSlideText } from '../src/verify.mjs';
 import { build } from '../src/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -435,6 +435,52 @@ test('teaching review and source review share one mechanism', async () => {
   assert.equal(teaching.headline, source.headline.replace('source-check.md', 'teaching-review.md'));
   assert.match(teaching.headline, /reviewer "sub-agent" not recognised/);
   assert.equal(teaching.items[0].warn, true);
+});
+
+// ---------- round cap ----------
+const capped = ({ round, fixes = [] }) => [
+  'STATUS: fail', 'Reviewer: independent', ...(round ? [`Round: ${round}`] : []), '',
+  '## Findings',
+  '- [must-fix] 02-binomial.md §2.2 — LAB D verdict says 「連續」; say the count is far from the mean.',
+  '- [must-fix] 02-binomial.md §2.2 — the table gives P(X ≤ k), not P(X = k); say so.',
+  '- [suggestion] 01-conditional.md §1.1 — add a NORMAL formula card.',
+  '', ...(fixes.length ? ['## Fixes', ...fixes, ''] : []),
+].join('\n');
+const fixedBoth = [
+  '- [fixed] 02-binomial.md §2.2 — the verdict says the count is far from the mean',
+  '- [fixed] 02-binomial.md §2.2 — added that the table gives P(X ≤ k)',
+];
+
+test('a teaching review at the round cap closes as a warning once every must-fix is answered', async () => {
+  const g = await reviewGateWith(capped({ round: 2, fixes: fixedBoth }));
+  assert.equal(g.status, 'warn');
+  assert.equal(g.closedAtCap, true);
+  assert.equal(g.headline, 'closed at the round cap (round 2): 2 must-fix fixed, not re-reviewed (from teaching-review.md)');
+});
+
+test('a declined must-fix still closes the review and is counted in the headline', async () => {
+  const g = await reviewGateWith(capped({ round: 2, fixes: [fixedBoth[0], '- [declined] 02-binomial.md §2.2 — the caption already says P(X ≤ k)'] }));
+  assert.equal(g.status, 'warn');
+  assert.match(g.headline, /1 must-fix fixed, 1 declined/);
+});
+
+test('a review at the round cap stays failed while a must-fix has no answer, and names it', async () => {
+  const g = await reviewGateWith(capped({ round: 2, fixes: [fixedBoth[0]] }));
+  assert.equal(g.status, 'fail');
+  assert.match(g.items[1].msg, /1 must-fix without a \[fixed\] or \[declined\] line under ## Fixes: 02-binomial\.md §2\.2/);
+});
+
+test('below the round cap, or with no Round line, the STATUS line still decides', async () => {
+  assert.equal((await reviewGateWith(capped({ round: 1, fixes: fixedBoth }))).status, 'fail');
+  assert.equal((await reviewGateWith(capped({ fixes: fixedBoth }))).status, 'fail');
+});
+
+test('the visual review closes at the same round cap', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lykeion-'));
+  await writeFile(join(dir, 'visual-review.md'), capped({ round: 2, fixes: fixedBoth }));
+  const g = await visualReviewGate(dir);
+  assert.equal(g.status, 'warn');
+  assert.equal(g.closedAtCap, true);
 });
 
 // A list item's paragraph is the list, not a second block: recording both reported the same sentence

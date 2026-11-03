@@ -397,7 +397,7 @@ overrides any of them under `teaching` in `lykeion.json`.
 - `except` names exceptions from `lexiconExceptions` (in `teaching-rules.json`). The shipped `glossed` exception accepts a match that a parenthesised Latin gloss follows at once, so `非顯而易見（non-trivial）` is a translated term and passes, while `顯而易見，` is still reported. An unknown name in `except` fails the gate.
 - `plainMath` and `numericMath` are `false` to switch them off, and `numericMath.ignore` is a regex source, not a pattern list: the parts of a formula that do not make it an expression.
 - An unknown key under `teaching` is a gate failure, so a typo cannot silently do nothing.
-- A `teaching review` gate reads `teaching-review.md` (written by the teaching reviewer) exactly like the source gate reads `source-check.md`: `STATUS: pass|fail` decides, a missing file stays pending, and a self-review is reported with ⚠.
+- A `teaching review` gate reads `teaching-review.md` (written by the teaching reviewer) exactly like the source gate reads `source-check.md`: `STATUS: pass|fail` decides, a missing file stays pending, and a self-review is reported with ⚠. At the round cap (`Round: 2`), a failed review whose must-fix findings all have a line under `## Fixes` shows ⚠ closed at the round cap (`docs/workflow.md`, step 8).
 
 ### Numbers in prose
 
