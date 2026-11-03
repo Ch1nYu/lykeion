@@ -14,6 +14,8 @@ Use only the files that guide lists under Inputs. Do not ask the author question
 
 For one reviewer per chapter, add one line after the last: `Scope: check only content/<file> and the pages it cites; your Checked list covers that chapter only.`
 
+For round 2 of the teaching or visual review, add one line after the last: `Follow-up round: write Round: 2 in your header. Check only the must-fix findings in {PROJECT}/{PREVIOUS} and the sections they name, reading each of those sections in full so you catch what a fix broke; record anything else as a suggestion unless a reader would misread it. Your Checked list covers those sections only.`
+
 For the visual review, the same message works: the guide it points at says to run `lykeion shots <project>` first when the images are missing or stale, so the reviewer captures the pictures before judging them.
 
 | Placeholder | Step 7 (source check) | Step 8 (teaching review) | Step 9 (visual review) |
@@ -22,6 +24,7 @@ For the visual review, the same message works: the guide it points at says to ru
 | `{PROJECT}` | the project folder | the project folder | the project folder |
 | `{OUTPUT}` | `lykeion.json` `output` | `lykeion.json` `output` | `lykeion.json` `output` |
 | `{RESULT}` | `source-check.md` (or `source-check-<chapter>.md` for one reviewer per chapter) | `teaching-review.md` | `visual-review.md` |
+| `{PREVIOUS}` (round 2 only) | — | `teaching-review-round1.md` | `visual-review-round1.md` |
 
 Start the reviewer with a fresh context: a new sub-agent or a new agent session, never a continuation or fork of the writer's own conversation. Its `Reviewer:` line is then `independent`.
 

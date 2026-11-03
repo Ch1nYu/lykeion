@@ -29,7 +29,7 @@ Look at every image. A chapter is only reviewed once you have seen it in both th
 Classify each finding:
 
 - **must-fix** — a reader would be confused, misled or blocked: no focal point, a cut-off or overlapping element on mobile, unreadable dark-theme text, a figure that shows the wrong thing, a half-empty row that reads as a broken layout.
-- **suggestion** — it works but the page could look and read better.
+- **suggestion** — it works but the page could look and read better: another figure, a different layout, a spacing or colour preference.
 
 Then say where the cause lives, because the fix goes to a different place:
 

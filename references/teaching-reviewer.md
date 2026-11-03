@@ -24,8 +24,8 @@ You did not write the content. If you were started with the message in `reviewer
 
 Classify each finding:
 
-- **must-fix** — a reader would misunderstand or be unable to follow (a misleading analogy, a formula with no meaning given, a Lab that shows nothing, a paragraph that does not parse).
-- **suggestion** — it works but could teach better.
+- **must-fix** — a reader would misread or be unable to follow: a wrong fact or direction, a misleading analogy or wording, a conclusion before its premise, a missing step the exercises need, a formula with no meaning given, a Lab that shows nothing, a paragraph that does not parse.
+- **suggestion** — it works but could teach better: another card, a different Lab design, a wording preference, extension material, an extra worked example.
 
 Record each finding with the file, the section and a short quote, plus a concrete rewrite or change.
 
