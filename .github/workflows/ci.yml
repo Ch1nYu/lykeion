@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      # Report both systems, even when one of them fails.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+
+      - run: npm ci
+
+      # The render tests use the runner's Google Chrome and skip when no browser starts,
+      # so any skipped test fails the job instead of passing quietly.
+      - name: npm test
+        shell: bash
+        run: |
+          npm test 2>&1 | tee test.log
+          grep -qE '^(ℹ|#) skipped 0$' test.log
