@@ -39,9 +39,19 @@ const open = async (t, width, height) => {
   return page;
 };
 
+// The scroll is instant, but the back-to-top button fades over .25s from the first frame that sees
+// the new offset, and on a busy machine that frame can come later than the pause (GitHub's Linux
+// runner once read the button still hidden 200 ms after the scroll). So after the pause, wait two
+// frames and then for the button's fade to end.
 const scrollTo = async (page, y) => {
   await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'instant' }), y);
   await page.waitForTimeout(200);
+  await page.evaluate(async () => {
+    const frame = () => new Promise((r) => requestAnimationFrame(r));
+    await frame(); await frame();
+    const fades = document.getElementById('toTop').getAnimations().map((a) => a.finished.catch(() => {}));
+    await Promise.race([Promise.all(fades), new Promise((r) => setTimeout(r, 2000))]);
+  });
 };
 
 // Every box the reader reads, and every floating control that could cover one. Only the part of the
