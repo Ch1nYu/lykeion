@@ -974,14 +974,23 @@ async function renderGate(htmlPath, visual = null) {
     await page.waitForTimeout(500);
     // A chapter is the tallest view; the home view can be shorter than one viewport.
     await showView(stats.views.find((v) => /^ch/.test(v.id))?.id || stats.views[0]?.id);
+    // The button fades over .25s from the first frame that sees the new offset, so a fixed pause
+    // reads it mid-fade whenever the scroll call returns before the fade ends (GitHub's Windows
+    // runner read opacity 0.58 and 0.68 at 120 ms). Wait for the scroll to stop and the fade to end.
+    const settleToTop = () => page.evaluate(async () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(r));
+      for (let last = -1, i = 0; i < 120 && window.scrollY !== last; i++) { last = window.scrollY; await frame(); await frame(); }
+      const fades = document.getElementById('toTop').getAnimations().map((a) => a.finished.catch(() => {}));
+      await Promise.race([Promise.all(fades), new Promise((r) => setTimeout(r, 2000))]);
+    });
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(120);
+    await settleToTop();
     const topState = await page.evaluate(() => {
       const b = document.getElementById('toTop'), cs = getComputedStyle(b);
       return { y: window.scrollY, opacity: Number(cs.opacity), clickable: cs.pointerEvents !== 'none', tabbable: b.tabIndex >= 0 };
     });
     await page.evaluate(() => window.scrollTo(0, window.innerHeight * 1.5));
-    await page.waitForTimeout(120);
+    await settleToTop();
     const downState = await page.evaluate(() => {
       const b = document.getElementById('toTop'), cs = getComputedStyle(b);
       return { y: window.scrollY, opacity: Number(cs.opacity), clickable: cs.pointerEvents !== 'none', tabbable: b.tabIndex >= 0 };
