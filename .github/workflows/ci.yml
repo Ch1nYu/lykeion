@@ -27,6 +27,12 @@ jobs:
 
       - run: npm ci
 
+      # The pages are Chinese and the Linux image has no CJK font, so text there wraps unlike any
+      # reader's screen: the 375px chapter test/shots.test.mjs needs taller than 16384px came out shorter.
+      - name: Install a CJK font
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
       # The render tests use the runner's Google Chrome and skip when no browser starts,
       # so any skipped test fails the job instead of passing quietly.
       - name: npm test
