@@ -996,8 +996,13 @@ async function renderGate(htmlPath, visual = null) {
       return { y: window.scrollY, opacity: Number(cs.opacity), clickable: cs.pointerEvents !== 'none', tabbable: b.tabIndex >= 0 };
     });
     await page.click('#toTop', { timeout: 4000 }).catch(() => { /* a page too short to scroll cannot show the button */ });
-    await page.waitForTimeout(700);
-    const backY = await page.evaluate(() => window.scrollY);
+    // The click starts a smooth scroll whose length the browser picks; GitHub's Linux runner was
+    // still at scrollY 5 after a fixed 700 ms. Wait for the top, up to 3 s.
+    const backY = await page.evaluate(async () => {
+      const end = performance.now() + 3000;
+      while (window.scrollY > 2 && performance.now() < end) await new Promise((r) => requestAnimationFrame(r));
+      return window.scrollY;
+    });
     const hiddenAtTop = topState.opacity < 0.05 && !topState.clickable && !topState.tabbable;
     const shownAfter = downState.opacity > 0.95 && downState.clickable && downState.tabbable;
     // A project whose tallest view fits one viewport has nothing to scroll back from; the button is
