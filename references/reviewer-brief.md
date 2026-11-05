@@ -28,4 +28,6 @@ For the visual review, the same message works: the guide it points at says to ru
 
 Start the reviewer with a fresh context: a new sub-agent or a new agent session, never a continuation or fork of the writer's own conversation. Its `Reviewer:` line is then `independent`.
 
+Before you send the brief for a full review (a source check, or round 1 of the teaching or visual review), move every earlier result of that review out of the project folder (for a teaching review, `teaching-review.md` and every `teaching-review-*.md`) into `<project>/_work/reviews-<timestamp>/`. A reviewer that finds an old report next to its own output tends to copy it instead of reading the page. A follow-up round keeps the round-1 result where `{PREVIOUS}` names it.
+
 When the reviewer's findings come back, fix them in the content yourself. If you disagree with a finding, leave it and say why in your report to the user; do not ask the same reviewer to reconsider with your arguments.
