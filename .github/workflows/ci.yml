@@ -29,9 +29,33 @@ jobs:
 
       # The pages are Chinese and the Linux image has no CJK font, so text there wraps unlike any
       # reader's screen: the 375px chapter test/shots.test.mjs needs taller than 16384px came out shorter.
-      - name: Install a CJK font
+      # The font package is 61 MB. On 11/04 the runner's mirror sent it in a second, then stalled on it
+      # until the job's 15 minutes ran out, twice in a row (run 41888191198), while it sent everything
+      # else at 9 MB/s. So the package lives in the Actions cache and is fetched only on a miss: two
+      # minutes per mirror, the second one Ubuntu's main archive, checked against the SHA256 in Ubuntu's
+      # package index.
+      - name: Cache the CJK font
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+        id: cjk-font
+        uses: actions/cache@v6
+        with:
+          path: ~/cjk-font
+          key: fonts-noto-cjk-20230817-repack1-3
+
+      - name: Download the CJK font
+        if: runner.os == 'Linux' && steps.cjk-font.outputs.cache-hit != 'true'
+        run: |
+          deb=pool/main/f/fonts-noto-cjk/fonts-noto-cjk_20230817+repack1-3_all.deb
+          mkdir -p ~/cjk-font
+          for mirror in http://azure.archive.ubuntu.com/ubuntu http://archive.ubuntu.com/ubuntu; do
+            if curl -fsSL --max-time 120 -o ~/cjk-font/font.deb "$mirror/$deb"; then break; fi
+            echo "CJK font: $mirror did not send it within 2 minutes"
+          done
+          echo "7d64b985f6fe128c99eae5610d5c047338e572bdcfb2bb09736be01b824a7f6c  $HOME/cjk-font/font.deb" | sha256sum -c
+
+      - name: Install the CJK font
+        if: runner.os == 'Linux'
+        run: sudo dpkg -i ~/cjk-font/font.deb
 
       # The render tests use the runner's Google Chrome and skip when no browser starts,
       # so any skipped test fails the job instead of passing quietly.
