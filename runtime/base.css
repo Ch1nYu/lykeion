@@ -58,6 +58,8 @@ a{color:var(--accent); text-underline-offset:3px}
 .topbar .menu{display:none; flex:none; white-space:nowrap}
 .topbar .tname{font-family:var(--f-display); font-weight:900; font-size:var(--fs-body); flex:none; max-width:22ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .chaps{display:flex; gap:6px; flex:1 1 auto; min-width:0; overflow-x:auto; scrollbar-width:none}
+/* A desktop header has room for a second row of chapter tabs; wrapping beats clipping the last tab. */
+@media (min-width:900px){ .chaps{flex-wrap:wrap; overflow:visible} }
 .chaps::-webkit-scrollbar{display:none}
 .chaps button{flex:none; font:inherit; font-size:var(--fs-md); border:1px solid transparent; background:none; color:var(--muted); padding:4px 12px; border-radius:999px; cursor:pointer; white-space:nowrap; transition:background .2s, color .2s}
 .chaps button:hover{color:var(--ink); background:var(--card)}
@@ -296,13 +298,29 @@ math munder[accentunder="true"] > mo[stretchy="true"]:last-child{padding-top:.18
    bare `[data-overflow~=…]` was (0,1,0) and lost to any of them that came later, which left `.calc`
    marked but painted nothing. Each box's own background-color still shows through: the fade is only a
    background LAYER on top of it, and background-repeat is folded in so the 38px gradient is not tiled. */
-:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow~="end"]{background-repeat:no-repeat; background-image:linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:right top}
-:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow~="start"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:left top}
-:is(.tablewrap,.formula,.calc,.vizwrap,.trail,pre)[data-overflow="start end"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent), linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%, 38px 100%; background-position:left top, right top}
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,.chaps,pre)[data-overflow~="end"]{background-repeat:no-repeat; background-image:linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:right top}
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,.chaps,pre)[data-overflow~="start"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%; background-position:left top}
+:is(.tablewrap,.formula,.calc,.vizwrap,.trail,.chaps,pre)[data-overflow="start end"]{background-repeat:no-repeat; background-image:linear-gradient(to right, color-mix(in srgb, var(--ink) 16%, transparent), transparent), linear-gradient(to left, color-mix(in srgb, var(--ink) 16%, transparent), transparent); background-size:38px 100%, 38px 100%; background-position:left top, right top}
 /* A box the reader has to scroll is a control, so it takes the focus ring the other controls take. */
 [data-overflow]{outline-offset:2px}
 .tablewrap{overflow-x:auto; margin-block:var(--gap-block); max-width:100%}
 table.data{border-collapse:collapse; font-size:var(--fs-md); min-width:100%; font-variant-numeric:tabular-nums}
+/* Below the phone breakpoint every cell keeps a readable minimum width; a table whose columns need
+   more than the column width scrolls inside .tablewrap (with the runtime's edge fade) instead of
+   wrapping every cell down to two or three characters a line. */
+@media (max-width:640px){ table.data th,table.data td{min-width:6.5em} }
+/* At 480px prose tables stack their records with the column header above each value.
+   Lab tables keep their grid so readers can compare the columns. */
+@media (max-width:480px){
+  table.data:not(.lab *){display:block}
+  table.data:not(.lab *) thead{display:none}
+  table.data:not(.lab *) :is(tbody,tr,td){display:block}
+  table.data:not(.lab *) tr{padding:10px 12px; border-bottom:1px solid var(--rule)}
+  table.data:not(.lab *) tr:first-child{padding-top:0}
+  table.data:not(.lab *) td{border:0; padding:3px 0; min-width:0}
+  table.data:not(.lab *) td::before{content:attr(data-label); display:block; font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.06em; color:var(--muted)}
+  table.data:not(.lab *) td:first-child{padding-top:0; font-weight:600}
+}
 table.data th,table.data td{padding:7px 12px; border-bottom:1px solid var(--rule); text-align:left}
 table.data th{font-family:var(--f-body); font-size:var(--fs-xs); letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1.5px solid var(--rule-strong)}
 table.data td.num,table.data th.num{text-align:right; font-variant-numeric:tabular-nums}

@@ -15,6 +15,8 @@ const COMMANDS = {
   extract: () => import('../src/extract.mjs'),
   build: () => import('../src/build.mjs'),
   verify: () => import('../src/verify.mjs'),
+  evidence: () => import('../src/delivery.mjs').then((m) => m.evidenceCommand),
+  deliver: () => import('../src/delivery.mjs').then((m) => m.deliverCommand),
   shots: () => import('../src/shots.mjs'),
   palette: () => import('../src/palette.mjs'),
   doctor: () => import('../src/doctor.mjs'),
@@ -27,6 +29,8 @@ commands:
   extract   PDF → per-page text + images
   build     content Markdown → single-file Lecture Site
   verify    run the verification gates on a built Lecture Site
+  evidence  hash the exact build a review must name
+  deliver   strict final check: rendered verify + reviews → READY / NOT READY
   shots     capture the built Lecture Site as full-page PNGs (chapter × theme × viewport)
   palette   check Palettes / render the Palette Specimen
   doctor    check this install can run build and verify (Node, dependencies, browser)

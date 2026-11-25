@@ -14,4 +14,4 @@ Claude Code specifics:
 
 - Read PDFs' page images (`pages/<pdf>/p-NNN.png`) with the Read tool; it shows figures and formulas.
 - Step 4 can use sub-agents here, since Claude Code provides them. Steps 7 and 8 always use a sub-agent here, since Claude Code can start one; `docs/workflow.md` says what a host without sub-agents does.
-- Ask the Depth and the Outline approval as questions to the user, and wait for the answers.
+- Reuse established Depth and reading choices. Follow workflow step 3 for the situations that need a direction decision; an authorized autonomous run continues without per-step approval. Delivery is complete only when `lykeion deliver` reports READY.

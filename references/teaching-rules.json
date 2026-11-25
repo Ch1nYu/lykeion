@@ -11,11 +11,8 @@
   "maxParagraphChars": 160,
   "maxProseRun": 520,
   "formulaExplained": true,
-  "analogyBeforeFormula": true,
-  "minBlockKinds": {
-    "minChars": 900,
-    "kinds": 2
-  },
+  "analogyBeforeFormula": false,
+  "minBlockKinds": false,
   "stepperShare": {
     "share": 0.34,
     "minLabs": 3

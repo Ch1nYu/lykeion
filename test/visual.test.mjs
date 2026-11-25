@@ -448,7 +448,9 @@ test('a Lab lets a wide table reach its scroll box instead of clipping it at 375
       ${baseCss}
       ${labCss}
       main .sheet { max-width: 1000px; margin: 0 auto; padding: 16px; }
-    </style></head><body><main><div class="sheet"><div class="view" id="ch1"><div class="lab" id="lab-1"><div class="lab-body">
+    </style></head><body><main><div class="sheet"><div class="view" id="ch1">
+      <div class="tablewrap" id="prose-table">${table(true, rows)}</div>
+      <div class="lab" id="lab-1"><div class="lab-body">
       <div class="step-view stack"><div class="on">${step(table(true, rows))}</div><div>${step(table(false, [[1, 'a']]))}</div></div>
     </div></div></div></div></main></body></html>`);
     const box = await page.evaluate(() => {
@@ -460,11 +462,13 @@ test('a Lab lets a wide table reach its scroll box instead of clipping it at 375
         past: Math.round(twR.right - labR.right),
         scrolls: tw.scrollWidth > tw.clientWidth + 1,
         hidden: Math.round(tw.scrollWidth - tw.clientWidth),
+        proseStacks: getComputedStyle(document.querySelector('#prose-table td')).display === 'block',
       };
     });
     // The table is wider than the phone, so the scroll box has to be narrower than its content and
     // scroll it — and it has to sit inside the Lab, or the Lab's overflow:hidden cuts it first.
     assert.ok(box.scrolls, `the box scrolls its table (${box.hidden}px hidden)`);
+    assert.ok(box.proseStacks, 'the prose table still stacks on a phone');
     assert.ok(box.past <= 1, `the scroll box sits inside the Lab (it reaches ${box.past}px past it)`);
     // And the rule sees the same thing: no clipped failure on a Lab that ships the fix.
     const measured = await measureVisual(page, defaults.rules);

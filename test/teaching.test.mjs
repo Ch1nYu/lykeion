@@ -72,11 +72,11 @@ test('pageRefs reports the whole reference, not its first digit', async () => {
 });
 
 // ---------- maxParagraphChars ----------
-test('maxParagraphChars fails a paragraph over the limit and passes one at the limit', async () => {
+test('maxParagraphChars warns without rejecting an otherwise valid paragraph', async () => {
   const long = '字'.repeat(161);
   const bad = run([sec([para(long)])]);
-  assert.equal(bad.status, 'fail');
-  assert.match(failing(bad)[0].msg, /maxParagraphChars: 01-a\.md §1\.1: paragraph is 161 chars \(max 160\)/);
+  assert.equal(bad.status, 'pass');
+  assert.match(ruleItems(bad, 'maxParagraphChars').find(i => i.warn).msg, /maxParagraphChars: 01-a\.md §1\.1: paragraph is 161 chars \(max 160\)/);
 
   const ok = run([sec([para('字'.repeat(160))])]);
   assert.equal(ok.status, 'pass');
@@ -84,10 +84,10 @@ test('maxParagraphChars fails a paragraph over the limit and passes one at the l
 });
 
 // ---------- maxProseRun ----------
-test('maxProseRun fails a run of prose between two blocks and passes once a block breaks it', async () => {
+test('maxProseRun warns without requiring a decorative block', async () => {
   const bad = run([sec([para('字'.repeat(300)), para('字'.repeat(300))])]);
-  assert.equal(bad.status, 'fail');
-  assert.match(ruleFailures(bad, 'maxProseRun')[0].msg, /maxProseRun: 01-a\.md §1\.1: 600 chars of prose in a row \(max 520\)/);
+  assert.equal(bad.status, 'pass');
+  assert.match(ruleItems(bad, 'maxProseRun').find(i => i.warn).msg, /maxProseRun: 01-a\.md §1\.1: 600 chars of prose in a row \(max 520\)/);
 
   // A note, a Lab, a table — anything that is not a paragraph or a list ends the run. (Each paragraph
   // stays under maxParagraphChars, so only the run rule is under test.)
@@ -125,42 +125,23 @@ test('formulaExplained passes once prose follows, and never asks formula-parts t
   assert.equal(pair.status, 'pass');
 });
 
-// ---------- analogyBeforeFormula ----------
-test('analogyBeforeFormula fails a section whose formula arrives before any analogy', async () => {
-  const bad = run([sec([para('前言。'), { kind: 'formula', chars: 0 }, para('說明。')])]);
-  assert.equal(bad.status, 'fail');
-  assert.match(failing(bad)[0].msg, /analogyBeforeFormula: 01-a\.md §1\.1: the first formula arrives before any analogy/);
-
-  const ok = run([sec([{ kind: 'analogy', chars: 20, text: '想像一罐糖果。' }, { kind: 'formula', chars: 0 }, para('說明。')])]);
-  assert.equal(ok.status, 'pass');
-  assert.match(ruleItems(ok, 'analogyBeforeFormula')[0].msg, /opens with an analogy/);
-
-  // A section with no formula at all has nothing to prepare for.
-  assert.equal(run([sec([para('純文字。')])]).status, 'pass');
+// ---------- optional composition hints ----------
+test('default teaching checks do not require analogies or block variety', () => {
+  const g = run([sec([para('字'.repeat(1000)), { kind: 'formula', chars: 0 }, para('這個式子說明每次輸入如何決定輸出。')])]);
+  assert.equal(g.status, 'pass');
+  assert.equal(ruleItems(g, 'analogyBeforeFormula').length, 0);
+  assert.equal(ruleItems(g, 'minBlockKinds').length, 0);
+  assert.ok(ruleItems(g, 'maxProseRun').some(i => i.warn));
 });
-
-// ---------- minBlockKinds ----------
-test('minBlockKinds fails a long all-prose section and passes once a second kind appears', async () => {
-  // Two 500-char paragraphs are 1000 chars of prose (over minChars) in one kind: the wall the rule
-  // is about. maxProseRun fires on the same fixture, so each assertion names its own rule.
-  const prose = [para('字'.repeat(500)), para('字'.repeat(500))];
-  const bad = run([sec(prose)]);
+test('legacy composition overrides remain advisory and formula correctness still fails', async () => {
+  const config = await loadTeachingConfig({analogyBeforeFormula: true, minBlockKinds: {minChars: 900, kinds: 2}});
+  const g = run([sec([para('字'.repeat(1000)), {kind: 'formula', chars: 0}, para('這裡解釋式子的意義。')])], {config});
+  assert.equal(g.status, 'pass');
+  assert.ok(ruleItems(g, 'analogyBeforeFormula').some(i => i.warn));
+  assert.ok(ruleItems(g, 'minBlockKinds').some(i => i.warn));
+  const bad = run([sec([{kind: 'formula', chars: 0}])]);
   assert.equal(bad.status, 'fail');
-  assert.match(ruleFailures(bad, 'minBlockKinds')[0].msg, /minBlockKinds: 01-a\.md §1\.1: 1000 chars of prose use 0 non-prose kind\(s\) — need 2 of/);
-
-  const one = run([sec([...prose, { kind: 'note', chars: 20, text: '提醒。' }])]);
-  assert.equal(ruleFailures(one, 'minBlockKinds').length, 1, 'one non-prose kind is not enough');
-
-  const ok = run([sec([...prose, { kind: 'note', chars: 20, text: '提醒。' }, { kind: 'lab:stepper', chars: 0 }])]);
-  assert.equal(ruleFailures(ok, 'minBlockKinds').length, 0);
-
-  // Below minChars the rule stays out of the way: a short section may be pure prose.
-  assert.equal(ruleFailures(run([sec([para('字'.repeat(500))])]), 'minBlockKinds').length, 0);
-
-  // A bare display formula is not a teaching block: two `$$…$$` in a row must not satisfy a rule that
-  // exists to make the reader look at something other than prose.
-  const mathOnly = run([sec([...prose, { kind: 'display-math', chars: 0 }, { kind: 'display-math', chars: 0 }])]);
-  assert.equal(ruleFailures(mathOnly, 'minBlockKinds').length, 1, 'display-math is not a counted kind');
+  assert.ok(ruleFailures(bad, 'formulaExplained').length);
 });
 
 // ---------- stepperShare ----------
@@ -191,10 +172,9 @@ test('lexicon fails a level:"fail" phrase and reports a level:"warn" phrase with
   assert.equal(w.ok, null);
   assert.match(w.msg, /uses “值得注意的是”/);
   assert.match(warn.headline, /warning/);
-  // The headline counts checks, so the ⚠ item must not be counted as one: "13 checks passed, 1
-  // warning(s)" for 12 checks + 1 warning reads as 13 checks and hides that only 12 ran.
-  assert.equal(warn.items.length, 13);
-  assert.equal(warn.headline, '12 checks passed, 1 warning(s)');
+  const passedChecks = warn.items.filter((check) => check.ok === true).length;
+  assert.equal(passedChecks, warn.items.length - 1);
+  assert.equal(warn.headline, `${passedChecks} checks passed, 1 warning(s)`);
 
   // A clean sentence matches nothing.
   const ok = run([sec([para('分母不能是零，所以這裡先假設它不為零。')])]);
@@ -330,8 +310,8 @@ test('a project overrides a rule, appends lexicon entries and switches shipped o
   const text = '字'.repeat(30);
   assert.equal(run([sec([para(text)])]).status, 'pass');
   const strict = run([sec([para(text)])], { config: override });
-  assert.equal(strict.status, 'fail');
-  assert.match(failing(strict)[0].msg, /paragraph is 30 chars \(max 20\)/);
+  assert.equal(strict.status, 'pass');
+  assert.match(strict.items.find(i => i.warn).msg, /paragraph is 30 chars \(max 20\)/);
 
   // A misspelt key is reported instead of being silently ignored.
   const typo = await loadTeachingConfig({ maxParagraph: 20 });

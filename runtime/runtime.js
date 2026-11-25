@@ -131,7 +131,7 @@ function mountLabsIn(root) {
    boxes and the gate reads the marks, so a selector on one side only is a box that is either marked
    and never checked or checked and never marked. The two cannot share a constant — the runtime is
    string-inlined into the built page — so test/typography.test.mjs asserts they stay equal. */
-const SCROLLERS = '.tablewrap,.formula,.calc,.vizwrap,.trail,pre';
+const SCROLLERS = '.tablewrap,.formula,.calc,.vizwrap,.trail,.chaps,pre';
 const overflowOf = (el) => {
   const max = el.scrollWidth - el.clientWidth;
   // Sub-pixel rounding at the end of a scroll leaves a fraction that is not content.
@@ -224,6 +224,15 @@ function mountFormulaParts() {
 
 function start() {
   store.load();
+  // Each table cell carries its column header as `data-label`, so a narrow screen can stack a row as
+  // "label above value" instead of squeezing four columns into the reading column (base.css, 480px).
+  $$('table.data:not(.lab *)').forEach(t => {
+    const heads = $$('thead th', t).map(th => th.textContent.trim());
+    if (!heads.length) return;
+    $$('tbody tr', t).forEach(tr => [...tr.children].forEach((td, i) => {
+      if (!td.dataset.label) td.dataset.label = heads[i] || '';
+    }));
+  });
   $$('[data-str]').forEach(el => { el.textContent = STR[el.dataset.str]; });
   $$('[data-str-label]').forEach(el => el.setAttribute('aria-label', STR[el.dataset.strLabel]));
   document.addEventListener('input', e => { if (e.target.matches('input[type=range]')) fillRange(e.target); });

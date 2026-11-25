@@ -268,14 +268,15 @@ const SCAN = () => {
   // overflows without that attribute is a page telling the reader the content ends at the edge.
   const SIDESCROLL = () => {
     const sheet = document.querySelector('main .sheet') || document.body;
-    const SEL = '.tablewrap,.formula,.calc,.vizwrap,.trail,pre';
+    const SEL = '.tablewrap,.formula,.calc,.vizwrap,.trail,.chaps,pre';
     const kind = (el) => {
       const cls = String(el.className || '').split(/\s+/).filter(Boolean)[0];
       return el.tagName.toLowerCase() + (cls ? `.${cls}` : '');
     };
     const snippet = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
     const boxes = [];
-    for (const el of sheet.querySelectorAll(SEL)) {
+    for (const el of document.querySelectorAll(SEL)) {
+      if (!sheet.contains(el) && !el.matches('.chaps')) continue;
       if (!el.getClientRects().length) continue;
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden' || Number(cs.opacity) <= 0.05) continue;

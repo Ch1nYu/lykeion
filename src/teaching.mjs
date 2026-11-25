@@ -174,7 +174,8 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
   const report = (rule, failures, okMsg) => {
     if (!failures.length) { items.push({ ok: true, msg: `${rule}: ${okMsg}` }); return; }
     for (const f of failures) {
-      items.push(f.warn ? { ok: null, warn: true, msg: `${rule}: ${f.msg}` } : { ok: false, msg: `${rule}: ${f.msg}` });
+      const advisory = ['maxParagraphChars', 'maxProseRun', 'minBlockKinds', 'analogyBeforeFormula'].includes(rule);
+      items.push(f.warn || advisory ? { ok: null, warn: true, msg: `${rule}: ${f.msg}` } : { ok: false, msg: `${rule}: ${f.msg}` });
     }
   };
 
@@ -222,7 +223,7 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
     report('pageRefs', failures, pagePatterns.length ? 'no page references in body text or quiz items' : 'rule disabled');
   }
 
-  // 2. maxParagraphChars — a 200-character paragraph is a wall, not an explanation.
+  // Length is a review signal, not proof that the explanation fails.
   const maxPara = Number(rules.maxParagraphChars);
   if (maxPara > 0) {
     const failures = [];
@@ -240,7 +241,7 @@ export function teachingGate(teaching, project = {}, config = { rules: {}, lexic
     for (const s of sections) {
       let run = 0, first = null;
       const flush = () => {
-        if (run > maxRun) failures.push({ msg: `${where(s)}: ${run} chars of prose in a row (max ${maxRun}) starting “${excerpt(first)}” — break it with a formula, Lab, table or note` });
+        if (run > maxRun) failures.push({ msg: `${where(s)}: ${run} chars of prose in a row (max ${maxRun}) starting “${excerpt(first)}” — review the reasoning and paragraph transitions; use a block only when it teaches something` });
         run = 0; first = null;
       };
       for (const b of blocksOf(s)) {

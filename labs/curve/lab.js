@@ -196,7 +196,7 @@ Lykeion.registerLab('curve', function (root, p, api) {
       curves.forEach(function (c) {
         var v = c.fn(Object.assign({ x: marker.x }, state));
         if (Number.isFinite(v)) S('circle', { cx: xAt(marker.x), cy: sy(v), r: 5, fill: c.color, stroke: 'var(--card)', 'stroke-width': 2 }, svg);
-        api.setVal(c.ro.querySelector('b'), api.fmt(v, 3));
+        api.setVal(c.ro.querySelector('b'), api.fmt(v, Math.abs(v - Math.round(v)) < 1e-9 ? 0 : 3));
       });
     }
     updateReadouts();

@@ -1,0 +1,20 @@
+/* Opt-in continuous reading. Keep the selected palette and functional controls. */
+:root{--measure:36em;--col:900px;--gap-sec:64px;--gap-block:24px;--fs-body:1.1875rem}
+body{letter-spacing:0}
+body::before{display:none}
+.sheet{box-shadow:none}
+.ch-head .ch-n{font-size:2rem}
+.ch-head h2{font-size:clamp(1.75rem,3vw,2.25rem);line-height:1.45}
+.sec>h3{font-size:1.55rem;line-height:1.55}
+.sec>h3 .t{background:none}
+.prose p,.prose li{line-height:1.9}
+.prose .analogy,.prose .takeaway,.prose .callout{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0;margin:24px 0;color:var(--ink)}
+.prose .analogy::before,.prose .takeaway::before,.prose .callout::before{display:none}
+.prose .analogy .tag,.prose .callout .lbl{display:block;font:700 var(--fs-body)/1.9 var(--f-body);color:var(--ink);letter-spacing:0;margin:0 0 6px}
+.prose .analogy .body p,.prose .takeaway p,.prose .callout p{font-size:var(--fs-body);line-height:1.9}
+.prose .takeaway p{font-weight:600}
+.prose details.reading-note{margin:22px 0;padding:14px 18px;background:var(--card);border-radius:4px}
+.reading-note summary{cursor:pointer;font-size:var(--fs-md);font-weight:600;line-height:1.7}
+.reading-note[open] summary{margin-bottom:12px}
+.reading-note .note{background:transparent;border:0;box-shadow:none;padding:0;margin:0}
+@media(max-width:800px){.sec>h3{font-size:1.4rem}}

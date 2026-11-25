@@ -1,6 +1,6 @@
 # Reviewer brief
 
-The exact message the writing agent sends to an independent reviewer (step 7 source check, step 8 teaching review, step 9 visual review). Copy it, fill in the four placeholders, and send **nothing else**: no summary of the content, no opinion of it, no list of things you already fixed, no hint of what you expect the verdict to be. Anything you add is the writer's view leaking into a check that exists to be independent of it.
+The exact message the writing agent sends to an independent reviewer (step 7 source check, step 8 teaching review, step 9 visual review). Copy it, fill in the placeholders (including `<lykeion>`, the absolute skill directory), and send **nothing else**: no summary of the content, no opinion of it, no list of things you already fixed, no hint of what you expect the verdict to be. Anything you add is the writer's view leaking into a check that exists to be independent of it.
 
 ```text
 You are reviewing a Lecture Site you did not write. Follow {GUIDE} from the top; it says what to read, what to check and what to write.
@@ -9,7 +9,7 @@ Project folder: {PROJECT}
 Built page: {PROJECT}/{OUTPUT}
 Write your result to: {PROJECT}/{RESULT}
 
-Use only the files that guide lists under Inputs. Do not ask the author questions; record anything you cannot decide as a finding. You are the independent reviewer: your Reviewer line is `independent`.
+Before reading, run `node <lykeion>/bin/lykeion.mjs evidence {PROJECT}`. Record its `Evidence-SHA256: ...` line in the report header. After reviewing, run it again and confirm the value has not changed; if it changed, report the review as incomplete rather than stamping new evidence. Use only the files that guide lists under Inputs. Do not ask the author questions; record anything you cannot decide as a finding. You are the independent reviewer: your Reviewer line is `independent`.
 ```
 
 For one reviewer per chapter, add one line after the last: `Scope: check only content/<file> and the pages it cites; your Checked list covers that chapter only.`

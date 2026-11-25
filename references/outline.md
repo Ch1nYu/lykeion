@@ -1,6 +1,6 @@
 # Outline format
 
-`<project>/outline.md` is the plan the user approves before any content is written. Its job is to show, at a glance, that the whole Scope is covered and how each part will be taught.
+`<project>/outline.md` records the settled direction before content is written; workflow step 3 determines whether user approval is needed. Its job is to show, at a glance, that the whole Scope is covered and how each part will be taught.
 
 ```markdown
 # Outline — <title>
@@ -22,7 +22,7 @@ Left out on purpose: p.60 — references list; p.1 — title slide
 
 Rules:
 
-- Every Scope page appears in exactly one section's Pages, or under **Left out on purpose** with a reason (title slides, agenda, bibliography, blank). A page left out is cited by no section. Once the user approves the Outline, each left-out run goes into the scope's `exclude` in `lykeion.json` with the same reason (see `docs/content-format.md`); `verify` then lists it as "excluded on purpose" and fails any section that cites it.
+- Every Scope page appears in exactly one section's Pages, or under **Left out on purpose** with a reason (title slides, agenda, bibliography, blank). A page left out is cited by no section. Once the direction is settled, each left-out run goes into the scope's `exclude` in `lykeion.json` with the same reason (see `docs/content-format.md`); `verify` then lists it as "excluded on purpose" and fails any section that cites it.
 - Sections follow the slides' order; one section per coherent topic, usually 3–12 slides.
 - Section numbers follow the textbook chapter numbers (`3.1`, `3.2`, …) so they match the course.
 - Quiz Levels: one per chapter, or split a long chapter into two levels by topic; name each level with a short noun phrase.

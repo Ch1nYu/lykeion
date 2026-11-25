@@ -412,3 +412,7 @@ A figure the slides state that this site does not compute is quoted with `<q>…
 ```
 
 Say in the prose what the true value is when it differs. A custom Lab's outputs are its own code and the build cannot evaluate them, so quote a number from one, or compute it with a `calc`.
+
+## Reading mode
+
+`lykeion.json` accepts `"reading": "classic"` (default) or `"reading": "continuous"` (opt-in candidate). Continuous mode shares typography and removes card decoration from analogies, definitions and takeaways. Only supplemental `note` blocks become collapsible. Keep prerequisites and essential explanations outside notes. Unknown mode names fail the build.

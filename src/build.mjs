@@ -35,6 +35,9 @@ export async function run(args) {
 
 export async function build(dir, opts = {}) {
   const project = JSON.parse(await readFile(join(dir, 'lykeion.json'), 'utf8').catch(() => { throw new Error(`no lykeion.json in ${dir}`); }));
+  if (project.reading !== undefined && !['classic', 'continuous'].includes(project.reading)) throw new Error('reading must be classic or continuous');
+  const readingCss = project.reading === 'continuous' ? await readFile(join(ROOT, 'runtime/reading.css'), 'utf8') : '';
+  const readingJs = project.reading === 'continuous' ? await readFile(join(ROOT, 'runtime/reading.js'), 'utf8') : '';
   const S = { ...BUILD_STR, ...(project.buildStrings || {}) };
   const errors = [];
   const chapters = await loadChapters(join(dir, 'content'));
@@ -155,10 +158,10 @@ export async function build(dir, opts = {}) {
   const chaptersHtml = chapterViews.map(withPager).join('\n');
   const slots = {
     lang: esc(project.lang || 'zh-Hant-TW'), title: esc(project.title), description: esc(project.description || ''), version: pkg.version,
-    eyebrow: esc(project.eyebrow || ''), palette_css: paletteCss(palette), base_css: baseCss, lab_css: labCss.join('\n'),
+    eyebrow: esc(project.eyebrow || ''), palette_css: paletteCss(palette), base_css: `${baseCss}\n${readingCss}`, lab_css: labCss.join('\n'),
     store_key: JSON.stringify(data.key).replace(/</g, '\\u003c'),
     hero, chapters: chaptersHtml, data_json: JSON.stringify(data).replace(/</g, '\\u003c'),
-    runtime_js: `${mathJs}\n${projectMath}\n${runtimeJs}`, lab_js: labJs.join('\n'),
+    runtime_js: `${mathJs}\n${projectMath}\n${runtimeJs}\n${readingJs}`, lab_js: labJs.join('\n'),
   };
   // Single pass over {{slot}} markers, so slot values are never re-scanned.
   const html = shell.replace(/\{\{(\w+)\}\}/g, (_, k) => {
@@ -792,7 +795,7 @@ function addQuiz(items, levelArg, ctx, md) {
     const secId = quizSection(q, ctx, w);
     const ex = plainText(q.ex), exMarked = markedText(q.ex);
     ctx.quizText.push({ where: w, q: plainText(q.q), o: (Array.isArray(q.o) ? q.o : []).map(plainText), ex, exMarked: exMarked !== ex ? exMarked : undefined, sec: secId, math: [...mathsIn(q.q), ...(Array.isArray(q.o) ? q.o : []).flatMap(mathsIn), ...mathsIn(q.ex)] });
-    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: secId, pages: q.pages || ctx.sec.pages || '' };
+    const item = { type: num ? 'num' : 'choice', q: inl(q.q), ex: inl(q.ex), a: q.a, sec: secId, pages: q.pages || (ctx.secs || []).find((s) => s.id === secId)?.pages || '' };
     if (num) item.tol = Number(q.tol ?? 0);
     else item.o = q.o.map(inl);
     ctx.errors.push(...sectionRefErrors([item.q, item.ex, ...(item.o || [])].join(' '), w, ctx.refs));

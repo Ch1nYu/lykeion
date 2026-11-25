@@ -13,18 +13,18 @@ The Primary Source is the factual baseline. Content follows the slides; where a 
 
 1. Check the CLI: `node <repo>/bin/lykeion.mjs --help`. It needs Node 22.13 or newer — `pdfjs-dist` uses `Promise.withResolvers`, which Node 20 lacks — so the CLI checks `process.versions.node` first and exits with one line naming both versions when the host Node is older. If `node_modules` is missing, run `npm install` in the repo (and `npx playwright install chromium` when no system Chrome exists). When `build` or `verify` fails for an environment reason, run `lykeion doctor` first: it checks the Node floor, that every dependency's entry imports, and that a headless browser launches, and prints the command that fixes each failure.
 2. Settle the Scope from the user's message: which PDFs, which pages. Ask only for what the message leaves out.
-3. Ask the user for the **Depth** (Survey / Standard / Deep; default from `~/.config/lykeion/config.json`, normally Standard). Depth fixes the budget:
+3. Resolve **Depth** (Survey / Standard / Deep) from the current request, then the saved project, then `~/.config/lykeion/config.json` (normally Standard). Reuse established choices. Ask only when missing scope or a change of audience would materially change the result. Depth fixes the budget:
 
    | | Survey | Standard | Deep |
    |---|---|---|---|
-   | Labs | none required | one per key formula or algorithm | Standard + one per worked example |
+   | Labs | none required | where changing an input teaches a key relationship | Standard + experiments needed for worked examples |
    | Quiz items per Quiz Level | 4–5 | 6–8 | 8–12 |
    | Proofs and derivations | results only | key derivations | full derivations |
    | Errata | obvious slide errors | Standard + checked against References | every claim checked against References |
 
 4. New mode: `lykeion init <pdf...> --title <title> --pages <a-b> ... --depth <depth> [--dir <project-dir>]`. It creates `<first pdf dir>/lykeion/` (or the `--dir` folder) and suggests an unused Palette. `--pages` is given once per PDF, in the same order, and defaults to every page.
 
-Done when `lykeion.json` exists with the Scope and Depth the user confirmed.
+Save the resolved scope, depth and `reading` mode in `lykeion.json`. `reading` is `classic` by default; `continuous` is an optional candidate that uses shared typography and collapsible supplemental notes. Preserve the current choice unless the user changes it. Audience, intended learning outcome and accepted reading preferences belong in project-level `outline.md`, not global instructions. Done when inputs exist and these choices are recorded.
 
 ## 2. Extract
 
@@ -42,7 +42,7 @@ For a Scope larger than about 40 pages you may use sub-agents when the host offe
 
 Done when every Scope page is assigned to a section in the Outline or listed under **Left out on purpose** with a reason, each section has its planned Labs, quiz items and `calc` targets, and the Outline names one Palette from `lykeion palette list`.
 
-Show the Outline to the user and wait for approval — the cheapest moment to change direction; the pages left out on purpose are shown there too, so the user can take one back. Skip the wait only when the user said to proceed without review. Once approved, add each left-out run to the scope's `exclude` in `lykeion.json` with its reason (`"exclude": [{ "pages": "1", "reason": "封面" }]`), so coverage stops requiring it and a section that cites it fails. Record the approved Palette: `lykeion palette use <title> <id>`, and set it in `lykeion.json`.
+The Outline names each chapter question, its prerequisites and the reasoning that connects its sections. Ask for direction once when establishing an unfamiliar audience/reading approach or making a material scope change. When the user has authorized autonomous completion, or an incremental chapter follows an accepted direction, record the choices and continue without another approval. Show any deliberately excluded pages in the final report. Once the direction is settled, add each left-out run to the scope's `exclude` in `lykeion.json` with its reason (`"exclude": [{ "pages": "1", "reason": "封面" }]`), so coverage stops requiring it and a section that cites it fails. Record the approved Palette: `lykeion palette use <title> <id>`, and set it in `lykeion.json`.
 
 ## 4. Write
 
@@ -66,13 +66,13 @@ Done when numeric, coverage and render all show ✓. A render gate marked "skipp
 
 The **quiz review** gate fails any choice item whose options give the key away — the key clearly longest, absolute words only in the distractors, a hedge only in the key, or the key alone echoing the stem — and any Quiz Level whose key is the longest option in more than half of its items. Rewrite the options (see `references/chapter-writer.md`, Quiz) until it passes. The gate catches mechanical tells only; still read each item and ask whether a student who has not studied could pick the key.
 
-The **teaching** gate checks the writing rules of `references/chapter-writer.md` that a machine can count: no page numbers in body text, paragraph and prose-run length, a formula never left without words, an analogy before a section's first formula, enough kinds of block in a long section, the stepper share of Labs, Lab verdicts that follow the controls, and the phrases listed in `references/style-lexicon.json` (fail) — ⚠ entries are warnings to read, not failures. Its thresholds are in `references/teaching-rules.json`; a project may change one under `"teaching"` in `lykeion.json` only for a reason the user agreed to (a subject with long unavoidable definitions, say), never just to pass. Fix the content instead.
+The **teaching** gate checks mechanically detectable mistakes, including Lab verdicts that must follow their controls. Paragraph length and consecutive prose length are warnings to review. Analogy and block-variety checks are off by default. Old explicit project overrides produce advisory findings. Formula explanations, numerical consistency and broken syntax remain blocking. Read each warning in context and fix an actual reading problem.
 
 The **render** gate also checks the reading experience: only the three font tokens, the prose line height and measure, every chapter tab and sidebar link landing on its target, a deep link opening the right chapter, the floating back-to-top and theme buttons, and that no Lab or formula box changes height while its controls move.
 
 ## 7. Source check
 
-Have the built content compared with the cited pages and the References, and record the result in `<project>/source-check.md`.
+Before dispatching a reviewer, check that every supplied file path exists. Run `lykeion evidence <project>`; it validates local inputs and prints the fingerprint of the built output and its source files. Have the built content compared with the cited pages and References, and record the result in `<project>/source-check.md`. Each reviewer records the fingerprint it actually reviewed, following `references/reviewer-brief.md`.
 
 The review **must** be done by a reviewer with fresh context whenever the host can start one: a sub-agent, or another agent session the host provides. That reviewer is given only the files `references/source-checker.md` lists — never the writer's conversation — and is started with the exact message in `references/reviewer-brief.md`, with nothing added. For a site with several chapters you may dispatch one reviewer per chapter in parallel, each writing `source-check-<chapter>.md` in the same format, then merge them into `source-check.md` with one STATUS line (`fail` if any part has a certain finding).
 
@@ -88,7 +88,7 @@ Done when `lykeion verify` shows source ✓ (or 3 rounds are spent).
 
 Once the content is right, have it judged for how well it teaches: follow `references/teaching-reviewer.md` and record the result in `<project>/teaching-review.md`. As with the source check, a reviewer with fresh context is required whenever the host can start one, started with the exact message in `references/reviewer-brief.md`, and the header states `Reviewer: independent`, or `Reviewer: self (reason)` only when the host has no way to start another agent. A `self` line without a reason fails the teaching-review gate; a self-review with a reason shows as ⚠ in `lykeion verify`.
 
-Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Apply suggestions when they are cheap. The review gets at most **2 rounds**, the round cap:
+Fix every **must-fix** finding, rebuild and re-verify (the machine gates must stay green). Treat suggestions as optional; apply one only when it directly serves the agreed learning goal. The review gets at most **2 rounds**, the round cap:
 
 1. Round 1 reviews everything.
 2. Round 2 is a follow-up round: rename the round-1 result to `teaching-review-round1.md`, then start the reviewer with the follow-up line from `references/reviewer-brief.md`, so it checks only round 1's must-fix findings and the sections they name.
@@ -106,7 +106,13 @@ A missing `visual-review.md` shows as ⚠ and does not fail `lykeion verify` for
 
 Done when `lykeion verify` shows visual review ✓, or ⚠ closed at the round cap (or the user chose to skip it — then report it as ⚠, never as passed).
 
-## 10. Report
+## 10. Deliver and report
+
+Run `lykeion deliver <project>` after the reviews. It runs browser verification and checks all three review reports. A skipped render, missing review, failing check, or content that changes during verification is NOT READY. A teaching or visual review closes at its round cap once every must-fix has an answer under `## Fixes`. Delivery can then be READY and the report says the final fixes were not re-reviewed.
+
+A rebuild or source edit changes the fingerprint. A reviewer records the fingerprint they actually checked. At the round cap, reports from the build named by the closed review may retain that earlier fingerprint, with a warning in the delivery report. Any other stale evidence keeps delivery NOT READY. Preserve reports and fixes so an interrupted run can resume at the unfinished stage.
+
+
 
 Tell the user, briefly:
 

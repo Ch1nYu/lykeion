@@ -25,7 +25,7 @@ Look at every image. A chapter is only reviewed once you have seen it in both th
 4. **Alignment and spacing.** Related things sit close together, sections are clearly separated, left margins are balanced, and no row is half empty — a lone card in a three-column row, a figure hugging one edge with a gutter of nothing on the other. Spacing should mean something: distance is the reader's signal that a new idea starts.
 5. **Mobile at 375px.** The same order and the same hierarchy survive the narrow column: nothing cramped, nothing cut off, nothing that needs a sideways scroll, no font so small that the reader gives up. If the desktop page uses width to carry meaning, check that the meaning survives the collapse.
 6. **Dark theme.** Contrast and highlights are still readable, and nothing only works in light: a dark-on-dark label, a shadow that disappears, a chart whose series were told apart by lightness alone. The two themes should read as the same page, not as one page and its negative.
-7. **Rhythm across the chapter.** Text alternates with something to look at. A long stretch of identical-looking blocks — paragraph after paragraph, or figure after figure with no words between — loses the reader even when every block is individually fine.
+7. **Rhythm across the chapter.** Headings, paragraph spacing and figures make the reasoning easy to follow. Continuous prose is acceptable when its transitions are clear. Do not require alternating prose and visual blocks or a quota of cards or illustrations. Flag a specific place where the hierarchy obscures a transition or makes the reader lose their place; an optional figure is a suggestion, not a must-fix.
 
 Classify each finding:
 
